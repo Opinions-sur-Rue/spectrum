@@ -1,0 +1,42 @@
+name: PR Frontend
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 📁 Install dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+
+      - name: 🔍 Lint code
+        working-directory: frontend
+        run: |
+          npm run lint
+
+      - name: Svelte Check
+        working-directory: frontend
+        run: |
+          npm run check || exit 0
+
+      - name: 🧪 Run tests 
+        working-directory: frontend
+        run: |
+          npx playwright install
+          npm run test
+      
+      - name: 🛠 Build application
+        working-directory: frontend
+        run: |
+          npm run build

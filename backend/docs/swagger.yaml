@@ -1,0 +1,46 @@
+basePath: /api
+definitions:
+  main.Health:
+    properties:
+      status:
+        type: string
+      version:
+        type: string
+    type: object
+info:
+  contact:
+    email: api@utile.space
+    name: API Support
+  description: The backend powering "Opinions Sur Rue" online spectrum platform.
+  license:
+    name: utile.space API License
+    url: https://utile.space/api/
+  title: OSR Spectrum API
+  version: "1.0"
+paths:
+  /spectrum/ws:
+    get:
+      description: Websocket to open to run spectrums
+      responses:
+        "101":
+          description: Switching Protocols
+      summary: SpectrumWebsocket to run spectrum with a party of 2 to 6 players
+      tags:
+      - spectrum
+  /status:
+    get:
+      description: Get the status of the API
+      produces:
+      - application/json
+      - text/xml
+      - application/yaml
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.Health'
+      summary: Healthcheck
+      tags:
+      - health
+swagger: "2.0"

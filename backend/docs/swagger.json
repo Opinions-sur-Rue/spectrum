@@ -1,0 +1,69 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "The backend powering \"Opinions Sur Rue\" online spectrum platform.",
+        "title": "OSR Spectrum API",
+        "contact": {
+            "name": "API Support",
+            "email": "api@utile.space"
+        },
+        "license": {
+            "name": "utile.space API License",
+            "url": "https://utile.space/api/"
+        },
+        "version": "1.0"
+    },
+    "basePath": "/api",
+    "paths": {
+        "/spectrum/ws": {
+            "get": {
+                "description": "Websocket to open to run spectrums",
+                "tags": [
+                    "spectrum"
+                ],
+                "summary": "SpectrumWebsocket to run spectrum with a party of 2 to 6 players",
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols"
+                    }
+                }
+            }
+        },
+        "/status": {
+            "get": {
+                "description": "Get the status of the API",
+                "produces": [
+                    "application/json",
+                    "text/xml",
+                    "application/yaml",
+                    "text/plain"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Healthcheck",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/main.Health"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "main.Health": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

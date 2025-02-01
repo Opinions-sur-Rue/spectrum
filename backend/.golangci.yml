@@ -1,0 +1,25 @@
+linters:
+  enable:
+    - bodyclose
+    - gci
+    - gofmt
+    - goconst    
+    - gocyclo
+    - misspell
+    - noctx
+    - reassign    
+    - revive
+    - whitespace    
+
+linters-settings:
+  gci:
+    sections:
+      - standard 
+      - default 
+    custom-order: true
+  gocyclo:
+    min-complexity: 20
+  revive:
+    rules:
+      - name: package-comments
+        disabled: true

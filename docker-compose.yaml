@@ -1,0 +1,51 @@
+services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=contact@utile.space"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/home/ubuntu/spectrum/acme.json:/letsencrypt/acme.json"
+      - "./traefik.yml:/traefik.yml:ro"
+    restart: always
+
+  backend: 
+      image: ghcr.io/sonnyad/spectrum-backend:main
+      build: backend/.
+      ports: 
+        - "3000:3000"
+      env_file: 
+        - ./.env
+      restart: always
+      pull_policy: always
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.backend.rule=Host(`api.spectrum.utile.space`)"
+        - "traefik.http.routers.backend.entrypoints=websecure"
+        - "traefik.http.routers.backend.tls.certresolver=letsencrypt"      
+
+  frontend:
+      image: ghcr.io/sonnyad/spectrum-frontend:main
+      build: frontend/.
+      ports: 
+        - "2000:2000"
+      env_file:
+        - ./.env
+      restart: always
+      pull_policy: always
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.frontend.rule=Host(`spectrum.utile.space`)"
+        - "traefik.http.routers.frontend.entrypoints=websecure"
+        - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+
