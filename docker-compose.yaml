@@ -22,8 +22,6 @@ services:
   backend: 
       image: ghcr.io/sonnyad/spectrum-backend:main
       build: backend/.
-      ports: 
-        - "3000:3000"
       env_file: 
         - ./.env
       restart: always
@@ -37,8 +35,6 @@ services:
   frontend:
       image: ghcr.io/sonnyad/spectrum-frontend:main
       build: frontend/.
-      ports: 
-        - "2000:2000"
       env_file:
         - ./.env
       restart: always
