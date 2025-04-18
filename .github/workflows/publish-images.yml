@@ -64,7 +64,6 @@ jobs:
           with:
             context: ${{ matrix.files }}
             push: true
-            secret-files: ../.env
             tags: |
                 ${{ vars.REGISTRY_URL }}/spectrum-${{ matrix.files }}:latest,
                 ${{ vars.REGISTRY_URL }}/spectrum-${{ matrix.files }}:${{ github.sha }},
