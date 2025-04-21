@@ -28,7 +28,7 @@
 	import { HEADER_TITLE, LOGO_URL, LOGO_WIDTH, OFFSET_SUBSTITLE, PUBLIC_URL } from '$lib/env';
 	import { fabric } from 'fabric';
 
-	const palette = {
+	const palette: object = {
 		aeaeae: 'Gris  ', // Neutral gray
 		cd5334: 'Brun  ', // Burnt orange
 		ff5555: 'Rouge ', // Bright red
@@ -1079,6 +1079,7 @@
 	}
 
 	.overlay {
+		box-shadow: 0 0 15px 5px rgba(0, 0, 0, 0.6);
 		position: absolute;
 		top: 0;
 		left: 0;
