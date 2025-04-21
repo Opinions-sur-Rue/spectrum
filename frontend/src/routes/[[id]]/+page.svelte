@@ -26,7 +26,16 @@
 
 	import { page } from '$app/state';
 	import { HEADER_TITLE, LOGO_URL, LOGO_WIDTH, OFFSET_SUBSTITLE, PUBLIC_URL } from '$lib/env';
-	import { fabric } from 'fabric';
+	import {
+		Circle,
+		Rect,
+		FabricText,
+		Group,
+		util,
+		Canvas,
+		loadSVGFromURL,
+		FabricObject
+	} from 'fabric';
 
 	const palette: object = {
 		aeaeae: 'Gris  ', // Neutral gray
@@ -57,9 +66,9 @@
 
 	export let spectrumId: string | undefined;
 
-	let canvasWidth: number;
+	let canvasWidth: number | undefined;
 
-	let myCanvas: any;
+	let myCanvas: Canvas;
 
 	const updateTick: number = 100;
 
@@ -136,62 +145,63 @@
 		});
 
 		// @ts-ignore
-		fabric.loadSVGFromURL(
-			'/spectrum.svg',
-			function (/** @type {any} */ objects, /** @type {any} */ options) {
-				// @ts-ignore
-				const svg = fabric.util.groupSVGElements(objects, options);
+		loadSVGFromURL('/spectrum.svg').then(({ objects, options }) => {
+			// @ts-ignore
+			const svg = util.groupSVGElements(objects, options);
 
-				let canvasHeight = (canvasWidth * 735) / 980;
-				let g = new fabric.Group([], {
-					width: canvasWidth,
-					height: canvasHeight
-				});
+			// Get canvas dimensions
+			const canvasWidth = myCanvas.getWidth();
+			const canvasHeight = myCanvas.getHeight();
 
-				svg.scaleToWidth(g.width);
+			// Calculate scaling factors
+			const scaleX = canvasWidth / svg.width!;
+			const scaleY = canvasHeight / svg.height!;
+			const scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
 
-				g.addWithUpdate(svg);
+			svg.set({
+				scaleX: scale,
+				scaleY: scale,
+				left: (canvasWidth - svg.width! * scale) / 2,
+				top: 15
+			});
 
-				g.top = 15;
+			svg.selectable = false;
+			svg.evented = false;
 
-				g.selectable = false;
-				g.evented = false;
+			for (let i = 0; i <= 8; i++) {
+				cells.push(objects[i]);
+				const cell = cells[cells.length - 1];
+				cellsPoints[cells.length - 1] = [];
 
-				const svgObjects = svg.getObjects();
+				for (let index = 0; index < cell.path.length - 2; index++) {
+					let pathPoint = cell.path[index];
 
-				for (let i = 0; i <= 8; i++) {
-					cells.push(svgObjects[i]);
-					const cell = cells[cells.length - 1];
-					cellsPoints[cells.length - 1] = [];
+					let p = [
+						pathPoint[pathPoint.length - 2] * cell.scaleX * scale - 15,
+						pathPoint[pathPoint.length - 1] * cell.scaleY * scale - 10
+					];
 
-					for (let index = 0; index < cell.path.length - 2; index++) {
-						let pathPoint = cell.path[index];
-
-						let p = [
-							pathPoint[pathPoint.length - 2] * cell.scaleX * scale - 15,
-							pathPoint[pathPoint.length - 1] * cell.scaleY * scale - 10
-						];
-
-						/*const circle = new fabric.Circle({
+					/*const circle = new fabric.Circle({
 							radius: 20,           // Radius of the circle (small size)
 							fill: 'blue',         // Fill color of the circle
 							left: p[0],            // X position of the circle (left)
 							top: p[1],             // Y position of the circle (top)
 						});
 						myCanvas.add(circle)*/
-						cellsPoints[cells.length - 1].push(p);
-					}
+					cellsPoints[cells.length - 1].push(p);
 				}
-
-				myCanvas.add(g);
-				myCanvas.sendToBack(g);
 			}
-		);
+
+			myCanvas.add(svg);
+			myCanvas.sendObjectToBack(svg);
+		});
 
 		// We're joining a spectrum
 		if (spectrumId) {
 			toggleJoinModal();
 		}
+
+		animateCursors();
 	});
 
 	function initPellet() {
@@ -206,9 +216,9 @@
 
 		// only if not assigned, then random
 		if (!userId)
-			userId = Object.keys(palette)[fabric.util.getRandomInt(0, Object.keys(palette).length - 1)];
+			userId = Object.keys(palette)[util.getRandomInt(0, Object.keys(palette).length - 1)];
 
-		let circle = new fabric.Circle({
+		let circle = new Circle({
 			...options,
 			fill: `#${userId}`,
 			stroke: '#f9f9f9',
@@ -218,7 +228,7 @@
 			hasContext: false
 		});
 
-		let text = new fabric.Text(nickname, {
+		let text = new FabricText(nickname, {
 			fontFamily: 'monospace',
 			left: circle.left + circle.radius + 20,
 			top: circle.top - circle.radius - 11,
@@ -229,7 +239,7 @@
 			opacity: 0.5
 		});
 
-		let rect = new fabric.Rect({
+		let rect = new Rect({
 			left: circle.left + circle.radius + 13,
 			top: circle.top - circle.radius - 18,
 			width: text.width + 10,
@@ -243,7 +253,7 @@
 			opacity: 0.5
 		});
 
-		let g = new fabric.Group([circle, rect, text], {
+		let g = new Group([circle, rect, text], {
 			top: (canvasWidth * 735) / 980 / 2,
 			left: canvasWidth / 2,
 			hasBorders: false,
@@ -336,7 +346,7 @@
 		// @ts-ignore
 		options.radius = 12;
 
-		let circle = new fabric.Circle({
+		let circle = new Circle({
 			...options,
 			fill: `#${userId}`,
 			stroke: '#f9f9f9',
@@ -348,7 +358,7 @@
 			hasBorders: false
 		});
 
-		let text = new fabric.Text(nickname, {
+		let text = new FabricText(nickname, {
 			fontFamily: 'monospace',
 			left: circle.left + circle.radius + 20,
 			top: circle.top - circle.radius - 11,
@@ -359,7 +369,7 @@
 			hasContext: false
 		});
 
-		let rect = new fabric.Rect({
+		let rect = new Rect({
 			left: circle.left + circle.radius + 13,
 			top: circle.top - circle.radius - 18,
 			width: text.width + 10,
@@ -373,7 +383,7 @@
 			hasContext: false
 		});
 
-		let g = new fabric.Group([circle, rect, text], {
+		let g = new Group([circle, rect, text], {
 			top: (canvasWidth * 735) / 980 / 2,
 			left: canvasWidth / 2,
 			evented: false,
@@ -412,19 +422,12 @@
 			others[otherUserId].cancel();
 		}
 
-		if (!isNaN(coords.x) && !isNaN(coords.y)) {
-			const cancel = animatePellet(otherUserId, coords);
-
+		if (!isNaN(coords?.x) && !isNaN(coords?.y)) {
 			if (others[otherUserId].validateOpinion) clearTimeout(others[otherUserId].validateOpinion);
 
 			others[otherUserId].validateOpinion = setTimeout(() => {
 				validateOpinion(otherUserId);
 			}, 500);
-
-			others[otherUserId].cancel = () => {
-				cancel.cancelX();
-				cancel.cancelY();
-			};
 		}
 	}
 
@@ -453,33 +456,37 @@
 		websocket.send('emoji ' + emojis[emojiIndex]);
 	}
 
-	function animatePellet(userId: string, target: any) {
-		return {
-			cancelX: fabric.util.animate({
-				startValue: others[userId].pellet.left,
-				endValue: target.x * scale,
-				duration: updateTick,
-				onChange: function (value: number) {
-					others[userId].pellet.set({ left: value });
-					myCanvas.renderAll();
-				},
-				onComplete: function () {
-					others[userId].pellet.setCoords();
-				}
-			}),
-			cancelY: fabric.util.animate({
-				startValue: others[userId].pellet.top,
-				endValue: target.y * scale,
-				duration: updateTick,
-				onChange: function (value: number) {
-					others[userId].pellet.set({ top: value });
-					myCanvas.renderAll();
-				},
-				onComplete: function () {
-					others[userId].pellet.setCoords();
-				}
-			})
-		};
+	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T {
+		let timer: ReturnType<typeof setTimeout>;
+		return function (...args: Parameters<T>) {
+			clearTimeout(timer);
+			timer = setTimeout(() => fn(...args), delay);
+		} as T;
+	}
+
+	function lerp(a: number, b: number, t: number) {
+		return a + (b - a) * t;
+	}
+
+	function animateCursors() {
+		const t = 0.2;
+
+		if (others) {
+			for (const userId in others) {
+				const { pellet, targets, nickname } = others[userId];
+				if (!pellet) return;
+				const currentX = pellet.left ?? 0;
+				const currentY = pellet.top ?? 0;
+
+				pellet.set({
+					left: lerp(currentX, targets[targets.length - 1].x, t),
+					top: lerp(currentY, targets[targets.length - 1].y, t)
+				});
+			}
+		}
+
+		myCanvas.requestRenderAll();
+		requestAnimationFrame(animateCursors);
 	}
 
 	function updateMyPellet(force = false) {
@@ -491,7 +498,7 @@
 
 	function drawCanvas(id: string) {
 		// @ts-ignore
-		const canvas = new fabric.Canvas(id);
+		const canvas = new Canvas(id);
 		canvas.hoverCursor = 'pointer';
 		canvas.selection = false;
 		canvas.targetFindTolerance = 2;
