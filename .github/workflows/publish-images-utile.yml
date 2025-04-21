@@ -74,5 +74,5 @@ jobs:
           context: ${{ matrix.files }}
           push: true
           tags: |
-              ${{ env.REGISTRY }}/spectrum-${{ matrix.files }}:latest,
-              ${{ env.REGISTRY }}/spectrum-${{ matrix.files }}:${{ github.sha }}
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.files }}:latest,
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.files }}:${{ github.sha }}
