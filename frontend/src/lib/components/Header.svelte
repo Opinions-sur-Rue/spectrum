@@ -1,15 +1,27 @@
 <script lang="ts">
-	export let title;
-	export let subtitle;
-	export let logo = undefined;
-	export let clientWidth = 0;
+	export let title: string | undefined = undefined;
+	export let subtitle: string | undefined = undefined;
+	export let logo: string | undefined = undefined;
+	export let logoWidth: number = 64;
+	export let offsetSubtitle: number = -10;
 </script>
 
 <h1 class="w3-xxlarge">
-	{#if logo}<img src={logo} alt="Logo" width="64px" />{/if}{title}
+	{#if logo}<img
+			src={logo}
+			alt="Spectrum"
+			width={logoWidth}
+			style="display: inline;"
+		/>&nbsp;{/if}{title}
 </h1>
 
-<p bind:clientWidth>{subtitle}</p>
+{#if subtitle}
+	{#if logo && title}
+		<p style="margin-left: 92px; margin-top: {offsetSubtitle}px;">{subtitle}</p>
+	{:else if logo}
+		<p style="margin-left: 10px; margin-top: {offsetSubtitle}px;">{subtitle}</p>
+	{/if}
+{/if}
 
 <style>
 	h1 {
@@ -19,5 +31,6 @@
 	p {
 		font-family: system-ui;
 		font-weight: lighter;
+		font-style: italic;
 	}
 </style>

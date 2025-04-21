@@ -1,4 +1,4 @@
-import { API_URL, DEBUG } from '$lib/Env.js';
+import { API_URL, DEBUG } from '$lib/env.js';
 
 const WS_URL = API_URL.replace('http://', 'ws://').replace('https://', 'wss://');
 

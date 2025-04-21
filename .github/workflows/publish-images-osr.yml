@@ -66,4 +66,5 @@ jobs:
             push: true
             tags: |
                 ${{ vars.REGISTRY_URL }}/spectrum-${{ matrix.files }}:latest,
-                ${{ vars.REGISTRY_URL }}/spectrum-${{ matrix.files }}:${{ github.sha }},
+                ${{ vars.REGISTRY_URL }}/spectrum-${{ matrix.files }}:${{ github.sha }}
+                

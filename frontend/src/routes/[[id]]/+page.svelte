@@ -20,13 +20,13 @@
 	} from '@fortawesome/free-solid-svg-icons';
 
 	import { startWebsocket } from '$lib/spectrum/websocket';
-	import { getPlayerId } from '$lib/battleships/playerId';
+	import { getUserId } from '$lib/authentication/userId';
 	import { onMount, tick } from 'svelte';
-	import { fabric } from 'fabric';
 	import { copy } from 'svelte-copy';
 
-	import { page } from '$app/stores';
-	import { PUBLIC_URL } from '$lib/Env';
+	import { page } from '$app/state';
+	import { HEADER_TITLE, LOGO_URL, LOGO_WIDTH, OFFSET_SUBSTITLE, PUBLIC_URL } from '$lib/env';
+	import { fabric } from 'fabric';
 
 	const palette = {
 		aeaeae: 'Gris  ', // Neutral gray
@@ -52,67 +52,39 @@
 		indifferent: 'Indifférent ou sans avis',
 		notReplied: 'Pas répondu encore'
 	};
-	let currentOpinion = 'notReplied';
-	let previousOpinion = 'notReplied';
+	let currentOpinion: string = 'notReplied';
+	let previousOpinion: string = 'notReplied';
 
-	export let spectrumId;
+	export let spectrumId: string | undefined;
 
-	/**
-	 * @type {number}
-	 */
-	let canvasWidth;
+	let canvasWidth: number;
 
-	/**
-	 * @type {any}
-	 */
-	let myCanvas;
+	let myCanvas: any;
 
-	/**
-	 * @type {Promise<any>}
-	 */
-	//let stats;
+	const updateTick: number = 100;
 
-	/**
-	 * @type {number}
-	 */
-	const updateTick = 100;
-
-	/**
-	 * @type {WebSocket}
-	 */
-	let websocket;
+	let websocket: WebSocket;
 	//let connected = false;
-	/**
-	 * @type {string}
-	 */
-	let userId;
-	/**
-	 * @type {string}
-	 */
-	let nickname;
+
+	let userId: string;
+	let nickname: string;
 	let initialized = false;
 	let listenning = true;
 
-	/**
-	 * @type {string[]}
-	 */
-	let logs = [];
+	let logs: string[] = [];
 
-	/**
-	 * @type {{ left: any; top: any; }}
-	 */
-	let myPellet;
+	let myPellet: any;
 	let moving = false;
-	const cells = [];
-	const cellsPoints = [];
-	const others = {};
+	const cells: any[] = [];
+	const cellsPoints: any[] = [];
+	const others: any = {};
 
-	let claim = '';
-	let scale;
+	let claim: string | undefined;
+	let scale: number;
 
-	let tbodyRef; // Reference to tbody
+	let tbodyRef: any; // Reference to tbody
 
-	function validateOpinion(otherUserId) {
+	function validateOpinion(otherUserId: string) {
 		const target = others[otherUserId].pellet;
 
 		for (let i = 0; i < cells.length; i++) {
@@ -138,16 +110,9 @@
 	}
 
 	onMount(() => {
-		window.setPosition = (x, y) => {
-			myPellet.left = x * scale;
-			myPellet.top = y * scale;
-			myPellet.setCoords();
-			myCanvas.renderAll();
-		};
-
 		currentOpinion = 'notReplied';
 
-		spectrumId = $page.params?.id;
+		spectrumId = page.params?.id;
 		websocket = startWebsocket(signIn, parseCommand, connectionLost);
 
 		// Prepare Both Canvas
@@ -336,7 +301,7 @@
 	 * @param {Array} point   an array representation of the point where point[0] is its x Value and point[1] is its y Value
 	 * @return {boolean} whether the point is in the polygon (not on the edge, just turn < into <= and > into >= for that)
 	 */
-	const pointInPolygon = function (polygon, point) {
+	const pointInPolygon = function (polygon: any, point: any) {
 		//A point is in a polygon if a line from the point to infinity crosses the polygon an odd number of times
 		let odd = false;
 		//For each edge (In this case for each point of the polygon and the previous one)
@@ -362,7 +327,7 @@
 	/**
 	 * @param {string} userId
 	 */
-	function initOtherPellet(userId, nickname) {
+	function initOtherPellet(userId: string, nickname: string) {
 		console.log('Initalizing Other Pellet: ' + userId);
 		var options = {
 			top: 0,
@@ -420,11 +385,11 @@
 		return g;
 	}
 
-	/**
-	 * @param {string} otherUserId
-	 * @param {{ x: number; y: number; } | null} coords
-	 */
-	function updatePellet(otherUserId, coords, otherNickname) {
+	function updatePellet(
+		otherUserId: string,
+		coords: { x: number; y: number } | null,
+		otherNickname: string
+	) {
 		// New user
 		if (!others[otherUserId]) {
 			log(`${otherNickname} a rejoint le spectrum`);
@@ -463,7 +428,7 @@
 		}
 	}
 
-	function deletePellet(otherUserId, keepUser = false) {
+	function deletePellet(otherUserId: string, keepUser: boolean = false) {
 		if (others[otherUserId].cancel) {
 			others[otherUserId].cancel();
 		}
@@ -478,20 +443,17 @@
 		}
 	}
 
-	function receivedClaim(c) {
+	function receivedClaim(c: string) {
 		console.log(c.replace(/^(\|\|)+|(\|\|)+$/g, ''));
 		claim = c.replace(/^(\|\|)+|(\|\|)+$/g, '');
 	}
 
-	/**
-	 * @param {number} emojiIndex
-	 */
-	function sendEmoji(emojiIndex) {
+	function sendEmoji(emojiIndex: number) {
 		const emojis = ['😜', '🤚', '😵', '🤯', '🫣', '🛟', '🦝'];
 		websocket.send('emoji ' + emojis[emojiIndex]);
 	}
 
-	function animatePellet(userId, target) {
+	function animatePellet(userId: string, target: any) {
 		return {
 			cancelX: fabric.util.animate({
 				startValue: others[userId].pellet.left,
@@ -527,10 +489,7 @@
 			);
 	}
 
-	/**
-	 * @param {string} id
-	 */
-	function drawCanvas(id) {
+	function drawCanvas(id: string) {
 		// @ts-ignore
 		const canvas = new fabric.Canvas(id);
 		canvas.hoverCursor = 'pointer';
@@ -546,13 +505,13 @@
 	}
 
 	function signIn() {
-		websocket.send('signin ' + getPlayerId());
+		websocket.send('signin ' + getUserId());
 		//connected = true;
 	}
 
 	let isHoveringHistory = false;
 
-	function log(message) {
+	function log(message: string) {
 		const now = new Date();
 		const formattedDate = now.toLocaleString('fr-FR');
 		logs.push(`[${formattedDate}] ${message}`);
@@ -562,10 +521,7 @@
 
 	let claimFocus = false;
 
-	/**
-	 * @param {string} line
-	 */
-	function parseCommand(line) {
+	function parseCommand(line: string) {
 		if (!listenning) return;
 
 		const re = new RegExp(
@@ -648,8 +604,8 @@
 		}
 	}
 
-	let updateClaimLog;
-	let previousClaim;
+	let updateClaimLog: number | undefined;
+	let previousClaim: string | undefined;
 
 	function connectionLost() {}
 
@@ -657,13 +613,14 @@
 		websocket.send('resetpositions');
 	}
 
-	let initialClaim;
+	let initialClaim: string | undefined;
 	function createSpectrum() {
 		listenning = true;
 		claim = initialClaim;
 		initialClaim = '';
 		websocket.send(`startspectrum ${nickname} ${userId}`);
-		document.getElementById('create-modal').style.display = 'none';
+		const modal = document.getElementById('create-modal');
+		if (modal) modal.style.display = 'none';
 		adminModeOn = true;
 		websocket.send(`claim ${claim}`);
 	}
@@ -683,7 +640,7 @@
 		}
 	}
 
-	function makeAdmin(id) {
+	function makeAdmin(id: string) {
 		if (!adminModeOn) return;
 
 		websocket.send(`makeadmin ${id}`);
@@ -739,9 +696,11 @@
 -->
 
 <Header
-	title="Spectrum"
 	subtitle="Plate-forme de spectrum en ligne de 2 à 6 participants"
-	logo="/logo-osr.png"
+	logo={LOGO_URL}
+	logoWidth={LOGO_WIDTH}
+	offsetSubtitle={OFFSET_SUBSTITLE}
+	title={HEADER_TITLE}
 />
 
 <br />
@@ -784,7 +743,7 @@
 	{/if}
 
 	{#if showJoinModal}
-		<div id="join-modal" class="w3-modal" style="display: block;">
+		<div id="join-modal" class="w3-modal" style="display: block; z-index: 100;">
 			<div class="w3-modal-content w3-card-4 w3-animate-zoom" style="max-width:600px">
 				<div class="w3-center">
 					<br />
@@ -854,7 +813,7 @@
 	{/if}
 
 	{#if showCreateModal}
-		<div id="create-modal" class="w3-modal" style="display: block;">
+		<div id="create-modal" class="w3-modal" style="display: block; z-index: 100;">
 			<div class="w3-modal-content w3-card-4 w3-animate-zoom" style="max-width:600px">
 				<div class="w3-center">
 					<br />
@@ -923,7 +882,10 @@
 	{/if}
 </div>
 
-<div class="w3-row">
+<div class="w3-row" style="position: relative;">
+	{#if !spectrumId}
+		<div class="overlay">Pas de spectrum en cours</div>
+	{/if}
 	<div class="w3-twothird w3-col">
 		<div class="w3-card w3-content" bind:clientWidth={canvasWidth}>
 			<header class="w3-container" style="padding: 0; font-family: monospace;">
@@ -1024,27 +986,27 @@
 		</div>
 	</div>
 
-	{#if spectrumId}
-		<div class="w3-col w3-third">
-			<div class="w3-container w3-responsive w3-monospace w3-margin-bottom">
-				<table class="w3-table-all w3-striped w3-bordered">
-					<colgroup>
-						<col style="width: 10%;" />
+	<div class="w3-col w3-third">
+		<div class="w3-container w3-responsive w3-monospace w3-margin-bottom">
+			<table class="w3-table-all w3-striped w3-bordered">
+				<colgroup>
+					<col style="width: 10%;" />
+					{#if adminModeOn}
+						<col style="width: 40%;" />
+						<col style="width: 50%;" />
+					{:else}
+						<col style="width: 90%;" />
+					{/if}
+				</colgroup>
+				<tbody>
+					<tr>
+						<th class="w3-center"><Fa icon={faPalette} /> </th>
+						<th><Fa icon={faPerson} /> Participants</th>
 						{#if adminModeOn}
-							<col style="width: 40%;" />
-							<col style="width: 50%;" />
-						{:else}
-							<col style="width: 90%;" />
+							<th><Fa icon={faExclamation} /> Actions</th>
 						{/if}
-					</colgroup>
-					<tbody>
-						<tr>
-							<th class="w3-center"><Fa icon={faPalette} /> </th>
-							<th><Fa icon={faPerson} /> Participant</th>
-							{#if adminModeOn}
-								<th><Fa icon={faExclamation} /> Actions</th>
-							{/if}
-						</tr>
+					</tr>
+					{#if spectrumId}
 						<tr>
 							<td>
 								<div style="background: #{userId}; clip-path: circle(10px);">&nbsp;</div>
@@ -1056,62 +1018,61 @@
 								<td> &nbsp; </td>
 							{/if}
 						</tr>
-						{#each Object.entries(others) as [colorHex, other]}
-							<tr>
-								<td>
-									<div style="background: #{colorHex}; clip-path: circle(10px);">&nbsp;</div>
-								</td>
-								<td>
-									<span class="w3-small"><b>{other.nickname}</b></span>
-								</td>
-								{#if adminModeOn}
-									<td>
-										<button class="w3-button w3-right w3-disabled"
-											><Fa icon={faUserSlash} />
-											<span class="w3-small">Retirer du spectrum</span></button
-										>
-										<button
-											class="w3-button w3-right"
-											on:click={() => {
-												makeAdmin(colorHex);
-											}}
-											><Fa icon={faCirclePlus} /> <span class="w3-small">Rendre admin</span></button
-										>
-									</td>
-								{/if}
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-			<div id="history" class="w3-container w3-responsive w3-monospace">
-				<table class="w3-table-all w3-striped w3-bordered">
-					<thead>
+					{/if}
+					{#each Object.entries(others) as [colorHex, other]}
 						<tr>
-							<th><Fa icon={faNewspaper} /> Historique</th>
-						</tr>
-					</thead>
-					<tbody
-						bind:this={tbodyRef}
-						on:mouseenter={() => (isHoveringHistory = true)}
-						on:mouseleave={() => (isHoveringHistory = false)}
-					>
-						{#each logs as log}
-							<tr style="display: table; width: 100%;">
+							<td>
+								<div style="background: #{colorHex}; clip-path: circle(10px);">&nbsp;</div>
+							</td>
+							<td>
+								<span class="w3-small"><b>{other.nickname}</b></span>
+							</td>
+							{#if adminModeOn}
 								<td>
-									{#if log.includes('Claim: ')}
-										<span class="w3-small"><b>{log}</b></span>
-									{:else}
-										<span class="w3-small">{log}</span>
-									{/if}
+									<button class="w3-button w3-right w3-disabled"
+										><Fa icon={faUserSlash} />
+										<span class="w3-small">Retirer du spectrum</span></button
+									>
+									<button
+										class="w3-button w3-right"
+										on:click={() => {
+											makeAdmin(colorHex);
+										}}><Fa icon={faCirclePlus} /> <span class="w3-small">Rendre admin</span></button
+									>
 								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+							{/if}
+						</tr>
+					{/each}
+				</tbody>
+			</table>
 		</div>
-	{/if}
+		<div id="history" class="w3-container w3-responsive w3-monospace">
+			<table class="w3-table-all w3-striped w3-bordered">
+				<thead>
+					<tr>
+						<th><Fa icon={faNewspaper} /> Historique</th>
+					</tr>
+				</thead>
+				<tbody
+					bind:this={tbodyRef}
+					on:mouseenter={() => (isHoveringHistory = true)}
+					on:mouseleave={() => (isHoveringHistory = false)}
+				>
+					{#each logs as log}
+						<tr style="display: table; width: 100%;">
+							<td>
+								{#if log.includes('Claim: ')}
+									<span class="w3-small"><b>{log}</b></span>
+								{:else}
+									<span class="w3-small">{log}</span>
+								{/if}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	</div>
 </div>
 
 <p>&nbsp;</p>
@@ -1132,6 +1093,21 @@
 		box-shadow:
 			0 2px 5px 0 rgba(0, 0, 0, 0.16),
 			0 2px 10px 0 rgba(0, 0, 0, 0.12);
+	}
+
+	.overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.7); /* semi-transparent black */
+		color: white;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: x-large;
+		z-index: 10;
 	}
 
 	.w3-dropdown-hover:first-child {
@@ -1155,10 +1131,6 @@
 		max-height: 300px;
 		display: block;
 	}
-
-	/*.osr-olive {
-		background-color: #25291c;
-	}*/
 
 	.form-control {
 		font-family: system-ui, sans-serif;
