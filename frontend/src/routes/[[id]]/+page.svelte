@@ -687,14 +687,6 @@
 	*/
 </script>
 
-<!-- EN/US
-<Header
-	bind:clientWidth={canvasWidth}
-	title="Spectrum"
-	subtitle="Online tool to help you run spectrum online with a party of 2 to 6 people"
-/>
--->
-
 <Header
 	subtitle="Plate-forme de spectrum en ligne de 2 à 6 participants"
 	logo={LOGO_URL}
