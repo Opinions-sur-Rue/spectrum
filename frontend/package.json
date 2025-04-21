@@ -50,6 +50,6 @@
 	},
 	"dependencies": {
 		"@inlang/paraglide-js": "^2.0.12",
-		"fabric": "^5.5.1"
+		"fabric": "^6.6.4"
 	}
 }

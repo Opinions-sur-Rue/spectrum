@@ -3,10 +3,16 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/svelte';
 import Page from './[[id]]/+page.svelte';
 
-/*vi.mock('fabric', () => ({
-	loadSVGFromURL: vi.fn()
-}));	*/
-vi.mock('fabric');
+vi.mock('fabric', () => ({
+	loadSVGFromURL: vi.fn().mockImplementation(() => ({
+		then: vi.fn()
+	})),
+	Canvas: vi.fn().mockImplementation(() => ({
+		setDimensions: vi.fn(),
+		on: vi.fn(),
+		requestRenderAll: vi.fn()
+	}))
+}));
 
 describe('/+page.svelte', () => {
 	class ResizeObserver {
