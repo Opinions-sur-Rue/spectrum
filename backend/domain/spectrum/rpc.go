@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
-
 	log "github.com/sirupsen/logrus"
 )
 

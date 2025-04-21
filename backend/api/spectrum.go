@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"Opinions-sur-Rue/spectrum/domain/spectrum"
-
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )

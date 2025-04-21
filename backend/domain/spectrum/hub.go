@@ -7,7 +7,6 @@ import (
 
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 	"Opinions-sur-Rue/spectrum/utils"
-
 	log "github.com/sirupsen/logrus"
 )
 

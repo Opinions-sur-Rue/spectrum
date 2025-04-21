@@ -8,7 +8,6 @@ import (
 	"Opinions-sur-Rue/spectrum/api"
 	_ "Opinions-sur-Rue/spectrum/docs"
 	"Opinions-sur-Rue/spectrum/utils"
-
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
@@ -18,12 +17,12 @@ func EmptyResponse(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-//	@Summary		Healthcheck
-//	@Description	Get the status of the API
-//	@Tags			health
-//	@Produce		json,xml,application/yaml,plain
-//	@Success		200	{object}	Health
-//	@Router			/status [get]
+// @Summary		Healthcheck
+// @Description	Get the status of the API
+// @Tags			health
+// @Produce		json,xml,application/yaml,plain
+// @Success		200	{object}	Health
+// @Router			/status [get]
 func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	var health Health
 	health.Status = "up"
@@ -44,20 +43,20 @@ type Health struct {
 
 func initLogging() {
 	log.SetLevel(log.DebugLevel)
-	//log.SetFormatter(&log.JSONFormatter{})
+	log.SetFormatter(&log.JSONFormatter{})
 }
 
-//	@title			OSR Spectrum API
-//	@version		1.0
-//	@description	The backend powering "Opinions Sur Rue" online spectrum platform.
+// @title			OSR Spectrum API
+// @version		1.0
+// @description	The backend powering "Opinions Sur Rue" online spectrum platform.
 //
-//	@contact.name	API Support
-//	@contact.email	api@utile.space
+// @contact.name	API Support
+// @contact.email	api@utile.space
 //
-//	@license.name	utile.space API License
-//	@license.url	https://utile.space/api/
+// @license.name	utile.space API License
+// @license.url	https://utile.space/api/
 //
-//	@BasePath		/api
+// @BasePath		/api
 func main() {
 	initLogging()
 

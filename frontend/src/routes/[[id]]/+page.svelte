@@ -459,7 +459,7 @@
 				startValue: others[userId].pellet.left,
 				endValue: target.x * scale,
 				duration: updateTick,
-				onChange: function (value) {
+				onChange: function (value: number) {
 					others[userId].pellet.set({ left: value });
 					myCanvas.renderAll();
 				},
@@ -471,7 +471,7 @@
 				startValue: others[userId].pellet.top,
 				endValue: target.y * scale,
 				duration: updateTick,
-				onChange: function (value) {
+				onChange: function (value: number) {
 					others[userId].pellet.set({ top: value });
 					myCanvas.renderAll();
 				},
