@@ -631,7 +631,7 @@
 	}
 
 	let adminModeOn = false;
-	function joinedSpectrum(id) {
+	function joinedSpectrum(id: string) {
 		spectrumId = id;
 		console.log(`spectrumId = ${id}`);
 
