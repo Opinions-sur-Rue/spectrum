@@ -35,6 +35,7 @@ jobs:
 
         - name: List chart changed files
           run: echo '${{ steps.changed-files.outputs.apps_all_changed_files }}'
+          
         - id: set-matrix
           run: echo "matrix={\"files\":${{ steps.changed-files.outputs.apps_all_changed_files }}}" >> "$GITHUB_OUTPUT"    
 
@@ -68,11 +69,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 📖 Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.files }}
+          tags: |
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
       - name: 📦 Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.files }}
           push: true
-          tags: |
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.files }}:latest,
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.files }}:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
