@@ -39,6 +39,8 @@ jobs:
           run: echo "matrix={\"files\":${{ steps.changed-files.outputs.apps_all_changed_files }}}" >> "$GITHUB_OUTPUT"    
 
   build-and-push:
+    name: 🛠️ Build & Push Docker Images
+    needs: detect-changes    
     runs-on: ubuntu-latest
     strategy:
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
