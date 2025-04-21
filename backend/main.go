@@ -65,6 +65,7 @@ func main() {
 	apiRouter.Use(utils.EnableCors)
 
 	apiRouter.HandleFunc("/", EmptyResponse).Methods(http.MethodGet)
+
 	apiRouter.HandleFunc("/status", HealthCheck).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/spectrum/ws", api.SpectrumWebsocket).Methods(http.MethodGet)
 
