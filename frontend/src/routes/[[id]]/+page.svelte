@@ -676,15 +676,6 @@
 	const copied = () => {
 		notifier.success('Lien du Spectrum copié!');
 	};
-
-	/*
-		OSR Color: 
-		indigo #10b1b1 
-		jaune #ffc517
-		blanc #fffdfc
-		black #000002
-		olive #25291C
-	*/
 </script>
 
 <Header
