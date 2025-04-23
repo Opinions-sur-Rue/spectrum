@@ -40,7 +40,7 @@
 		"svelte": "^5.28.1",
 		"svelte-check": "^4.1.6",
 		"svelte-copy": "^2.0.0",
-		"svelte-fa": "^4.0.3",
+		"svelte-fa": "^4.0.4",
 		"tailwindcss": "^4.0.0",
 		"typescript": "^5.0.0",
 		"typescript-eslint": "^8.30.1",
