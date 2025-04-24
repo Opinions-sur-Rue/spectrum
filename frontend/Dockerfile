@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package*.json .
 RUN npm ci
 COPY . .
+
 RUN npm run prepare
 RUN npm run build
 RUN npm prune --production
@@ -23,5 +24,5 @@ COPY package.json .
 ENV NODE_ENV=production
 ENV PORT=2000
 ENV HOST=0.0.0.0
-ENV VITE_VERSION=1.0.0
+
 CMD [ "node", "build" ]

@@ -59,6 +59,26 @@ jobs:
             username: ${{ secrets.REGISTRY_USERNAME }}
             password: ${{ secrets.REGISTRY_PASSWORD }}
 
+        - name: 📚Create env file
+          working-directory: ${{ matrix.files }}
+          run: |
+              touch .env
+              export VITE_VERSION=$(jq -r .version ./package.json)
+              cat << EOF > .env
+              # Frontend
+              VITE_VERSION=${VITE_VERSION}
+              VITE_API_URL=https://api.spectrum.opinions-sur-rue.fr/
+              VITE_PUBLIC_URL=https://spectrum.opinions-sur-rue.fr/
+              VITE_LOGO_URL=${{ vars.VITE_LOGO_URL }}
+              VITE_LOGO_WIDTH=${{ vars.VITE_LOGO_WIDTH }}
+              VITE_HEADER_TITLE=${{ vars.VITE_HEADER_TITLE }}
+              VITE_OFFSET_SUBTITLE=${{ vars.VITE_OFFSET_SUBTITLE }}
+
+              # Backend
+              API_PORT=3000
+              API_VERSION=1.0.0
+              EOF
+
         - name: 📦 Build and push Docker image
           uses: docker/build-push-action@v6
           with:
