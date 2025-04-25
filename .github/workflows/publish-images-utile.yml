@@ -90,11 +90,15 @@ jobs:
 
   deploy:
     name: 🚀 Deploy to utile website
+    runs-on: ubuntu-latest
     needs: [detect-changes, build-and-push]
     if: ${{ toJson(fromJson(needs.detect-changes.outputs.matrix)) != '[]' }}
     strategy:
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}    
-    uses: SonnyAD/utile-compose/.github/workflows/trigger.yml@main
-    with:
-      service: spectrum-${{ matrix.files }}
-    secrets: inherit      
+    steps:
+      - name: Trigger 🚀 Deploy to utile website
+        run: |
+          curl -X POST https://api.github.com/repos/SonnyAD/utile-compose/dispatches \
+          -H 'Accept: application/vnd.github.v3+json' \
+          -u 'Sonny:${{ secrets.CI_ACCESS_TOKEN }}' \
+          --data '{"event_type": "deploy-spectrum-${{ matrix.files }}", "client_payload": { "service": "spectrum-${{ matrix.files }}" }}'
