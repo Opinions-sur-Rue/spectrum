@@ -710,8 +710,7 @@
 	{:else}
 		<div class="w3-bar">
 			<span class="w3-bar-item w3-left">
-				Spectrum en cours &mdash; identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b
-				><button
+				Spectrum en cours - Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b><button
 					class={showSpectrumId ? 'forbidden' : ''}
 					style="background: none; border: none; outline: none; box-shadow: none;"
 					on:click={toggleShowSpectrumId}>👁️</button
