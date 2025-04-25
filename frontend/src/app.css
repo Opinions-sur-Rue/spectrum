@@ -3,10 +3,45 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
-
-svg {
-	display: inline;
-}
+@plugin "daisyui" {
+	themes: light --default, dark --prefersdark, lofi;
+  }
+@plugin "daisyui/theme" {
+	name: "lofi";
+	default: true;
+	prefersdark: false;
+	color-scheme: "light";
+	--color-base-100: oklch(100% 0 0);
+	--color-base-200: oklch(97% 0 0);
+	--color-base-300: oklch(94% 0 0);
+	--color-base-content: oklch(0% 0 0);
+	--color-primary: oklch(15.906% 0 0);
+	--color-primary-content: oklch(100% 0 0);
+	--color-secondary: oklch(21.455% 0.001 17.278);
+	--color-secondary-content: oklch(100% 0 0);
+	--color-accent: oklch(26.861% 0 0);
+	--color-accent-content: oklch(100% 0 0);
+	--color-neutral: oklch(0% 0 0);
+	--color-neutral-content: oklch(100% 0 0);
+	--color-info: oklch(79.54% 0.103 205.9);
+	--color-info-content: oklch(15.908% 0.02 205.9);
+	--color-success: oklch(90.13% 0.153 164.14);
+	--color-success-content: oklch(18.026% 0.03 164.14);
+	--color-warning: oklch(88.37% 0.135 79.94);
+	--color-warning-content: oklch(17.674% 0.027 79.94);
+	--color-error: oklch(78.66% 0.15 28.47);
+	--color-error-content: oklch(15.732% 0.03 28.47);
+	--radius-selector: 2rem;
+	--radius-field: 0.25rem;
+	--radius-box: 0.5rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 1;
+	--noise: 1;
+  }
+  
+  
 
 :root {
 	--madder-lake: #c83737ff;
@@ -25,94 +60,6 @@ svg {
 	--mono: 'Roboto Mono', monospace;
 }
 
-.w3-theme {
-	color: #fff !important;
-	background-color: #c83737ff !important;
-}
-
-.w3-green {
-	color: #fff !important;
-	background-color: var(--caribbean-green) !important;
-}
-
-.w3-green-alt {
-	color: var(--nice-grey) !important;
-	background-color: var(--viridian-green) !important;
-}
-
-.w3-red-light {
-	color: #fff !important;
-	background-color: var(--saffron) !important;
-}
-
-.w3-blue {
-	color: #fff !important;
-	background-color: var(--usafa-blue) !important;
-}
-
-.w3-yellow {
-	color: var(--jet) !important;
-	background-color: var(--corn) !important;
-}
-
-.w3-theme-light {
-	color: #000 !important;
-	background-color: #e8eaf6 !important;
-}
-.w3-theme-dark {
-	color: #fff !important;
-	background-color: #1a237e !important;
-}
-
-.w3-theme-l5 {
-	color: #000 !important;
-	background-color: #e8eaf6 !important;
-}
-.w3-theme-l4 {
-	color: #000 !important;
-	background-color: #c5cae9 !important;
-}
-.w3-theme-l3 {
-	color: #000 !important;
-	background-color: #9fa8da !important;
-}
-.w3-theme-l2 {
-	color: #fff !important;
-	background-color: #7986cb !important;
-}
-.w3-theme-l1 {
-	color: #fff !important;
-	background-color: #5c6bc0 !important;
-}
-.w3-theme-d1 {
-	color: #fff !important;
-	background-color: #3949ab !important;
-}
-.w3-theme-d2 {
-	color: #fff !important;
-	background-color: #303f9f !important;
-}
-.w3-theme-d3 {
-	color: #fff !important;
-	background-color: #283593 !important;
-}
-.w3-theme-d4 {
-	color: #fff !important;
-	background-color: #1a237e !important;
-}
-
-.w3-theme-action {
-	color: #fff !important;
-	background-color: #311b92 !important;
-}
-.w3-text-theme {
-	color: #1a237e !important;
-}
-
-.w3-monospace {
-	font-family: var(--mono) !important;
-}
-
 html,
 body {
 	font-family: var(--main) !important;
@@ -123,25 +70,23 @@ html {
 	overflow-x: hidden;
 }
 
-html,
-body,
-#svelte {
-	height: 100%;
+svg {
+	display: inline;
 }
 
-#svelte {
-	min-height: 100%;
-	display: grid;
-	grid-template-rows: 1fr auto;
+* {
+	/*border: 1px red solid;*/
 }
 
-footer {
-	text-align: center;
-	font-size: small;
-	font-style: italic;
+.fullscreen-mode .canvas-container {
+	position: fixed !important;
+	top: 0 !important;
+	left: 0 !important;
+	width: 100% !important;
+	height: 100% !important;
+	z-index: 9999 !important;
 }
 
-.subtitle {
-	font-family: system-ui;
-	font-weight: lighter;
-}
+.canvas-container {
+	position: relative;
+}	

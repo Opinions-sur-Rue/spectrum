@@ -3,7 +3,7 @@ export const DEBUG = import.meta.env.DEBUG ?? true;
 export const PUBLIC_VERSION = import.meta.env.VITE_VERSION ?? 'N.A';
 
 // URLs
-export const API_URL = 'https://api.spectrum.opinions-sur-rue.fr';
+export const API_URL = import.meta.env.VITE_API_URL ?? 'https://api.spectrum.opinions-sur-rue.fr';
 export const PUBLIC_URL = import.meta.env.VITE_PUBLIC_URL ?? 'https://spectrum.opinions-sur-rue.fr';
 
 // Theme

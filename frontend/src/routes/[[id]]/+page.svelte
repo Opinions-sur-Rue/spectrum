@@ -16,7 +16,13 @@
 		faExclamation,
 		faPalette,
 		faNewspaper,
-		faUserSlash
+		faUserSlash,
+
+		faRightToBracket,
+
+		faPlay
+
+
 	} from '@fortawesome/free-solid-svg-icons';
 
 	import { startWebsocket } from '$lib/spectrum/websocket';
@@ -34,8 +40,8 @@
 		util,
 		Canvas,
 		loadSVGFromURL,
-		FabricObject
 	} from 'fabric';
+	import { lerp } from '$lib/utils/math';
 
 	const palette: object = {
 		aeaeae: 'Gris  ', // Neutral gray
@@ -67,6 +73,8 @@
 	export let spectrumId: string | undefined;
 
 	let canvasWidth: number | undefined;
+	const originalCanvasWidth = 960
+	const originalCanvasHeight = 540
 
 	let myCanvas: Canvas;
 
@@ -108,7 +116,7 @@
 	}
 
 	$: {
-		scale = canvasWidth / 980;
+		scale = canvasWidth / originalCanvasWidth;
 	}
 
 	async function scrollToBottom() {
@@ -162,7 +170,7 @@
 				scaleX: scale,
 				scaleY: scale,
 				left: (canvasWidth - svg.width! * scale) / 2,
-				top: 15
+				top: 0
 			});
 
 			svg.selectable = false;
@@ -202,6 +210,16 @@
 		}
 
 		animateCursors();
+
+		// Handle window resize when in fullscreen mode
+		window.addEventListener('resize', () => {
+            if (isFullscreen) {
+                if (originalCanvasWidth > originalCanvasHeight) {
+                    const newHeight = window.innerWidth * originalCanvasHeight / originalCanvasWidth
+                    resizeCanvas(window.innerWidth, newHeight);
+                }
+            }
+        });	
 	});
 
 	function initPellet() {
@@ -254,7 +272,7 @@
 		});
 
 		let g = new Group([circle, rect, text], {
-			top: (canvasWidth * 735) / 980 / 2,
+			top: (canvasWidth * originalCanvasHeight) / originalCanvasWidth / 2,
 			left: canvasWidth / 2,
 			hasBorders: false,
 			hasControls: false
@@ -384,7 +402,7 @@
 		});
 
 		let g = new Group([circle, rect, text], {
-			top: (canvasWidth * 735) / 980 / 2,
+			top: (canvasWidth * originalCanvasHeight) / originalCanvasWidth / 2,
 			left: canvasWidth / 2,
 			evented: false,
 			hasBorders: false,
@@ -456,18 +474,6 @@
 		websocket.send('emoji ' + emojis[emojiIndex]);
 	}
 
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T {
-		let timer: ReturnType<typeof setTimeout>;
-		return function (...args: Parameters<T>) {
-			clearTimeout(timer);
-			timer = setTimeout(() => fn(...args), delay);
-		} as T;
-	}
-
-	function lerp(a: number, b: number, t: number) {
-		return a + (b - a) * t;
-	}
-
 	function animateCursors() {
 		const t = 0.2;
 
@@ -479,8 +485,8 @@
 				const currentY = pellet.top ?? 0;
 
 				pellet.set({
-					left: lerp(currentX, targets[targets.length - 1].x, t),
-					top: lerp(currentY, targets[targets.length - 1].y, t)
+					left: lerp(currentX, targets[targets.length - 1].x * scale, t),
+					top: lerp(currentY, targets[targets.length - 1].y * scale, t)
 				});
 			}
 		}
@@ -504,9 +510,10 @@
 		canvas.targetFindTolerance = 2;
 		canvas.backgroundColor = 'white';
 
-		let canvasHeight = (canvasWidth * 600) / 800;
+		//let canvasHeight = (canvasWidth * 600) / 800;
 
-		canvas.setDimensions({ width: canvasWidth, height: canvasHeight });
+		//canvas.setDimensions({ width: canvasWidth, height: canvasHeight });
+		canvas.setDimensions({ width: originalCanvasWidth, height: originalCanvasHeight });
 
 		return canvas;
 	}
@@ -683,6 +690,61 @@
 	const copied = () => {
 		notifier.success('Lien du Spectrum copié!');
 	};
+
+	// Track fullscreen state
+	let isFullscreen = false;
+	
+	// Function to resize canvas and objects proportionally
+	function resizeCanvas(width: number, height: number) {
+		// Calculate scale factors
+		const scaleX = width / myCanvas.getWidth();
+		const scaleY = height / myCanvas.getHeight();
+		//scale = width / originalWidth;
+		
+		// Resize canvas
+		myCanvas.setDimensions({width, height})
+		
+		// Scale all objects
+		const objects = myCanvas.getObjects();
+		objects.forEach(obj => {
+			obj.scaleX = obj.scaleX * scaleX;
+			obj.scaleY = obj.scaleY * scaleY;
+			obj.left = obj.left * scaleX;
+			obj.top = obj.top * scaleY;
+			obj.setCoords();
+		});
+		
+		// Render the canvas with the updated dimensions and scaled objects
+		myCanvas.renderAll();
+	}
+	
+	// Toggle fullscreen mode
+	function toggleFullscreen() {
+		if (!isFullscreen) {
+			// Enter fullscreen mode
+			document.body.classList.add('fullscreen-mode');
+			
+			// Get window dimensions
+			const windowWidth = window.innerWidth;
+			const windowHeight = window.innerHeight;
+			
+			// Resize canvas to fill window
+			if (originalCanvasWidth > originalCanvasHeight) {
+				const newHeight = window.innerWidth * originalCanvasHeight / originalCanvasWidth
+				resizeCanvas(window.innerWidth, newHeight);
+			}
+
+			isFullscreen = true;
+		} else {
+			// Exit fullscreen mode
+			document.body.classList.remove('fullscreen-mode');
+			
+			// Restore original canvas size
+			resizeCanvas(originalCanvasWidth, originalCanvasHeight);
+			
+			isFullscreen = false;
+		}
+	}
 </script>
 
 <Header
@@ -695,21 +757,23 @@
 
 <br />
 
-<div class="w3-container w3-margin" style="font-family: monospace;">
+<div class="@container m-4">
 	{#if !spectrumId}
 		<div class="w3-bar">
-			<button on:click={toggleCreateModal} class="w3-bar-item w3-button osr-yellow w3-round w3-left"
-				>Créer un Spectrum</button
+			<button on:click={toggleCreateModal} class="btn btn-success"
+				><Fa icon={faPlay} /> Créer un Spectrum</button
 			>
 			<button
-				on:click={toggleJoinModal}
-				class="w3-margin-left w3-bar-item w3-button osr-green w3-round w3-left"
-				>Rejoindre un Spectrum</button
+				on:click={()=>{
+					document.getElementById("joinModal")?.showModal()
+				}}
+				class="btn btn-warning"
+				><Fa icon={faRightToBracket} /> Rejoindre un Spectrum</button
 			>
 		</div>
 	{:else}
 		<div class="w3-bar">
-			<span class="w3-bar-item w3-left">
+			<span class="w3-bar-item w3-left font-mono">
 				Spectrum en cours - Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b><button
 					class={showSpectrumId ? 'forbidden' : ''}
 					style="background: none; border: none; outline: none; box-shadow: none;"
@@ -718,88 +782,83 @@
 			</span>
 
 			<button
-				class="w3-button w3-bar-item w3-round osr-green"
-				use:copy={PUBLIC_URL + '/' + spectrumId}
-				on:svelte-copy={() => copied()}
+				class="py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-teal-500 text-white hover:bg-teal-600 focus:outline-hidden focus:bg-teal-600 disabled:opacity-50 disabled:pointer-events-none"
+				use:copy={{
+					text: `${PUBLIC_URL}/${spectrumId}`, 
+					onCopy() {
+						copied();
+					}
+				}}
 			>
 				<Fa icon={faCopy} /> Copier Lien
 			</button>
 
-			<button on:click={leaveSpectrum} class="w3-bar-item w3-round w3-button osr-yellow w3-right"
+			<button on:click={leaveSpectrum} class="py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-yellow-500 text-white hover:bg-yellow-600 focus:outline-hidden focus:bg-yellow-600 disabled:opacity-50 disabled:pointer-events-none"
 				><Fa icon={faPersonWalkingArrowRight} /> Quitter le Spectrum</button
 			>
 		</div>
 	{/if}
 
-	{#if showJoinModal}
-		<div id="join-modal" class="w3-modal" style="display: block; z-index: 100;">
-			<div class="w3-modal-content w3-card-4 w3-animate-zoom" style="max-width:600px">
-				<div class="w3-center">
-					<br />
-					<button
-						on:click={toggleJoinModal}
-						class="w3-button w3-xlarge w3-hover-red w3-display-topright"
-						title="Close Modal"
-						>&times;
-					</button>
-				</div>
 
-				<form class="w3-container" on:submit|preventDefault={joinSpectrum}>
-					<div class="w3-section">
-						<label for="spectrumId"><b>Identifiant du Spectrum</b></label>
-						<input
-							class="w3-input w3-border w3-margin-bottom"
-							type="text"
-							placeholder="Veuillez entrer l'identifiant du spectrum que vous voulez rejoindre"
-							id="spectrumId"
-							bind:value={spectrumId}
-							style="width: 100%;"
-							required
-						/>
-						<hr />
-						<label for="nickname1"><b>Pseudo</b></label>
-						<input
-							class="w3-input w3-border w3-margin-bottom"
-							type="text"
-							placeholder="Veuillez entrer un pseudo (n'utilisez pas votre nom réel)"
-							bind:value={nickname}
-							id="nickname1"
-							style="width: 100%;"
-							required
-						/>
-						<hr />
-						<p><b>Choisissez une couleur</b></p>
-						<div class="w3-container" style="display: flex; flex-wrap: wrap;">
-							{#each Object.entries(palette) as [colorHex, colorName]}
-								<div style="margin: 6px">
-									<label class="form-control w3-monospace">
-										<input
-											class="w3-radio"
-											type="radio"
-											name="color"
-											value={colorHex}
-											bind:group={userId}
-											style="background-color: #{colorHex} !important;"
-										/>
-										{@html colorName.replace(/ /g, '&nbsp;')}
-									</label>
-								</div>
-							{/each}
-						</div>
-						<button class="w3-button w3-block osr-green w3-section w3-padding" type="submit"
-							>Rejoindre le Spectrum</button
-						>
+	  <dialog id="joinModal" class="modal modal-bottom sm:modal-middle">
+		<div class="modal-box">
+		  <h3 class="text-lg font-bold">Hello!</h3>
+		  <p class="py-4">Press ESC key or click the button below to close</p>
+		  <div class="modal-action">
+			<form method="dialog">
+				<div class="w3-section">
+					<label for="spectrumId"><b>Identifiant du Spectrum</b></label>
+					<input
+						class="w3-input border-4 mb-4"
+						type="text"
+						placeholder="Veuillez entrer l'identifiant du spectrum que vous voulez rejoindre"
+						id="spectrumId"
+						bind:value={spectrumId}
+						style="width: 100%;"
+						required
+					/>
+					<hr />
+					<label for="nickname1"><b>Pseudo</b></label>
+					<input
+						class="w3-input border-4 mb-4"
+						type="text"
+						placeholder="Veuillez entrer un pseudo (n'utilisez pas votre nom réel)"
+						bind:value={nickname}
+						id="nickname1"
+						style="width: 100%;"
+						required
+					/>
+					<hr />
+					<p><b>Choisissez une couleur</b></p>
+					<div class="@container" style="display: flex; flex-wrap: wrap;">
+						{#each Object.entries(palette) as [colorHex, colorName]}
+							<div style="margin: 6px">
+								<label class="form-control w3-monospace">
+									<input
+										class="w3-radio"
+										type="radio"
+										name="color"
+										value={colorHex}
+										bind:group={userId}
+										style="background-color: #{colorHex} !important;"
+									/>
+									{@html colorName.replace(/ /g, '&nbsp;')}
+								</label>
+							</div>
+						{/each}
 					</div>
-				</form>
-
-				<div class="w3-container w3-border-top w3-padding-16 w3-light-grey">
-					<button on:click={toggleJoinModal} type="button" class="w3-button osr-yellow"
-						>Annuler</button
+					<button class="btn w3-block osr-green w3-section w3-padding" type="submit"
+						>Rejoindre le Spectrum</button
 					>
 				</div>
-			</div>
+				<button type="button" class="btn osr-yellow"
+				>Annuler</button
+			>
+			</form>
+		  </div>
 		</div>
-	{/if}
+	  </dialog>
+	  
 
 	{#if showCreateModal}
 		<div id="create-modal" class="w3-modal" style="display: block; z-index: 100;">
@@ -808,16 +867,16 @@
 					<br />
 					<button
 						on:click={toggleCreateModal}
-						class="w3-button w3-xlarge w3-hover-red w3-display-topright"
+						class="btn w3-xlarge w3-hover-red w3-display-topright"
 						title="Close Modal">&times;</button
 					>
 				</div>
 
-				<form class="w3-container" on:submit|preventDefault={createSpectrum}>
+				<form class="@container" on:submit|preventDefault={createSpectrum}>
 					<div class="w3-section">
 						<label for="nickname2"><b>Pseudo</b></label>
 						<input
-							class="w3-input w3-border w3-margin-bottom"
+							class="w3-input border-4 mb-4"
 							type="text"
 							placeholder="Veuillez entrer un pseudo (n'utilisez pas votre nom réel)"
 							bind:value={nickname}
@@ -828,7 +887,7 @@
 						<hr />
 						<label for="claim"><b>Claim initial</b></label>
 						<input
-							class="w3-input w3-border w3-margin-bottom"
+							class="w3-input border-4 mb-4"
 							type="text"
 							placeholder="Veuillez entrer le claim"
 							id="claim"
@@ -838,7 +897,7 @@
 						/>
 						<hr />
 						<p><b>Choisissez une couleur</b></p>
-						<div class="w3-container" style="display: flex; flex-wrap: wrap;">
+						<div class="@container" style="display: flex; flex-wrap: wrap;">
 							{#each Object.entries(palette) as [colorHex, colorName]}
 								<div style="margin: 6px">
 									<label class="form-control w3-monospace">
@@ -855,14 +914,14 @@
 								</div>
 							{/each}
 						</div>
-						<button class="w3-button w3-block osr-green w3-section w3-padding" type="submit"
+						<button class="btn w3-block osr-green w3-section w3-padding" type="submit"
 							>Créer un Spectrum</button
 						>
 					</div>
 				</form>
 
-				<div class="w3-container w3-border-top w3-padding-16 w3-light-grey">
-					<button on:click={toggleCreateModal} type="button" class="w3-button osr-yellow"
+				<div class="@container border-t-4 w3-padding-16 w3-light-grey">
+					<button on:click={toggleCreateModal} type="button" class="btn osr-yellow"
 						>Annuler</button
 					>
 				</div>
@@ -871,62 +930,62 @@
 	{/if}
 </div>
 
-<div class="w3-row" style="position: relative;">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 	{#if !spectrumId}
-		<div class="overlay">Pas de spectrum en cours</div>
+		<!--<div class="overlay">Pas de spectrum en cours</div>-->
 	{/if}
-	<div class="w3-twothird w3-col">
-		<div class="w3-card w3-content" bind:clientWidth={canvasWidth}>
-			<header class="w3-container" style="padding: 0; font-family: monospace;">
-				<label for="claim" class="w3-col w3-padding" style="width: 10%; font-weight: bold"
-					>Claim:</label
-				>
-				<input
-					name="claim"
-					class="w3-col w3-input w3-border-0"
-					style="width: 90%; z-index: 100;"
-					type="text"
-					readonly={!adminModeOn}
-					bind:value={claim}
-					on:focusin={() => {
-						claimFocus = true;
-						previousClaim = claim;
-					}}
-					on:focusout={() => {
-						claimFocus = false;
-						if (claim != previousClaim) log(`Claim: ${claim}`);
-					}}
-					on:input={() => {
-						if (adminModeOn) {
-							websocket.send('claim ||' + claim + '||');
-						}
-					}}
-				/>
+	<div class="md:col-span-2">
+		<div class="w-full" bind:clientWidth={canvasWidth}>
+			<header class="@container w-full">
+				<label class="input w-full pr-0">
+					<span>Claim</span>
+					<input
+					  type="text"
+					  placeholder="Entrez le claim du spectrum ici..."
+					  style="width: 100%;"
+					  name="claim"
+					  id="Claim"
+					  class="peer mt-0.5 w-full rounded border-gray-300 shadow-sm sm:text-sm"
+					  readonly={!adminModeOn}
+					  bind:value={claim}
+					  on:focusin={() => {
+						  claimFocus = true;
+						  previousClaim = claim;
+					  }}
+					  on:focusout={() => {
+						  claimFocus = false;
+						  if (claim != previousClaim) log(`Claim: ${claim}`);
+					  }}
+					  on:input={() => {
+						  if (adminModeOn) {
+							  websocket.send('claim ||' + claim + '||');
+						  }
+					  }}					  
+					/>
+				  </label>
 			</header>
 
-			<div
-				class="w3-container w3-border-top"
-				style="display: flex; flex-direction: column; padding: 0;"
-			>
-				<canvas style="margin: auto;" id="spectrum"></canvas>
+			<div id="canvasWrapper" class="aspect-video">
+				<canvas class="w-full h-full" id="spectrum"></canvas>		
+				<button id="fullscreenBtn" on:click={toggleFullscreen}>{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen' }</button>
 			</div>
 
 			<footer class="w3-bar" class:w3-padding={spectrumId}>
 				{#if adminModeOn}
 					<button
-						class="w3-bar-item w3-mobile w3-button w3-black w3-text-white w3-round-large w3-monospace w3-margin-right"
+						class="w3-bar-item w3-mobile btn w3-black w3-text-white w3-round-large w3-monospace mr-4"
 						on:click={resetPositions}
 					>
 						<Fa icon={faRotateLeft} /> Reset les Positions</button
 					>
 
 					<button
-						class="w3-bar-item w3-mobile w3-button w3-black w3-text-white w3-round-large w3-monospace w3-margin-right"
+						class="w3-bar-item w3-mobile btn w3-black w3-text-white w3-round-large w3-monospace mr-4"
 						on:click={initPellet}><Fa icon={faCirclePlus} /> Créer mon Palet</button
 					>
 
 					<button
-						class="w3-bar-item w3-mobile w3-button w3-black w3-text-white w3-round-large w3-monospace w3-disabled"
+						class="w3-bar-item w3-mobile btn w3-black w3-text-white w3-round-large w3-monospace w3-disabled"
 						><Fa icon={faStop} /> Clôturer le Spectrum</button
 					>
 				{/if}
@@ -936,48 +995,48 @@
 						class="w3-dropdown-hover w3-mobile w3-right"
 						style="font-style: normal; font-family: 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Emoji', sans-serif;"
 					>
-						<button class="w3-button w3-round-large w3-mobile w3-yellow w3-monospace"
+						<button class="btn w3-round-large w3-mobile w3-yellow w3-monospace"
 							>😀 Emoji</button
 						>
 						<div class="w3-dropdown-content">
 							<button
 								on:click={() => sendEmoji(0)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">😜</button
+								class="w3-bar-item btn w3-large w3-mobile w3-center">😜</button
 							>
 							<button
 								on:click={() => sendEmoji(1)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">🤚</button
+								class="w3-bar-item btn w3-large w3-mobile w3-center">🤚</button
 							>
 							<button
 								on:click={() => sendEmoji(2)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">😵</button
+								class="w3-bar-item btn w3-large w3-mobile w3-center">😵</button
 							>
 							<button
 								on:click={() => sendEmoji(3)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">🤯</button
+								class="w3-bar-item btn w3-large w3-mobile w3-center">🤯</button
 							>
 							<button
 								on:click={() => sendEmoji(4)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">🫣</button
+								class="w3-bar-item btn w3-large w3-mobile w3-center">🫣</button
 							>
 							<button
 								on:click={() => sendEmoji(5)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">🛟</button
+								class="w3-bar-item btn w3-large w3-mobile w3-center">🛟</button
 							>
 							<button
 								on:click={() => sendEmoji(6)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">🦝</button
+								class="w3-bar-item btn w3-large w3-mobile w3-center">🦝</button
 							>
-						</div>
+						</div>	
 					</div>
 				{/if}
 			</footer>
 		</div>
 	</div>
 
-	<div class="w3-col w3-third">
-		<div class="w3-container w3-responsive w3-monospace w3-margin-bottom">
-			<table class="w3-table-all w3-striped w3-bordered">
+	<div class="md:col-span-1 max-h-screen">
+		<div class="@container w3-monospace mb-4">
+			<table class="w3-table-all w3-striped w3-bordered w-full">
 				<colgroup>
 					<col style="width: 10%;" />
 					{#if adminModeOn}
@@ -1018,12 +1077,12 @@
 							</td>
 							{#if adminModeOn}
 								<td>
-									<button class="w3-button w3-right w3-disabled"
+									<button class="btn w3-right w3-disabled"
 										><Fa icon={faUserSlash} />
 										<span class="w3-small">Retirer du spectrum</span></button
 									>
 									<button
-										class="w3-button w3-right"
+										class="btn w3-right"
 										on:click={() => {
 											makeAdmin(colorHex);
 										}}><Fa icon={faCirclePlus} /> <span class="w3-small">Rendre admin</span></button
@@ -1035,8 +1094,8 @@
 				</tbody>
 			</table>
 		</div>
-		<div id="history" class="w3-container w3-responsive w3-monospace">
-			<table class="w3-table-all w3-striped w3-bordered">
+		<div id="history" class="@container w3-responsive w3-monospace">
+			<table class="w3-table-all w3-striped w3-bordered w-full">
 				<thead>
 					<tr>
 						<th><Fa icon={faNewspaper} /> Historique</th>
@@ -1176,4 +1235,30 @@
 		left: -19px;
 		top: 0;
 	}
+
+	
+	#canvasWrapper  {
+            width: fit-content;
+            height: fit-content;
+            position: relative;
+            margin: auto;
+        }
+
+	#fullscreenBtn {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		padding: 8px 12px;
+		background-color: rgba(0, 0, 0, 0.5);
+		color: white;
+		border: none;
+		border-radius: 4px;
+		cursor: pointer;
+		z-index: 10000;
+	}
+	#fullscreenBtn:hover {
+		background-color: rgba(0, 0, 0, 0.7);
+	}
+
+	
 </style>
