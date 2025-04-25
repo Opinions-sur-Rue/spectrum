@@ -43,6 +43,7 @@ jobs:
     name: 🛠️ Build & Push Docker Images
     needs: detect-changes    
     runs-on: ubuntu-latest
+    if: ${{ toJson(fromJson(needs.detect-changes.outputs.matrix)) != '[]' }}
     strategy:
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
 
@@ -90,9 +91,10 @@ jobs:
   deploy:
     name: 🚀 Deploy to utile website
     needs: [detect-changes, build-and-push]
+    if: ${{ toJson(fromJson(needs.detect-changes.outputs.matrix)) != '[]' }}
     strategy:
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}    
-    uses: SonnyAD/utile-compose/.github/workflows/trigger.yaml@main
+    uses: SonnyAD/utile-compose/.github/workflows/trigger.yml@main
     with:
       service: spectrum-${{ matrix.files }}
     secrets: inherit      

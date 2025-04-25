@@ -37,6 +37,7 @@ jobs:
     build-and-push:
         name: 🛠️ Build & Push Docker Images
         needs: detect-changes
+        if: ${{ toJson(fromJson(needs.detect-changes.outputs.matrix)) != '[]' }}
         environment: Registry
         runs-on: ubuntu-latest
         strategy:
