@@ -43,7 +43,7 @@ jobs:
     name: 🛠️ Build & Push Docker Images
     needs: detect-changes    
     runs-on: ubuntu-latest
-    if: ${{ toJson(fromJson(needs.detect-changes.outputs.matrix)) != '[]' }}
+    if: ${{ toJson(fromJson(needs.detect-changes.outputs.matrix).files) != '[]' }}
     strategy:
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
 
@@ -92,6 +92,7 @@ jobs:
     name: 🚀 Deploy to utile website
     runs-on: ubuntu-latest
     needs: [detect-changes, build-and-push]
+    environment: utile-space
     if: ${{ toJson(fromJson(needs.detect-changes.outputs.matrix)) != '[]' }}
     strategy:
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}    

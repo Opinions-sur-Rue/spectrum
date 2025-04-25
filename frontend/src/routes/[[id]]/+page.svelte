@@ -1173,7 +1173,7 @@
 	.forbidden::after {
 		content: '🚫';
 		position: relative;
-		left: -1rem;
+		left: -19px;
 		top: 0;
 	}
 </style>
