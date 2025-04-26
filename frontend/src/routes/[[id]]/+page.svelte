@@ -719,8 +719,12 @@
 
 			<button
 				class="w3-button w3-bar-item w3-round osr-green"
-				use:copy={PUBLIC_URL + '/' + spectrumId}
-				on:svelte-copy={() => copied()}
+				use:copy={{
+					text:PUBLIC_URL + '/' + spectrumId,
+					onCopy() {
+						copied()
+					}
+				}}
 			>
 				<Fa icon={faCopy} /> Copier Lien
 			</button>
