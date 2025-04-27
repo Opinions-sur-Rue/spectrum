@@ -34,7 +34,6 @@
 		util,
 		Canvas,
 		loadSVGFromURL,
-		FabricObject
 	} from 'fabric';
 
 	const palette: object = {
@@ -738,7 +737,7 @@
 	{#if showJoinModal}
 		<div id="join-modal" class="w3-modal" style="display: block; z-index: 100;">
 			<div class="w3-modal-content w3-card-4 w3-animate-zoom" style="max-width:600px">
-				<div class="w3-center">
+				<div class="text-center">
 					<br />
 					<button
 						on:click={toggleJoinModal}
@@ -808,7 +807,7 @@
 	{#if showCreateModal}
 		<div id="create-modal" class="w3-modal" style="display: block; z-index: 100;">
 			<div class="w3-modal-content w3-card-4 w3-animate-zoom" style="max-width:600px">
-				<div class="w3-center">
+				<div class="text-center">
 					<br />
 					<button
 						on:click={toggleCreateModal}
@@ -946,31 +945,31 @@
 						<div class="w3-dropdown-content">
 							<button
 								on:click={() => sendEmoji(0)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">😜</button
+								class="w3-bar-item w3-button w3-large w3-mobile text-center">😜</button
 							>
 							<button
 								on:click={() => sendEmoji(1)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">🤚</button
+								class="w3-bar-item w3-button w3-large w3-mobile text-center">🤚</button
 							>
 							<button
 								on:click={() => sendEmoji(2)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">😵</button
+								class="w3-bar-item w3-button w3-large w3-mobile text-center">😵</button
 							>
 							<button
 								on:click={() => sendEmoji(3)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">🤯</button
+								class="w3-bar-item w3-button w3-large w3-mobile text-center">🤯</button
 							>
 							<button
 								on:click={() => sendEmoji(4)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">🫣</button
+								class="w3-bar-item w3-button w3-large w3-mobile text-center">🫣</button
 							>
 							<button
 								on:click={() => sendEmoji(5)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">🛟</button
+								class="w3-bar-item w3-button w3-large w3-mobile text-center">🛟</button
 							>
 							<button
 								on:click={() => sendEmoji(6)}
-								class="w3-bar-item w3-button w3-large w3-mobile w3-center">🦝</button
+								class="w3-bar-item w3-button w3-large w3-mobile text-center">🦝</button
 							>
 						</div>
 					</div>
@@ -981,7 +980,7 @@
 
 	<div class="w3-col w3-third">
 		<div class="w3-container w3-responsive w3-monospace w3-margin-bottom">
-			<table class="w3-table-all w3-striped w3-bordered">
+			<table class="table">
 				<colgroup>
 					<col style="width: 10%;" />
 					{#if adminModeOn}
@@ -991,9 +990,9 @@
 						<col style="width: 90%;" />
 					{/if}
 				</colgroup>
-				<tbody>
+				<tbody class="overflow-y-auto">
 					<tr>
-						<th class="w3-center"><Fa icon={faPalette} /> </th>
+						<th class="text-center"><Fa icon={faPalette} /> </th>
 						<th><Fa icon={faPerson} /> Participants</th>
 						{#if adminModeOn}
 							<th><Fa icon={faExclamation} /> Actions</th>
@@ -1005,7 +1004,7 @@
 								<div style="background: #{userId}; clip-path: circle(10px);">&nbsp;</div>
 							</td>
 							<td>
-								<span class="w3-small"><b>{nickname}{adminModeOn ? '*' : ''}</b> (Vous-même)</span>
+								<span class="text-sm"><b>{nickname}{adminModeOn ? '*' : ''}</b> (Vous-même)</span>
 							</td>
 							{#if adminModeOn}
 								<td> &nbsp; </td>
@@ -1018,20 +1017,23 @@
 								<div style="background: #{colorHex}; clip-path: circle(10px);">&nbsp;</div>
 							</td>
 							<td>
-								<span class="w3-small"><b>{other.nickname}</b></span>
+								<span class="text-sm"><b>{other.nickname}</b></span>
 							</td>
 							{#if adminModeOn}
 								<td>
-									<button class="w3-button w3-right w3-disabled"
-										><Fa icon={faUserSlash} />
-										<span class="w3-small">Retirer du spectrum</span></button
-									>
-									<button
-										class="w3-button w3-right"
-										on:click={() => {
-											makeAdmin(colorHex);
-										}}><Fa icon={faCirclePlus} /> <span class="w3-small">Rendre admin</span></button
-									>
+									<div class="tooltip" data-tip="Retirer du spectrum">
+										<button class="w3-button w3-right w3-disabled"
+											><Fa icon={faUserSlash} /></button
+										>
+									</div>
+									<div class="tooltip" data-tip="Rendre admin">
+										<button
+											class="w3-button w3-right"
+											on:click={() => {
+												makeAdmin(colorHex);
+											}}><Fa icon={faCirclePlus} /></button
+										>
+									</div>
 								</td>
 							{/if}
 						</tr>
@@ -1040,13 +1042,14 @@
 			</table>
 		</div>
 		<div id="history" class="w3-container w3-responsive w3-monospace">
-			<table class="w3-table-all w3-striped w3-bordered">
+			<table class="table">
 				<thead>
 					<tr>
 						<th><Fa icon={faNewspaper} /> Historique</th>
 					</tr>
 				</thead>
 				<tbody
+					class="overflow-y-auto"
 					bind:this={tbodyRef}
 					on:mouseenter={() => (isHoveringHistory = true)}
 					on:mouseleave={() => (isHoveringHistory = false)}
@@ -1055,9 +1058,9 @@
 						<tr style="display: table; width: 100%;">
 							<td>
 								{#if log.includes('Claim: ')}
-									<span class="w3-small"><b>{log}</b></span>
+									<span class="text-sm"><b>{log}</b></span>
 								{:else}
-									<span class="w3-small">{log}</span>
+									<span class="text-sm">{log}</span>
 								{/if}
 							</td>
 						</tr>
@@ -1121,7 +1124,6 @@
 	}
 
 	#history tbody {
-		overflow-y: auto;
 		max-height: 300px;
 		display: block;
 	}
