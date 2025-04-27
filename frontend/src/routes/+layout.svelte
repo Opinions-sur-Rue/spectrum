@@ -22,8 +22,8 @@
 	<meta name="description" content={description} />
 </svelte:head>
 
-<section class="w3-main w3-row-padding w3-margin-top w3-margin-bottom">
-	<article class="w3-margin w3-padding">
+<section class="m-4">
+	<article class="m-4 p-4">
 		<slot />
 	</article>
 
@@ -31,7 +31,5 @@
 </section>
 
 <style>
-	section.w3-main {
-		width: 100%;
-	}
+
 </style>

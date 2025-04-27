@@ -26,15 +26,7 @@
 
 	import { page } from '$app/state';
 	import { HEADER_TITLE, LOGO_URL, LOGO_WIDTH, OFFSET_SUBSTITLE, PUBLIC_URL } from '$lib/env';
-	import {
-		Circle,
-		Rect,
-		FabricText,
-		Group,
-		util,
-		Canvas,
-		loadSVGFromURL,
-	} from 'fabric';
+	import { Circle, Rect, FabricText, Group, util, Canvas, loadSVGFromURL } from 'fabric';
 
 	const palette: object = {
 		aeaeae: 'Gris  ', // Neutral gray
@@ -694,21 +686,19 @@
 
 <br />
 
-<div class="w3-container w3-margin" style="font-family: monospace;">
+<div class="m-4 font-mono">
 	{#if !spectrumId}
-		<div class="w3-bar">
-			<button on:click={toggleCreateModal} class="w3-bar-item w3-button osr-yellow w3-round w3-left"
+		<div class="flex items-center">
+			<button on:click={toggleCreateModal} class="btn osr-yellow float-left rounded px-4 py-2"
 				>Créer un Spectrum</button
 			>
-			<button
-				on:click={toggleJoinModal}
-				class="w3-margin-left w3-bar-item w3-button osr-green w3-round w3-left"
+			<button on:click={toggleJoinModal} class="btn osr-green float-left ml-4 rounded px-4 py-2"
 				>Rejoindre un Spectrum</button
 			>
 		</div>
 	{:else}
-		<div class="w3-bar">
-			<span class="w3-bar-item w3-left">
+		<div class="flex items-center">
+			<span class="float-left px-4 py-2">
 				Spectrum en cours - Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b><button
 					class={showSpectrumId ? 'forbidden' : ''}
 					style="background: none; border: none; outline: none; box-shadow: none;"
@@ -717,18 +707,18 @@
 			</span>
 
 			<button
-				class="w3-button w3-bar-item w3-round osr-green"
+				class="btn osr-green rounded px-4 py-2"
 				use:copy={{
-					text:PUBLIC_URL + '/' + spectrumId,
+					text: PUBLIC_URL + '/' + spectrumId,
 					onCopy() {
-						copied()
+						copied();
 					}
 				}}
 			>
 				<Fa icon={faCopy} /> Copier Lien
 			</button>
 
-			<button on:click={leaveSpectrum} class="w3-bar-item w3-round w3-button osr-yellow w3-right"
+			<button on:click={leaveSpectrum} class="btn osr-yellow float-right rounded px-4 py-2"
 				><Fa icon={faPersonWalkingArrowRight} /> Quitter le Spectrum</button
 			>
 		</div>
@@ -741,7 +731,7 @@
 					<br />
 					<button
 						on:click={toggleJoinModal}
-						class="w3-button w3-xlarge w3-hover-red w3-display-topright"
+						class="btn w3-xlarge w3-hover-red w3-display-topright"
 						title="Close Modal"
 						>&times;
 					</button>
@@ -751,7 +741,7 @@
 					<div class="w3-section">
 						<label for="spectrumId"><b>Identifiant du Spectrum</b></label>
 						<input
-							class="w3-input w3-border w3-margin-bottom"
+							class="w3-input mb-4 border"
 							type="text"
 							placeholder="Veuillez entrer l'identifiant du spectrum que vous voulez rejoindre"
 							id="spectrumId"
@@ -762,7 +752,7 @@
 						<hr />
 						<label for="nickname1"><b>Pseudo</b></label>
 						<input
-							class="w3-input w3-border w3-margin-bottom"
+							class="w3-input mb-4 border"
 							type="text"
 							placeholder="Veuillez entrer un pseudo (n'utilisez pas votre nom réel)"
 							bind:value={nickname}
@@ -775,7 +765,7 @@
 						<div class="w3-container" style="display: flex; flex-wrap: wrap;">
 							{#each Object.entries(palette) as [colorHex, colorName]}
 								<div style="margin: 6px">
-									<label class="form-control w3-monospace">
+									<label class="form-control font-mono">
 										<input
 											class="w3-radio"
 											type="radio"
@@ -789,16 +779,14 @@
 								</div>
 							{/each}
 						</div>
-						<button class="w3-button w3-block osr-green w3-section w3-padding" type="submit"
+						<button class="btn w3-block osr-green w3-section p-4" type="submit"
 							>Rejoindre le Spectrum</button
 						>
 					</div>
 				</form>
 
-				<div class="w3-container w3-border-top w3-padding-16 w3-light-grey">
-					<button on:click={toggleJoinModal} type="button" class="w3-button osr-yellow"
-						>Annuler</button
-					>
+				<div class="w3-container p-4-16 w3-light-grey border-t">
+					<button on:click={toggleJoinModal} type="button" class="btn osr-yellow">Annuler</button>
 				</div>
 			</div>
 		</div>
@@ -811,7 +799,7 @@
 					<br />
 					<button
 						on:click={toggleCreateModal}
-						class="w3-button w3-xlarge w3-hover-red w3-display-topright"
+						class="btn w3-xlarge w3-hover-red w3-display-topright"
 						title="Close Modal">&times;</button
 					>
 				</div>
@@ -820,7 +808,7 @@
 					<div class="w3-section">
 						<label for="nickname2"><b>Pseudo</b></label>
 						<input
-							class="w3-input w3-border w3-margin-bottom"
+							class="w3-input mb-4 border"
 							type="text"
 							placeholder="Veuillez entrer un pseudo (n'utilisez pas votre nom réel)"
 							bind:value={nickname}
@@ -831,7 +819,7 @@
 						<hr />
 						<label for="claim"><b>Claim initial</b></label>
 						<input
-							class="w3-input w3-border w3-margin-bottom"
+							class="w3-input mb-4 border"
 							type="text"
 							placeholder="Veuillez entrer le claim"
 							id="claim"
@@ -844,7 +832,7 @@
 						<div class="w3-container" style="display: flex; flex-wrap: wrap;">
 							{#each Object.entries(palette) as [colorHex, colorName]}
 								<div style="margin: 6px">
-									<label class="form-control w3-monospace">
+									<label class="form-control font-mono">
 										<input
 											class="w3-radio"
 											type="radio"
@@ -858,128 +846,104 @@
 								</div>
 							{/each}
 						</div>
-						<button class="w3-button w3-block osr-green w3-section w3-padding" type="submit"
+						<button class="btn w3-block osr-green w3-section p-4" type="submit"
 							>Créer un Spectrum</button
 						>
 					</div>
 				</form>
 
-				<div class="w3-container w3-border-top w3-padding-16 w3-light-grey">
-					<button on:click={toggleCreateModal} type="button" class="w3-button osr-yellow"
-						>Annuler</button
-					>
+				<div class="w3-container p-4-16 w3-light-grey border-t">
+					<button on:click={toggleCreateModal} type="button" class="btn osr-yellow">Annuler</button>
 				</div>
 			</div>
 		</div>
 	{/if}
 </div>
 
-<div class="w3-row" style="position: relative;">
+<div class="mt-8 flex flex-wrap" style="position: relative;">
 	{#if !spectrumId}
 		<div class="overlay">Pas de spectrum en cours</div>
 	{/if}
-	<div class="w3-twothird w3-col">
-		<div class="w3-card w3-content" bind:clientWidth={canvasWidth}>
-			<header class="w3-container" style="padding: 0; font-family: monospace;">
-				<label for="claim" class="w3-col w3-padding" style="width: 10%; font-weight: bold"
-					>Claim:</label
-				>
-				<input
-					name="claim"
-					class="w3-col w3-input w3-border-0"
-					style="width: 90%; z-index: 100;"
-					type="text"
-					readonly={!adminModeOn}
-					bind:value={claim}
-					on:focusin={() => {
-						claimFocus = true;
-						previousClaim = claim;
-					}}
-					on:focusout={() => {
-						claimFocus = false;
-						if (claim != previousClaim) log(`Claim: ${claim}`);
-					}}
-					on:input={() => {
-						if (adminModeOn) {
-							websocket.send('claim ||' + claim + '||');
-						}
-					}}
-				/>
+	<div class="w-2/3">
+		<div class="card bg-base-100 w-full shadow-sm" style="min-width: 980px; max-width:980px" bind:clientWidth={canvasWidth}>
+			<header class="p-0 font-mono">
+				<label class="floating-label">
+					<input
+						name="claim"
+						class="input input-lg !w-full"
+						type="text"
+						placeholder="Claim : "
+						readonly={!adminModeOn}
+						bind:value={claim}
+						on:focusin={() => {
+							claimFocus = true;
+							previousClaim = claim;
+						}}
+						on:focusout={() => {
+							claimFocus = false;
+							if (claim != previousClaim) log(`Claim: ${claim}`);
+						}}
+						on:input={() => {
+							if (adminModeOn) {
+								websocket.send('claim ||' + claim + '||');
+							}
+						}}
+					/>
+					<span class="font-bold">Claim : </span>
+				</label>
 			</header>
 
-			<div
-				class="w3-container w3-border-top"
-				style="display: flex; flex-direction: column; padding: 0;"
-			>
-				<canvas style="margin: auto;" id="spectrum"></canvas>
+			<div class="border-t p-0">
+				<canvas class="m-auto" id="spectrum"></canvas>
 			</div>
 
-			<footer class="w3-bar" class:w3-padding={spectrumId}>
+			<footer class="flex items-center" class:p-4={spectrumId}>
 				{#if adminModeOn}
 					<button
-						class="w3-bar-item w3-mobile w3-button w3-black w3-text-white w3-round-large w3-monospace w3-margin-right"
+						class="btn btn-neutral mr-4 rounded-lg px-4 py-2 font-mono"
 						on:click={resetPositions}
 					>
 						<Fa icon={faRotateLeft} /> Reset les Positions</button
 					>
 
-					<button
-						class="w3-bar-item w3-mobile w3-button w3-black w3-text-white w3-round-large w3-monospace w3-margin-right"
-						on:click={initPellet}><Fa icon={faCirclePlus} /> Créer mon Palet</button
+					<button class="btn btn-neutral mr-4 rounded-lg px-4 py-2 font-mono" on:click={initPellet}
+						><Fa icon={faCirclePlus} /> Créer mon Palet</button
 					>
 
-					<button
-						class="w3-bar-item w3-mobile w3-button w3-black w3-text-white w3-round-large w3-monospace w3-disabled"
+					<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
 						><Fa icon={faStop} /> Clôturer le Spectrum</button
 					>
 				{/if}
 
 				{#if spectrumId}
 					<div
-						class="w3-dropdown-hover w3-mobile w3-right"
+						class="dropdown dropdown-bottom dropdown-center float-right"
 						style="font-style: normal; font-family: 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Emoji', sans-serif;"
 					>
-						<button class="w3-button w3-round-large w3-mobile w3-yellow w3-monospace"
-							>😀 Emoji</button
-						>
-						<div class="w3-dropdown-content">
-							<button
-								on:click={() => sendEmoji(0)}
-								class="w3-bar-item w3-button w3-large w3-mobile text-center">😜</button
-							>
-							<button
-								on:click={() => sendEmoji(1)}
-								class="w3-bar-item w3-button w3-large w3-mobile text-center">🤚</button
-							>
-							<button
-								on:click={() => sendEmoji(2)}
-								class="w3-bar-item w3-button w3-large w3-mobile text-center">😵</button
-							>
-							<button
-								on:click={() => sendEmoji(3)}
-								class="w3-bar-item w3-button w3-large w3-mobile text-center">🤯</button
-							>
-							<button
-								on:click={() => sendEmoji(4)}
-								class="w3-bar-item w3-button w3-large w3-mobile text-center">🫣</button
-							>
-							<button
-								on:click={() => sendEmoji(5)}
-								class="w3-bar-item w3-button w3-large w3-mobile text-center">🛟</button
-							>
-							<button
-								on:click={() => sendEmoji(6)}
-								class="w3-bar-item w3-button w3-large w3-mobile text-center">🦝</button
-							>
+						<div tabindex="0" role="button" class="btn btn-warning m-1 rounded-lg font-mono">
+							😀 Emoji
 						</div>
+						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+						<ul
+							tabindex="0"
+							class="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm"
+						>
+							<li><a on:click={() => sendEmoji(0)}>😜</a></li>
+							<li><a on:click={() => sendEmoji(1)}>🤚</a></li>
+							<li><a on:click={() => sendEmoji(2)}>😵</a></li>
+							<li><a on:click={() => sendEmoji(3)}>🤯</a></li>
+							<li><a on:click={() => sendEmoji(4)}>🫣</a></li>
+							<li><a on:click={() => sendEmoji(5)}>🛟</a></li>
+							<li><a on:click={() => sendEmoji(6)}>🦝</a></li>
+						</ul>
 					</div>
 				{/if}
 			</footer>
 		</div>
 	</div>
 
-	<div class="w3-col w3-third">
-		<div class="w3-container w3-responsive w3-monospace w3-margin-bottom">
+	<div class="w-1/3">
+		<div class="mb-4 font-mono">
 			<table class="table">
 				<colgroup>
 					<col style="width: 10%;" />
@@ -1022,13 +986,11 @@
 							{#if adminModeOn}
 								<td>
 									<div class="tooltip" data-tip="Retirer du spectrum">
-										<button class="w3-button w3-right w3-disabled"
-											><Fa icon={faUserSlash} /></button
-										>
+										<button class="btn btn-error btn-ghost btn-circle btn-disabled float-right"><Fa icon={faUserSlash} /></button>
 									</div>
 									<div class="tooltip" data-tip="Rendre admin">
 										<button
-											class="w3-button w3-right"
+											class="btn btn-secondary btn-ghost btn-circle float-right"
 											on:click={() => {
 												makeAdmin(colorHex);
 											}}><Fa icon={faCirclePlus} /></button
@@ -1041,7 +1003,7 @@
 				</tbody>
 			</table>
 		</div>
-		<div id="history" class="w3-container w3-responsive w3-monospace">
+		<div id="history" class="font-mono">
 			<table class="table">
 				<thead>
 					<tr>
@@ -1105,14 +1067,6 @@
 		justify-content: center;
 		font-size: x-large;
 		z-index: 10;
-	}
-
-	.w3-dropdown-hover:first-child {
-		background-color: transparent;
-	}
-
-	.w3-dropdown-content button:hover {
-		background-color: #ccc;
 	}
 
 	.osr-green {
