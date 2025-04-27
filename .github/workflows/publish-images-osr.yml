@@ -68,8 +68,8 @@ jobs:
               cat << EOF > .env
               # Frontend
               VITE_VERSION=${VITE_VERSION}
-              VITE_API_URL=https://api.spectrum.opinions-sur-rue.fr/
-              VITE_PUBLIC_URL=https://spectrum.opinions-sur-rue.fr/
+              VITE_API_URL=https://api.spectrum.opinions-sur-rue.fr
+              VITE_PUBLIC_URL=https://spectrum.opinions-sur-rue.fr
               VITE_LOGO_URL=${{ vars.VITE_LOGO_URL }}
               VITE_LOGO_WIDTH=${{ vars.VITE_LOGO_WIDTH }}
               VITE_HEADER_TITLE=${{ vars.VITE_HEADER_TITLE }}
