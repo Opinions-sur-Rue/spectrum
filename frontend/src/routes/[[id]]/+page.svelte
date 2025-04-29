@@ -865,7 +865,11 @@
 		<div class="overlay">Pas de spectrum en cours</div>
 	{/if}
 	<div class="w-2/3">
-		<div class="card bg-base-100 w-full shadow-sm" style="min-width: 980px; max-width:980px" bind:clientWidth={canvasWidth}>
+		<div
+			class="card bg-base-100 w-full shadow-sm"
+			style="min-width: 980px; max-width:980px"
+			bind:clientWidth={canvasWidth}
+		>
 			<header class="p-0 font-mono">
 				<label class="floating-label">
 					<input
@@ -986,7 +990,9 @@
 							{#if adminModeOn}
 								<td>
 									<div class="tooltip" data-tip="Retirer du spectrum">
-										<button class="btn btn-error btn-ghost btn-circle btn-disabled float-right"><Fa icon={faUserSlash} /></button>
+										<button class="btn btn-error btn-ghost btn-circle btn-disabled float-right"
+											><Fa icon={faUserSlash} /></button
+										>
 									</div>
 									<div class="tooltip" data-tip="Rendre admin">
 										<button
