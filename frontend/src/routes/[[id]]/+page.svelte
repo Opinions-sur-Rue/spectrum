@@ -5,41 +5,31 @@
 
 	import Header from '$lib/components/Header.svelte';
 	import { notifier } from '$lib/notifications';
-	import Fa from 'svelte-fa';
 	import {
-		faRotateLeft,
 		faCirclePlus,
-		faStop,
 		faCopy,
-		faPersonWalkingArrowRight,
-		faPerson,
 		faExclamation,
-		faPalette,
 		faNewspaper,
+		faPalette,
+		faPerson,
+		faPersonWalkingArrowRight,
+		faPlus,
+		faRightFromBracket,
+		faRotateLeft,
+		faStop,
 		faUserSlash
 	} from '@fortawesome/free-solid-svg-icons';
-
-	import { startWebsocket } from '$lib/spectrum/websocket';
+	import Fa from 'svelte-fa';
+	import { page } from '$app/state';
 	import { getUserId } from '$lib/authentication/userId';
+	import CreateSpectrumModal from '$lib/components/CreateSpectrumModal.svelte';
+	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
+	import { HEADER_TITLE, LOGO_URL, LOGO_WIDTH, OFFSET_SUBSTITLE, PUBLIC_URL } from '$lib/env';
+	import { palette } from '$lib/spectrum/palette';
+	import { startWebsocket } from '$lib/spectrum/websocket';
+	import { Canvas, Circle, FabricText, Group, loadSVGFromURL, Rect, util } from 'fabric';
 	import { onMount, tick } from 'svelte';
 	import { copy } from 'svelte-copy';
-
-	import { page } from '$app/state';
-	import { HEADER_TITLE, LOGO_URL, LOGO_WIDTH, OFFSET_SUBSTITLE, PUBLIC_URL } from '$lib/env';
-	import { Circle, Rect, FabricText, Group, util, Canvas, loadSVGFromURL } from 'fabric';
-
-	const palette: object = {
-		aeaeae: 'Gris  ', // Neutral gray
-		cd5334: 'Brun  ', // Burnt orange
-		ff5555: 'Rouge ', // Bright red
-		ff9955: 'Orange', // Vibrant orange
-		ffe680: 'Jaune ', // Soft yellow
-		aade87: 'Vert  ', // Light green
-		aaeeff: 'Bleu  ', // Light cyan
-		'4b0082': 'Indigo', // Indigo
-		c6afe9: 'Violet', // Soft lavender
-		d473d4: 'Mauve ' // Muted mauve
-	};
 
 	const opinions = {
 		stronglyAgree: "Complètement d'accord",
@@ -52,12 +42,14 @@
 		indifferent: 'Indifférent ou sans avis',
 		notReplied: 'Pas répondu encore'
 	};
+	type OpinionKey = keyof typeof opinions;
 	let currentOpinion: string = 'notReplied';
 	let previousOpinion: string = 'notReplied';
 
-	export let spectrumId: string | undefined;
+	//let spectrumId: string | undefined = $state(undefined);
+	let { id: spectrumId } = $props();
 
-	let canvasWidth: number | undefined;
+	let canvasWidth: number | undefined = $state();
 
 	let myCanvas: Canvas;
 
@@ -66,12 +58,12 @@
 	let websocket: WebSocket;
 	//let connected = false;
 
-	let userId: string;
-	let nickname: string;
+	let userId: string | undefined = $state();
+	let nickname: string | undefined = $state();
 	let initialized = false;
 	let listenning = true;
 
-	let logs: string[] = [];
+	let logs: string[] = $state([]);
 
 	let myPellet: any;
 	let moving = false;
@@ -79,7 +71,7 @@
 	const cellsPoints: any[] = [];
 	const others: any = {};
 
-	let claim: string | undefined;
+	let claim: string | undefined = $state();
 	let scale: number;
 
 	let tbodyRef: any; // Reference to tbody
@@ -92,15 +84,15 @@
 
 			if (pointInPolygon(cellsPoints[i], [target.left, target.top])) {
 				if (cell.id != 'notReplied') {
-					log(`${others[otherUserId].nickname} est "${opinions[cell.id]}"`);
+					log(`${others[otherUserId].nickname} est "${opinions[cell.id as OpinionKey]}"`);
 				}
 			}
 		}
 	}
 
-	$: {
+	$effect(() => {
 		scale = canvasWidth / 980;
-	}
+	});
 
 	async function scrollToBottom() {
 		await tick(); // Wait for UI to update
@@ -129,7 +121,7 @@
 				moving = false;
 
 				if (currentOpinion != 'notReplied' && currentOpinion != previousOpinion) {
-					log(`Vous êtes "${opinions[currentOpinion]}"`);
+					log(`Vous êtes "${opinions[currentOpinion as OpinionKey]}"`);
 					previousOpinion = currentOpinion;
 				}
 			}
@@ -208,6 +200,8 @@
 		// only if not assigned, then random
 		if (!userId)
 			userId = Object.keys(palette)[util.getRandomInt(0, Object.keys(palette).length - 1)];
+
+		if (!nickname) nickname = 'Participant ' + (Math.floor(Math.random() * 100) + 1);
 
 		let circle = new Circle({
 			...options,
@@ -396,8 +390,10 @@
 			log(`${otherNickname} a rejoint le spectrum`);
 			others[otherUserId] = {
 				pellet:
-					!isNaN(coords.x) && !isNaN(coords.y) ? initOtherPellet(otherUserId, otherNickname) : null,
-				targets: !isNaN(coords.x) && !isNaN(coords.y) ? [coords] : [],
+					coords && !isNaN(coords.x) && !isNaN(coords.y)
+						? initOtherPellet(otherUserId, otherNickname)
+						: null,
+				targets: coords && !isNaN(coords.x) && !isNaN(coords.y) ? [coords] : [],
 				nickname: otherNickname
 			};
 		} else if (coords && !isNaN(coords.x) && !isNaN(coords.y)) {
@@ -413,7 +409,7 @@
 			others[otherUserId].cancel();
 		}
 
-		if (!isNaN(coords?.x) && !isNaN(coords?.y)) {
+		if (coords && (!isNaN(coords.x) || !isNaN(coords.y))) {
 			if (others[otherUserId].validateOpinion) clearTimeout(others[otherUserId].validateOpinion);
 
 			others[otherUserId].validateOpinion = setTimeout(() => {
@@ -445,14 +441,6 @@
 	function sendEmoji(emojiIndex: number) {
 		const emojis = ['😜', '🤚', '😵', '🤯', '🫣', '🛟', '🦝'];
 		websocket.send('emoji ' + emojis[emojiIndex]);
-	}
-
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T {
-		let timer: ReturnType<typeof setTimeout>;
-		return function (...args: Parameters<T>) {
-			clearTimeout(timer);
-			timer = setTimeout(() => fn(...args), delay);
-		} as T;
 	}
 
 	function lerp(a: number, b: number, t: number) {
@@ -571,7 +559,7 @@
 					log('Vous avez été élu admin');
 				}
 			} else if (command == 'newposition') {
-				if (myPellet) {
+				if (myPellet && coords) {
 					myPellet.left = coords.x * scale;
 					myPellet.top = coords.y * scale;
 					myPellet.setCoords();
@@ -611,24 +599,21 @@
 		websocket.send('resetpositions');
 	}
 
-	let initialClaim: string | undefined;
-	function createSpectrum() {
+	function onCreateSpectrum(nickname: string, initialClaim: string, userId: string) {
 		listenning = true;
 		claim = initialClaim;
-		initialClaim = '';
 		websocket.send(`startspectrum ${nickname} ${userId}`);
-		const modal = document.getElementById('create-modal');
-		if (modal) modal.style.display = 'none';
+		showCreateModal = false;
 		adminModeOn = true;
 		websocket.send(`claim ${claim}`);
 	}
 
-	function joinSpectrum() {
+	function onJoinSpectrum(spectrumId: string, nickname: string, userId: string) {
 		listenning = true;
 		websocket.send(`joinspectrum ${spectrumId} ${nickname} ${userId}`);
 	}
 
-	let adminModeOn = false;
+	let adminModeOn: boolean = $state(false);
 	function joinedSpectrum(id: string) {
 		spectrumId = id;
 		console.log(`spectrumId = ${id}`);
@@ -644,8 +629,10 @@
 		websocket.send(`makeadmin ${id}`);
 	}
 
-	let showJoinModal = false;
-	let showSpectrumId = false;
+	let showSpectrumId = $state(false);
+
+	let showJoinModal = $state(false);
+
 	function toggleJoinModal() {
 		showJoinModal = !showJoinModal;
 	}
@@ -653,9 +640,10 @@
 		showSpectrumId = !showSpectrumId;
 	}
 
-	let showCreateModal = false;
+	let showCreateModal = $state(false);
 	function toggleCreateModal() {
 		showCreateModal = !showCreateModal;
+		console.log(showCreateModal);
 	}
 
 	function leaveSpectrum() {
@@ -684,16 +672,19 @@
 	title={HEADER_TITLE}
 />
 
+<CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
+<JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
+
 <br />
 
 <div class="m-4 font-mono">
 	{#if !spectrumId}
-		<div class="flex items-center">
-			<button on:click={toggleCreateModal} class="btn osr-yellow float-left rounded px-4 py-2"
-				>Créer un Spectrum</button
+		<div class="flex justify-between">
+			<button onclick={toggleCreateModal} class="btn osr-yellow rounded-lg px-4 py-2"
+				><Fa icon={faPlus} />Créer un Spectrum</button
 			>
-			<button on:click={toggleJoinModal} class="btn osr-green float-left ml-4 rounded px-4 py-2"
-				>Rejoindre un Spectrum</button
+			<button onclick={toggleJoinModal} class="btn osr-green rounded-lg px-4 py-2"
+				><Fa icon={faRightFromBracket} />Rejoindre un Spectrum</button
 			>
 		</div>
 	{:else}
@@ -702,7 +693,7 @@
 				Spectrum en cours - Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b><button
 					class={showSpectrumId ? 'forbidden' : ''}
 					style="background: none; border: none; outline: none; box-shadow: none;"
-					on:click={toggleShowSpectrumId}>👁️</button
+					onclick={toggleShowSpectrumId}>👁️</button
 				>
 			</span>
 
@@ -718,144 +709,9 @@
 				<Fa icon={faCopy} /> Copier Lien
 			</button>
 
-			<button on:click={leaveSpectrum} class="btn osr-yellow float-right rounded px-4 py-2"
+			<button onclick={leaveSpectrum} class="btn osr-yellow float-right rounded px-4 py-2"
 				><Fa icon={faPersonWalkingArrowRight} /> Quitter le Spectrum</button
 			>
-		</div>
-	{/if}
-
-	{#if showJoinModal}
-		<div id="join-modal" class="w3-modal" style="display: block; z-index: 100;">
-			<div class="w3-modal-content w3-card-4 w3-animate-zoom" style="max-width:600px">
-				<div class="text-center">
-					<br />
-					<button
-						on:click={toggleJoinModal}
-						class="btn w3-xlarge w3-hover-red w3-display-topright"
-						title="Close Modal"
-						>&times;
-					</button>
-				</div>
-
-				<form class="w3-container" on:submit|preventDefault={joinSpectrum}>
-					<div class="w3-section">
-						<label for="spectrumId"><b>Identifiant du Spectrum</b></label>
-						<input
-							class="w3-input mb-4 border"
-							type="text"
-							placeholder="Veuillez entrer l'identifiant du spectrum que vous voulez rejoindre"
-							id="spectrumId"
-							bind:value={spectrumId}
-							style="width: 100%;"
-							required
-						/>
-						<hr />
-						<label for="nickname1"><b>Pseudo</b></label>
-						<input
-							class="w3-input mb-4 border"
-							type="text"
-							placeholder="Veuillez entrer un pseudo (n'utilisez pas votre nom réel)"
-							bind:value={nickname}
-							id="nickname1"
-							style="width: 100%;"
-							required
-						/>
-						<hr />
-						<p><b>Choisissez une couleur</b></p>
-						<div class="w3-container" style="display: flex; flex-wrap: wrap;">
-							{#each Object.entries(palette) as [colorHex, colorName]}
-								<div style="margin: 6px">
-									<label class="form-control font-mono">
-										<input
-											class="w3-radio"
-											type="radio"
-											name="color"
-											value={colorHex}
-											bind:group={userId}
-											style="background-color: #{colorHex} !important;"
-										/>
-										{@html colorName.replace(/ /g, '&nbsp;')}
-									</label>
-								</div>
-							{/each}
-						</div>
-						<button class="btn w3-block osr-green w3-section p-4" type="submit"
-							>Rejoindre le Spectrum</button
-						>
-					</div>
-				</form>
-
-				<div class="w3-container p-4-16 w3-light-grey border-t">
-					<button on:click={toggleJoinModal} type="button" class="btn osr-yellow">Annuler</button>
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	{#if showCreateModal}
-		<div id="create-modal" class="w3-modal" style="display: block; z-index: 100;">
-			<div class="w3-modal-content w3-card-4 w3-animate-zoom" style="max-width:600px">
-				<div class="text-center">
-					<br />
-					<button
-						on:click={toggleCreateModal}
-						class="btn w3-xlarge w3-hover-red w3-display-topright"
-						title="Close Modal">&times;</button
-					>
-				</div>
-
-				<form class="w3-container" on:submit|preventDefault={createSpectrum}>
-					<div class="w3-section">
-						<label for="nickname2"><b>Pseudo</b></label>
-						<input
-							class="w3-input mb-4 border"
-							type="text"
-							placeholder="Veuillez entrer un pseudo (n'utilisez pas votre nom réel)"
-							bind:value={nickname}
-							id="nickname2"
-							style="width: 100%;"
-							required
-						/>
-						<hr />
-						<label for="claim"><b>Claim initial</b></label>
-						<input
-							class="w3-input mb-4 border"
-							type="text"
-							placeholder="Veuillez entrer le claim"
-							id="claim"
-							style="width: 100%;"
-							bind:value={initialClaim}
-							required
-						/>
-						<hr />
-						<p><b>Choisissez une couleur</b></p>
-						<div class="w3-container" style="display: flex; flex-wrap: wrap;">
-							{#each Object.entries(palette) as [colorHex, colorName]}
-								<div style="margin: 6px">
-									<label class="form-control font-mono">
-										<input
-											class="w3-radio"
-											type="radio"
-											name="color"
-											value={colorHex}
-											bind:group={userId}
-											style="background-color: #{colorHex} !important;"
-										/>
-										{@html colorName.replace(/ /g, '&nbsp;')}
-									</label>
-								</div>
-							{/each}
-						</div>
-						<button class="btn w3-block osr-green w3-section p-4" type="submit"
-							>Créer un Spectrum</button
-						>
-					</div>
-				</form>
-
-				<div class="w3-container p-4-16 w3-light-grey border-t">
-					<button on:click={toggleCreateModal} type="button" class="btn osr-yellow">Annuler</button>
-				</div>
-			</div>
 		</div>
 	{/if}
 </div>
@@ -876,24 +732,24 @@
 						name="claim"
 						class="input input-lg !w-full"
 						type="text"
-						placeholder="Claim : "
+						placeholder="Claim"
 						readonly={!adminModeOn}
 						bind:value={claim}
-						on:focusin={() => {
+						onfocusin={() => {
 							claimFocus = true;
 							previousClaim = claim;
 						}}
-						on:focusout={() => {
+						onfocusout={() => {
 							claimFocus = false;
 							if (claim != previousClaim) log(`Claim: ${claim}`);
 						}}
-						on:input={() => {
+						oninput={() => {
 							if (adminModeOn) {
 								websocket.send('claim ||' + claim + '||');
 							}
 						}}
 					/>
-					<span class="font-bold">Claim : </span>
+					<span class="font-bold">Claim</span>
 				</label>
 			</header>
 
@@ -905,12 +761,12 @@
 				{#if adminModeOn}
 					<button
 						class="btn btn-neutral mr-4 rounded-lg px-4 py-2 font-mono"
-						on:click={resetPositions}
+						onclick={resetPositions}
 					>
 						<Fa icon={faRotateLeft} /> Reset les Positions</button
 					>
 
-					<button class="btn btn-neutral mr-4 rounded-lg px-4 py-2 font-mono" on:click={initPellet}
+					<button class="btn btn-neutral mr-4 rounded-lg px-4 py-2 font-mono" onclick={initPellet}
 						><Fa icon={faCirclePlus} /> Créer mon Palet</button
 					>
 
@@ -930,15 +786,15 @@
 						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 						<ul
 							tabindex="0"
-							class="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm"
+							class="dropdown-content menu bg-base-100 rounded-box z-1 w-12 p-2 shadow-sm"
 						>
-							<li><a on:click={() => sendEmoji(0)}>😜</a></li>
-							<li><a on:click={() => sendEmoji(1)}>🤚</a></li>
-							<li><a on:click={() => sendEmoji(2)}>😵</a></li>
-							<li><a on:click={() => sendEmoji(3)}>🤯</a></li>
-							<li><a on:click={() => sendEmoji(4)}>🫣</a></li>
-							<li><a on:click={() => sendEmoji(5)}>🛟</a></li>
-							<li><a on:click={() => sendEmoji(6)}>🦝</a></li>
+							<li><button onclick={() => sendEmoji(0)}>😜</button></li>
+							<li><button onclick={() => sendEmoji(1)}>🤚</button></li>
+							<li><button onclick={() => sendEmoji(2)}>😵</button></li>
+							<li><button onclick={() => sendEmoji(3)}>🤯</button></li>
+							<li><button onclick={() => sendEmoji(4)}>🫣</button></li>
+							<li><button onclick={() => sendEmoji(5)}>🛟</button></li>
+							<li><button onclick={() => sendEmoji(6)}>🦝</button></li>
 						</ul>
 					</div>
 				{/if}
@@ -947,7 +803,9 @@
 	</div>
 
 	<div class="w-1/3">
-		<div class="mb-4 font-mono">
+		<div
+			class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 bg-linear-to-bl to-50% font-mono"
+		>
 			<table class="table">
 				<colgroup>
 					<col style="width: 10%;" />
@@ -997,7 +855,7 @@
 									<div class="tooltip" data-tip="Rendre admin">
 										<button
 											class="btn btn-secondary btn-ghost btn-circle float-right"
-											on:click={() => {
+											onclick={() => {
 												makeAdmin(colorHex);
 											}}><Fa icon={faCirclePlus} /></button
 										>
@@ -1009,7 +867,10 @@
 				</tbody>
 			</table>
 		</div>
-		<div id="history" class="font-mono">
+		<div
+			id="history"
+			class="card bg-base-100 card-border border-base-300 from-base-content/5 bg-linear-to-bl to-50% font-mono"
+		>
 			<table class="table">
 				<thead>
 					<tr>
@@ -1019,8 +880,8 @@
 				<tbody
 					class="overflow-y-auto"
 					bind:this={tbodyRef}
-					on:mouseenter={() => (isHoveringHistory = true)}
-					on:mouseleave={() => (isHoveringHistory = false)}
+					onmouseenter={() => (isHoveringHistory = true)}
+					onmouseleave={() => (isHoveringHistory = false)}
 				>
 					{#each logs as log}
 						<tr style="display: table; width: 100%;">
@@ -1046,10 +907,6 @@
 <style>
 	header {
 		width: 100%;
-	}
-
-	input {
-		width: max-content;
 	}
 
 	table {
@@ -1086,54 +943,6 @@
 	#history tbody {
 		max-height: 300px;
 		display: block;
-	}
-
-	.form-control {
-		font-family: system-ui, sans-serif;
-		font-size: 1rem;
-		line-height: 1.5rem;
-		vertical-align: text-bottom;
-		display: grid;
-		grid-template-columns: 1.5rem auto;
-		gap: 0.5rem;
-	}
-
-	input[type='radio'] {
-		/* Add if not using autoprefixer */
-		-webkit-appearance: none;
-		/* Remove most all native input styles */
-		appearance: none;
-		/* For iOS < 15 */
-		background-color: greenyellow;
-		/* Not removed via appearance */
-		margin: 0;
-
-		font: inherit;
-
-		width: 1.5rem;
-		height: 1.5rem;
-		border-radius: 50%;
-		transform: translateY(-0.075em);
-
-		display: grid;
-
-		place-content: center;
-	}
-
-	input[type='radio']::before {
-		content: '';
-		width: 0.8rem;
-		height: 0.8rem;
-		border-radius: 50%;
-		transform: scale(0);
-		transition: 120ms transform ease-in-out;
-		box-shadow: inset 1rem 1rem rgb(244, 244, 244);
-		/* Windows High Contrast Mode */
-		/*background-color: CanvasText;*/
-	}
-
-	input[type='radio']:checked::before {
-		transform: scale(1);
 	}
 
 	.forbidden::after {
