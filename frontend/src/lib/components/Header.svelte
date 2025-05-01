@@ -6,7 +6,7 @@
 	export let offsetSubtitle: number = -10;
 </script>
 
-<h1 class="w3-xxlarge">
+<h1 class="text-4xl">
 	{#if logo}<img
 			src={logo}
 			alt="Spectrum"

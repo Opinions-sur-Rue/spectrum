@@ -21,7 +21,9 @@ describe('/+page.svelte', () => {
 		disconnect() {}
 	}
 
-	global.ResizeObserver = ResizeObserver;
+	globalThis.ResizeObserver = ResizeObserver;
+	HTMLDialogElement.prototype.show = vi.fn();
+	HTMLDialogElement.prototype.close = vi.fn();
 
 	test('should render h1', () => {
 		render(Page);
