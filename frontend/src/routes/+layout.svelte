@@ -22,8 +22,8 @@
 	<meta name="description" content={description} />
 </svelte:head>
 
-<section class="m-4">
-	<article class="m-4 p-4">
+<section>
+	<article class="p-4 md:m-4 lg:m-8">
 		<slot />
 	</article>
 

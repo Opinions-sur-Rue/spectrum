@@ -692,45 +692,41 @@
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
 
-<div class="m-4 mt-8 font-mono">
+<div class="m-4 mt-8 flex flex-wrap justify-center font-mono">
 	{#if !spectrumId}
-		<div class="flex justify-between">
-			<button onclick={toggleCreateModal} class="btn osr-yellow rounded-lg px-4 py-2"
-				><Fa icon={faPlus} />Démarrer un Spectrum</button
-			>
-			<button onclick={toggleJoinModal} class="btn osr-green rounded-lg px-4 py-2"
-				><Fa icon={faRightFromBracket} />Rejoindre un Spectrum</button
-			>
-		</div>
+		<button onclick={toggleCreateModal} class="btn osr-yellow rounded-lg px-4 py-2"
+			><Fa icon={faPlus} />Démarrer un Spectrum</button
+		>
+		<button onclick={toggleJoinModal} class="btn osr-green rounded-lg px-4 py-2"
+			><Fa icon={faRightFromBracket} />Rejoindre un Spectrum</button
+		>
 	{:else}
-		<div class="flex items-center">
-			<span class="float-left px-4 py-2">
-				<div class="inline-grid *:[grid-area:1/1]">
-					<div class="status status-success"></div>
-				</div>
-				Spectrum en cours - Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b><button
-					class={showSpectrumId ? 'forbidden' : ''}
-					style="background: none; border: none; outline: none; box-shadow: none;"
-					onclick={toggleShowSpectrumId}>👁️</button
-				>
-			</span>
-
-			<button
-				class="btn osr-green rounded px-4 py-2"
-				use:copy={{
-					text: PUBLIC_URL + '/' + spectrumId,
-					onCopy() {
-						copied();
-					}
-				}}
+		<span class="float-left px-4 py-2">
+			<div class="inline-grid *:[grid-area:1/1]">
+				<div class="status status-success"></div>
+			</div>
+			Spectrum en cours - Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b><button
+				class={showSpectrumId ? 'forbidden' : ''}
+				style="background: none; border: none; outline: none; box-shadow: none;"
+				onclick={toggleShowSpectrumId}>👁️</button
 			>
-				<Fa icon={faCopy} /> Copier Lien
-			</button>
+		</span>
 
-			<button onclick={leaveSpectrum} class="btn osr-yellow float-right rounded px-4 py-2"
-				><Fa icon={faPersonWalkingArrowRight} /> Quitter le Spectrum</button
-			>
-		</div>
+		<button
+			class="btn osr-green rounded px-4 py-2"
+			use:copy={{
+				text: PUBLIC_URL + '/' + spectrumId,
+				onCopy() {
+					copied();
+				}
+			}}
+		>
+			<Fa icon={faCopy} /> Copier Lien
+		</button>
+
+		<button onclick={leaveSpectrum} class="btn osr-yellow float-right rounded px-4 py-2"
+			><Fa icon={faPersonWalkingArrowRight} /> Quitter le Spectrum</button
+		>
 	{/if}
 </div>
 
@@ -738,7 +734,7 @@
 	{#if !spectrumId}
 		<div class="overlay glass">Pas de spectrum en cours</div>
 	{/if}
-	<div class="w-2/3 pr-4">
+	<div class="mb-4 w-full md:w-3/4 md:pr-2 lg:w-2/3 lg:pr-4">
 		<div class="card bg-base-100 w-full shadow-sm" bind:clientWidth={canvasWidth}>
 			<header class="p-0 font-mono">
 				<label class="floating-label">
@@ -771,7 +767,7 @@
 				<canvas class="m-auto" id="spectrum"></canvas>
 			</div>
 
-			<footer class="flex items-center" class:p-4={spectrumId}>
+			<footer class="flex flex-wrap justify-center" class:p-4={spectrumId}>
 				{#if adminModeOn}
 					<button
 						class="btn btn-neutral mr-4 rounded-lg px-4 py-2 font-mono"
@@ -816,7 +812,7 @@
 		</div>
 	</div>
 
-	<div class="w-1/3">
+	<div class="w-full md:w-1/4 lg:w-1/3">
 		<div
 			class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 bg-linear-to-bl to-50% font-mono"
 		>
@@ -852,7 +848,7 @@
 						</tr>
 					{/if}
 					{#each Object.entries(others) as [colorHex, other]}
-						<tr>
+						<tr class="odd:bg-white even:bg-gray-50">
 							<td>
 								<div style="background: #{colorHex}; clip-path: circle(10px);">&nbsp;</div>
 							</td>
@@ -898,7 +894,7 @@
 					onmouseleave={() => (isHoveringHistory = false)}
 				>
 					{#each logs as log}
-						<tr style="display: table; width: 100%;">
+						<tr class="odd:bg-white even:bg-gray-50">
 							<td>
 								{#if log.includes('Claim: ')}
 									<span class="text-sm"><b>{log}</b></span>
