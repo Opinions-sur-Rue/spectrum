@@ -30,6 +30,7 @@
 	import { Canvas, Circle, FabricText, Group, loadSVGFromURL, Rect, util } from 'fabric';
 	import { onMount, tick } from 'svelte';
 	import { copy } from 'svelte-copy';
+	import { lerp, pointInPolygon } from '$lib/utils';
 
 	const opinions = {
 		stronglyAgree: "Complètement d'accord",
@@ -49,7 +50,10 @@
 	//let spectrumId: string | undefined = $state(undefined);
 	let { id: spectrumId } = $props();
 
-	let canvasWidth: number | undefined = $state();
+	const originalWidth = 980;
+	const originalHeight = 735;
+
+	let canvasWidth: number = $state(originalWidth);
 
 	let myCanvas: Canvas;
 
@@ -91,7 +95,51 @@
 	}
 
 	$effect(() => {
-		scale = canvasWidth / 980;
+		if (canvasWidth) {
+			scale = canvasWidth / originalWidth;
+			if (myCanvas) {
+				myCanvas.setDimensions({ width: canvasWidth, height: scale * originalHeight });
+
+				svg.set({
+					scaleX: scale,
+					scaleY: scale,
+					left: (canvasWidth - svg.width! * scale) / 2,
+					top: 15 * scale
+				});
+
+				myPellet.set({
+					scaleX: scale,
+					scaleY: scale
+				});
+
+				Object.keys(others).forEach((key: string) => {
+					if (others[key].pellet) {
+						others[key].pellet.set({
+							scaleX: scale,
+							scaleY: scale
+						});
+					}
+				});
+
+				myCanvas.requestRenderAll();
+
+				for (let i = 0; i < cells.length; i++) {
+					const cell = cells[i];
+					cellsPoints[i] = [];
+
+					for (let index = 0; index < cell.path.length - 2; index++) {
+						let pathPoint = cell.path[index];
+
+						let p = [
+							pathPoint[pathPoint.length - 2] * scale - 15 * scale,
+							pathPoint[pathPoint.length - 1] * scale - 10 * scale
+						];
+
+						cellsPoints[i].push(p);
+					}
+				}
+			}
+		}
 	});
 
 	async function scrollToBottom() {
@@ -100,6 +148,8 @@
 			tbodyRef.scrollTop = tbodyRef.scrollHeight;
 		}
 	}
+
+	let svg: any;
 
 	onMount(() => {
 		currentOpinion = 'notReplied';
@@ -130,7 +180,7 @@
 		// @ts-ignore
 		loadSVGFromURL('/spectrum.svg').then(({ objects, options }) => {
 			// @ts-ignore
-			const svg = util.groupSVGElements(objects, options);
+			svg = util.groupSVGElements(objects, options);
 
 			// Get canvas dimensions
 			const canvasWidth = myCanvas.getWidth();
@@ -189,13 +239,11 @@
 
 	function initPellet() {
 		console.log('Initalizing Your Pellet');
-		var options = {
+		const options = {
 			top: 0,
-			left: 0
+			left: 0,
+			radius: 12
 		};
-
-		// @ts-ignore
-		options.radius = 12;
 
 		// only if not assigned, then random
 		if (!userId)
@@ -239,8 +287,10 @@
 		});
 
 		let g = new Group([circle, rect, text], {
-			top: (canvasWidth * 735) / 980 / 2,
+			top: (canvasWidth * originalHeight) / originalWidth / 2,
 			left: canvasWidth / 2,
+			scaleX: scale,
+			scaleY: scale,
 			hasBorders: false,
 			hasControls: false
 		});
@@ -280,6 +330,7 @@
 						} else {
 							cell.set({ fill: '#000002' });
 						}
+						console.log([myPellet.left, myPellet.top]);
 					}
 				}
 			}
@@ -289,47 +340,15 @@
 	}
 
 	/**
-	 * Performs the even-odd-rule Algorithm (a raycasting algorithm) to find out whether a point is in a given polygon.
-	 * This runs in O(n) where n is the number of edges of the polygon.
-	 *
-	 * @param {Array} polygon an array representation of the polygon where polygon[i][0] is the x Value of the i-th point and polygon[i][1] is the y Value.
-	 * @param {Array} point   an array representation of the point where point[0] is its x Value and point[1] is its y Value
-	 * @return {boolean} whether the point is in the polygon (not on the edge, just turn < into <= and > into >= for that)
-	 */
-	const pointInPolygon = function (polygon: any, point: any) {
-		//A point is in a polygon if a line from the point to infinity crosses the polygon an odd number of times
-		let odd = false;
-		//For each edge (In this case for each point of the polygon and the previous one)
-		for (let i = 0, j = polygon.length - 1; i < polygon.length; i++) {
-			//If a line from the point into infinity crosses this edge
-			if (
-				polygon[i][1] > point[1] !== polygon[j][1] > point[1] && // One point needs to be above, one below our y coordinate
-				// ...and the edge doesn't cross our Y corrdinate before our x coordinate (but between our x coordinate and infinity)
-				point[0] <
-					((polygon[j][0] - polygon[i][0]) * (point[1] - polygon[i][1])) /
-						(polygon[j][1] - polygon[i][1]) +
-						polygon[i][0]
-			) {
-				// Invert odd
-				odd = !odd;
-			}
-			j = i;
-		}
-		//If the number of crossings was odd, the point is in the polygon
-		return odd;
-	};
-
-	/**
 	 * @param {string} userId
 	 */
 	function initOtherPellet(userId: string, nickname: string) {
 		console.log('Initalizing Other Pellet: ' + userId);
-		var options = {
+		const options = {
 			top: 0,
-			left: 0
+			left: 0,
+			radius: 12
 		};
-		// @ts-ignore
-		options.radius = 12;
 
 		let circle = new Circle({
 			...options,
@@ -369,8 +388,10 @@
 		});
 
 		let g = new Group([circle, rect, text], {
-			top: (canvasWidth * 735) / 980 / 2,
+			top: (canvasWidth * originalHeight) / originalWidth / 2,
 			left: canvasWidth / 2,
+			scaleX: scale,
+			scaleY: scale,
 			evented: false,
 			hasBorders: false,
 			hasControls: false
@@ -443,10 +464,6 @@
 		websocket.send('emoji ' + emojis[emojiIndex]);
 	}
 
-	function lerp(a: number, b: number, t: number) {
-		return a + (b - a) * t;
-	}
-
 	function animateCursors() {
 		const t = 0.2;
 
@@ -458,8 +475,8 @@
 				const currentY = pellet.top ?? 0;
 
 				pellet.set({
-					left: lerp(currentX, targets[targets.length - 1].x, t),
-					top: lerp(currentY, targets[targets.length - 1].y, t)
+					left: lerp(currentX, targets[targets.length - 1].x * scale, t),
+					top: lerp(currentY, targets[targets.length - 1].y * scale, t)
 				});
 			}
 		}
@@ -675,13 +692,11 @@
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
 
-<br />
-
-<div class="m-4 font-mono">
+<div class="m-4 mt-8 font-mono">
 	{#if !spectrumId}
 		<div class="flex justify-between">
 			<button onclick={toggleCreateModal} class="btn osr-yellow rounded-lg px-4 py-2"
-				><Fa icon={faPlus} />Créer un Spectrum</button
+				><Fa icon={faPlus} />Démarrer un Spectrum</button
 			>
 			<button onclick={toggleJoinModal} class="btn osr-green rounded-lg px-4 py-2"
 				><Fa icon={faRightFromBracket} />Rejoindre un Spectrum</button
@@ -690,6 +705,9 @@
 	{:else}
 		<div class="flex items-center">
 			<span class="float-left px-4 py-2">
+				<div class="inline-grid *:[grid-area:1/1]">
+					<div class="status status-success"></div>
+				</div>
 				Spectrum en cours - Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b><button
 					class={showSpectrumId ? 'forbidden' : ''}
 					style="background: none; border: none; outline: none; box-shadow: none;"
@@ -718,14 +736,10 @@
 
 <div class="mt-8 flex flex-wrap" style="position: relative;">
 	{#if !spectrumId}
-		<div class="overlay">Pas de spectrum en cours</div>
+		<div class="overlay glass">Pas de spectrum en cours</div>
 	{/if}
-	<div class="w-2/3">
-		<div
-			class="card bg-base-100 w-full shadow-sm"
-			style="min-width: 980px; max-width:980px"
-			bind:clientWidth={canvasWidth}
-		>
+	<div class="w-2/3 pr-4">
+		<div class="card bg-base-100 w-full shadow-sm" bind:clientWidth={canvasWidth}>
 			<header class="p-0 font-mono">
 				<label class="floating-label">
 					<input
