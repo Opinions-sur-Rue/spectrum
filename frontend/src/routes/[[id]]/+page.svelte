@@ -767,27 +767,33 @@
 				<canvas class="m-auto" id="spectrum"></canvas>
 			</div>
 
-			<footer class="flex flex-wrap justify-center" class:p-4={spectrumId}>
+			<footer class="flex flex-wrap items-center justify-center" class:p-4={spectrumId}>
 				{#if adminModeOn}
 					<button
 						class="btn btn-neutral mr-4 rounded-lg px-4 py-2 font-mono"
 						onclick={resetPositions}
 					>
-						<Fa icon={faRotateLeft} /> Reset les Positions</button
+						<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
+							Reset les Positions</span
+						></button
 					>
 
 					<button class="btn btn-neutral mr-4 rounded-lg px-4 py-2 font-mono" onclick={initPellet}
-						><Fa icon={faCirclePlus} /> Créer mon Palet</button
+						><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
+							Créer mon Palet</span
+						></button
 					>
 
-					<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
-						><Fa icon={faStop} /> Clôturer le Spectrum</button
+					<button class="btn btn-neutral btn-disabled mr-3 rounded-lg px-4 py-2 font-mono"
+						><Fa icon={faStop} /><span class="hidden lg:!inline-block">
+							Clôturer le Spectrum</span
+						></button
 					>
 				{/if}
 
 				{#if spectrumId}
 					<div
-						class="dropdown dropdown-bottom dropdown-center float-right"
+						class="dropdown dropdown-top dropdown-center"
 						style="font-style: normal; font-family: 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Emoji', sans-serif;"
 					>
 						<div tabindex="0" role="button" class="btn btn-warning m-1 rounded-lg font-mono">
