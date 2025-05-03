@@ -5,15 +5,6 @@
 
 	import { NotificationDisplay } from '$lib/notifications';
 
-	let themes = {
-		// These are the defaults
-		danger: '#b0615b',
-		success: '#5bb065',
-		warning: '#b08a5b',
-		info: '#5b87b0',
-		default: '#dddddd' // relates to simply '.show()'
-	};
-
 	let description = 'Welcome to Spectrum.';
 </script>
 
@@ -27,7 +18,7 @@
 		<slot />
 	</article>
 
-	<NotificationDisplay {themes} />
+	<NotificationDisplay />
 </section>
 
 <style>
