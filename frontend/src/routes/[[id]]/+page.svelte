@@ -692,12 +692,12 @@
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
 
-<div class="m-4 mt-8 flex flex-wrap justify-center font-mono">
+<div class="m-4 mt-8 flex flex-wrap justify-center gap-4 font-mono">
 	{#if !spectrumId}
-		<button onclick={toggleCreateModal} class="btn osr-yellow rounded-lg px-4 py-2"
+		<button onclick={toggleCreateModal} class="btn btn-warning rounded-lg px-4 py-2"
 			><Fa icon={faPlus} />Démarrer un Spectrum</button
 		>
-		<button onclick={toggleJoinModal} class="btn osr-green rounded-lg px-4 py-2"
+		<button onclick={toggleJoinModal} class="btn btn-success rounded-lg px-4 py-2"
 			><Fa icon={faRightFromBracket} />Rejoindre un Spectrum</button
 		>
 	{:else}
@@ -713,7 +713,7 @@
 		</span>
 
 		<button
-			class="btn osr-green rounded px-4 py-2"
+			class="btn btn-success rounded-lg px-4 py-2"
 			use:copy={{
 				text: PUBLIC_URL + '/' + spectrumId,
 				onCopy() {
@@ -724,7 +724,7 @@
 			<Fa icon={faCopy} /> Copier Lien
 		</button>
 
-		<button onclick={leaveSpectrum} class="btn osr-yellow float-right rounded px-4 py-2"
+		<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
 			><Fa icon={faPersonWalkingArrowRight} /> Quitter le Spectrum</button
 		>
 	{/if}
@@ -767,24 +767,21 @@
 				<canvas class="m-auto" id="spectrum"></canvas>
 			</div>
 
-			<footer class="flex flex-wrap items-center justify-center" class:p-4={spectrumId}>
+			<footer class="flex flex-wrap items-center justify-center gap-4" class:p-4={spectrumId}>
 				{#if adminModeOn}
-					<button
-						class="btn btn-neutral mr-4 rounded-lg px-4 py-2 font-mono"
-						onclick={resetPositions}
-					>
+					<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={resetPositions}>
 						<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
 							Reset les Positions</span
 						></button
 					>
 
-					<button class="btn btn-neutral mr-4 rounded-lg px-4 py-2 font-mono" onclick={initPellet}
+					<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={initPellet}
 						><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
 							Créer mon Palet</span
 						></button
 					>
 
-					<button class="btn btn-neutral btn-disabled mr-3 rounded-lg px-4 py-2 font-mono"
+					<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
 						><Fa icon={faStop} /><span class="hidden lg:!inline-block">
 							Clôturer le Spectrum</span
 						></button
@@ -796,7 +793,7 @@
 						class="dropdown dropdown-top dropdown-center"
 						style="font-style: normal; font-family: 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Emoji', sans-serif;"
 					>
-						<div tabindex="0" role="button" class="btn btn-warning m-1 rounded-lg font-mono">
+						<div tabindex="0" role="button" class="btn btn-warning rounded-lg font-mono">
 							😀 Emoji
 						</div>
 						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -843,7 +840,9 @@
 					{#if spectrumId}
 						<tr>
 							<td>
-								<div style="background: #{userId}; clip-path: circle(10px);">&nbsp;</div>
+								<div class="inline-grid *:[grid-area:1/1]">
+									<div class="status" style="background: #{userId}; color: #{userId}"></div>
+								</div>
 							</td>
 							<td>
 								<span class="text-sm"><b>{nickname}{adminModeOn ? '*' : ''}</b> (Vous-même)</span>
@@ -856,7 +855,9 @@
 					{#each Object.entries(others) as [colorHex, other]}
 						<tr class="odd:bg-white even:bg-gray-50">
 							<td>
-								<div style="background: #{colorHex}; clip-path: circle(10px);">&nbsp;</div>
+								<div class="inline-grid *:[grid-area:1/1]">
+									<div class="status" style="background: #{colorHex}; color: #{colorHex}"></div>
+								</div>
 							</td>
 							<td>
 								<span class="text-sm"><b>{other.nickname}</b></span>
@@ -946,14 +947,6 @@
 		justify-content: center;
 		font-size: x-large;
 		z-index: 10;
-	}
-
-	.osr-green {
-		background-color: #10b1b1;
-	}
-
-	.osr-yellow {
-		background-color: #ffc517;
 	}
 
 	#history tbody {
