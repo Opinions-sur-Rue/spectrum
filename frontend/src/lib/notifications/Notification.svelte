@@ -16,7 +16,7 @@
 	progressValue.set(100).then(() => close());
 </script>
 
-<div class={'alert alert-' + background} transition:fade>
+<div role="alert" class={'alert alert-' + background} transition:fade>
 	<button class="close" on:click={() => close()}> ✕ </button>
 	<div class="content">
 		{message}

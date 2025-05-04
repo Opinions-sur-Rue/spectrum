@@ -11,3 +11,6 @@ export const LOGO_URL = import.meta.env.VITE_LOGO_URL ?? `/logo-white.png`;
 export const LOGO_WIDTH = import.meta.env.VITE_LOGO_WIDTH ?? 128;
 export const HEADER_TITLE = import.meta.env.VITE_HEADER_TITLE;
 export const OFFSET_SUBSTITLE = import.meta.env.VITE_OFFSET_SUBTITLE ?? -32;
+
+// Feature flag
+export const ENABLE_AUDIO = import.meta.env.VITE_ENABLE_AUDIO ?? false;

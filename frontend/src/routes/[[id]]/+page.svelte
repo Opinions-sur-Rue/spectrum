@@ -9,11 +9,16 @@
 		faCirclePlus,
 		faCopy,
 		faExclamation,
+		faEye,
+		faEyeSlash,
+		faMapPin,
+		faMicrophone,
+		faMicrophoneSlash,
 		faNewspaper,
 		faPalette,
 		faPerson,
 		faPersonWalkingArrowRight,
-		faPlus,
+		faPlayCircle,
 		faRightFromBracket,
 		faRotateLeft,
 		faStop,
@@ -24,13 +29,22 @@
 	import { getUserId } from '$lib/authentication/userId';
 	import CreateSpectrumModal from '$lib/components/CreateSpectrumModal.svelte';
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
-	import { HEADER_TITLE, LOGO_URL, LOGO_WIDTH, OFFSET_SUBSTITLE, PUBLIC_URL } from '$lib/env';
+	import {
+		ENABLE_AUDIO,
+		HEADER_TITLE,
+		LOGO_URL,
+		LOGO_WIDTH,
+		OFFSET_SUBSTITLE,
+		PUBLIC_URL
+	} from '$lib/env';
 	import { palette } from '$lib/spectrum/palette';
 	import { startWebsocket } from '$lib/spectrum/websocket';
 	import { Canvas, Circle, FabricText, Group, loadSVGFromURL, Rect, util } from 'fabric';
 	import { onMount, tick } from 'svelte';
 	import { copy } from 'svelte-copy';
 	import { lerp, pointInPolygon } from '$lib/utils';
+	import Peer from 'peerjs';
+	import * as pkg from 'peerjs';
 
 	const opinions = {
 		stronglyAgree: "Complètement d'accord",
@@ -47,8 +61,7 @@
 	let currentOpinion: string = 'notReplied';
 	let previousOpinion: string = 'notReplied';
 
-	//let spectrumId: string | undefined = $state(undefined);
-	let { id: spectrumId } = $props();
+	let { id: spectrumId }: { id: string | undefined } = $props();
 
 	const originalWidth = 980;
 	const originalHeight = 735;
@@ -60,7 +73,6 @@
 	const updateTick: number = 100;
 
 	let websocket: WebSocket;
-	//let connected = false;
 
 	let userId: string | undefined = $state();
 	let nickname: string | undefined = $state();
@@ -73,12 +85,19 @@
 	let moving = false;
 	const cells: any[] = [];
 	const cellsPoints: any[] = [];
-	const others: any = {};
+	const others: any = $state({});
 
 	let claim: string | undefined = $state();
 	let scale: number;
 
 	let tbodyRef: any; // Reference to tbody
+
+	let localStream: MediaStream | undefined;
+	let peer: Peer;
+	let peerId: string | undefined = $state();
+	let peerConnected = $state(false);
+	const connections = new Map<string, pkg.MediaConnection>();
+	let microphone: boolean = $state(false);
 
 	function validateOpinion(otherUserId: string) {
 		const target = others[otherUserId].pellet;
@@ -107,7 +126,7 @@
 					top: 15 * scale
 				});
 
-				myPellet.set({
+				myPellet?.set({
 					scaleX: scale,
 					scaleY: scale
 				});
@@ -142,6 +161,24 @@
 		}
 	});
 
+	$effect(() => {
+		if (ENABLE_AUDIO) {
+			if (microphone) {
+				localStream?.getTracks().forEach((track) => (track.enabled = true));
+			} else {
+				localStream?.getTracks().forEach((track) => (track.enabled = false));
+			}
+		}
+	});
+
+	$effect(() => {
+		if (ENABLE_AUDIO) {
+			if (spectrumId && peerId) {
+				websocket.send(`voicechat ${userId} ${peerId}`);
+			}
+		}
+	});
+
 	async function scrollToBottom() {
 		await tick(); // Wait for UI to update
 		if (tbodyRef && !isHoveringHistory) {
@@ -151,7 +188,91 @@
 
 	let svg: any;
 
+	async function getAudioStream() {
+		try {
+			localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			localStream?.getTracks().forEach((track) => (track.enabled = false));
+		} catch (err) {
+			console.error('Error accessing microphone:', err);
+		}
+	}
+
+	function playAudio(stream: MediaStream) {
+		const audio = new Audio();
+		audio.srcObject = stream;
+		audio.autoplay = true;
+		audio.play().catch(console.error);
+	}
+
+	function connectToPeer(previousId?: string) {
+		// If a peer instance already exists, destroy it
+		if (peer && !peer.destroyed) {
+			peer.destroy();
+		}
+
+		const options = {
+			host: 'spectrum.utile.space',
+			port: 443,
+			path: '/peerjs',
+			secure: true, // if using HTTPS
+
+			config: {
+				iceServers: [
+					{ urls: 'stun:spectrum.utile.space:3478' },
+					{
+						urls: 'turn:spectrum.utile.space:3478',
+						username: 'testuser',
+						credential: 'testpassword'
+					}
+				]
+			}
+		};
+
+		if (previousId) peer = new Peer(previousId, options);
+		else peer = new Peer(options);
+
+		// Handle the 'open' event
+		peer.on('open', (id) => {
+			console.log(`Connected with ID: ${id}`);
+			peerId = id;
+			peerConnected = true;
+			// Proceed with establishing connections or calls
+		});
+
+		// Handle errors
+		peer.on('error', (err) => {
+			console.error('Peer error:', err);
+			peerConnected = false;
+			if (err.type === 'unavailable-id') {
+				// Retry after a delay if the ID is still considered in use
+				setTimeout(() => connectToPeer(previousId), 1000);
+			}
+		});
+
+		// Handle disconnection
+		peer.on('disconnected', () => {
+			peerConnected = false;
+			console.warn('Peer disconnected. Attempting to reconnect...');
+			connectToPeer(previousId);
+		});
+
+		peer.on('call', (call) => {
+			call.answer(localStream);
+			call.on('stream', (remoteStream) => playAudio(remoteStream));
+			if (connections.has(call.peer) == false) {
+				console.log('CALLING BACK', call.peer);
+				attemptCallWithLimit(peer, call.peer, localStream);
+				connections.set(call.peer, call);
+			}
+		});
+	}
+
 	onMount(() => {
+		if (ENABLE_AUDIO) {
+			getAudioStream();
+			connectToPeer();
+		}
+
 		currentOpinion = 'notReplied';
 
 		spectrumId = page.params?.id;
@@ -233,8 +354,6 @@
 		if (spectrumId) {
 			toggleJoinModal();
 		}
-
-		animateCursors();
 	});
 
 	function initPellet() {
@@ -414,20 +533,12 @@
 					coords && !isNaN(coords.x) && !isNaN(coords.y)
 						? initOtherPellet(otherUserId, otherNickname)
 						: null,
-				targets: coords && !isNaN(coords.x) && !isNaN(coords.y) ? [coords] : [],
+				target: coords && !isNaN(coords.x) && !isNaN(coords.y) ? coords : undefined,
 				nickname: otherNickname
 			};
 		} else if (coords && !isNaN(coords.x) && !isNaN(coords.y)) {
 			// known user
-			others[otherUserId].targets.push(coords);
-
-			// Only keep 5 points max
-			if (others[otherUserId].targets.length >= 5)
-				others[otherUserId].targets = others[otherUserId].targets.slice(1, 6);
-		}
-
-		if (others[otherUserId].cancel && coords != others[otherUserId].targets[0]) {
-			others[otherUserId].cancel();
+			others[otherUserId].target = coords;
 		}
 
 		if (coords && (!isNaN(coords.x) || !isNaN(coords.y))) {
@@ -440,10 +551,6 @@
 	}
 
 	function deletePellet(otherUserId: string, keepUser: boolean = false) {
-		if (others[otherUserId].cancel) {
-			others[otherUserId].cancel();
-		}
-
 		if (others[otherUserId].pellet) {
 			myCanvas.remove(others[otherUserId].pellet);
 			myCanvas.renderAll();
@@ -464,25 +571,25 @@
 		websocket.send('emoji ' + emojis[emojiIndex]);
 	}
 
-	function animateCursors() {
+	function animatePellets() {
 		const t = 0.2;
 
-		if (others) {
-			for (const userId in others) {
-				const { pellet, targets, nickname } = others[userId];
-				if (!pellet) return;
-				const currentX = pellet.left ?? 0;
-				const currentY = pellet.top ?? 0;
+		for (const userId of Object.keys(others)) {
+			const pellet = others[userId].pellet;
+			const target = others[userId].target;
 
-				pellet.set({
-					left: lerp(currentX, targets[targets.length - 1].x * scale, t),
-					top: lerp(currentY, targets[targets.length - 1].y * scale, t)
-				});
-			}
+			if (!pellet) continue;
+			const currentX = pellet.left ?? 0;
+			const currentY = pellet.top ?? 0;
+
+			pellet.set({
+				left: lerp(currentX, target.x * scale, t),
+				top: lerp(currentY, target.y * scale, t)
+			});
 		}
 
 		myCanvas.requestRenderAll();
-		requestAnimationFrame(animateCursors);
+		requestAnimationFrame(animatePellets);
 	}
 
 	function updateMyPellet(force = false) {
@@ -528,7 +635,7 @@
 		if (!listenning) return;
 
 		const re = new RegExp(
-			/^(ack|nack|update|claim|spectrum|newposition|userleft|madeadmin|receive)(\s+([0-9a-f]*))?(\s+([0-9N-]+,[0-9A-]+))?(\s+(.+))?$/gu
+			/^(ack|nack|update|claim|spectrum|newposition|userleft|madeadmin|receive|voicechat)(\s+([0-9a-f]*))?(\s+([0-9N-]+,[0-9A-]+))?(\s+(.+))?$/gu
 		);
 		const matches = [...line.matchAll(re)][0];
 
@@ -593,6 +700,8 @@
 						log(`Claim: ${claim}`);
 					}, 3000);
 				}
+			} else if (command == 'voicechat') {
+				if (otherUserId != userId) attemptCallWithLimit(peer, matches[7].toString(), localStream);
 			} else if (command == 'spectrum') {
 				showJoinModal = false;
 				userId = matches[3];
@@ -602,15 +711,36 @@
 					adminModeOn = true;
 				}
 				joinedSpectrum(s[0]);
+
 				log('Vous venez de rejoindre le spectrum.');
 			}
+		}
+	}
+
+	function attemptCallWithLimit(
+		peer: Peer | undefined,
+		targetId: string,
+		localStream: MediaStream | undefined,
+		maxRetries: number = 5,
+		attempt: number = 1
+	) {
+		if (peer && localStream) {
+			peer.call(targetId, localStream);
+		} else if (attempt <= maxRetries) {
+			setTimeout(() => {
+				attemptCallWithLimit(peer, targetId, localStream, maxRetries, attempt + 1);
+			}, 1000); // Retry after 1 second
+		} else {
+			console.error('Failed to establish peer connection after maximum retries.');
 		}
 	}
 
 	let updateClaimLog: number | undefined;
 	let previousClaim: string | undefined;
 
-	function connectionLost() {}
+	function connectionLost() {
+		notifier.danger('Impossible de se connecter au serveur de spectrum');
+	}
 
 	function resetPositions() {
 		websocket.send('resetpositions');
@@ -638,6 +768,8 @@
 		if (!adminModeOn) {
 			initPellet();
 		}
+
+		animatePellets();
 	}
 
 	function makeAdmin(id: string) {
@@ -653,14 +785,10 @@
 	function toggleJoinModal() {
 		showJoinModal = !showJoinModal;
 	}
-	function toggleShowSpectrumId() {
-		showSpectrumId = !showSpectrumId;
-	}
 
 	let showCreateModal = $state(false);
 	function toggleCreateModal() {
 		showCreateModal = !showCreateModal;
-		console.log(showCreateModal);
 	}
 
 	function leaveSpectrum() {
@@ -689,29 +817,46 @@
 	title={HEADER_TITLE}
 />
 
+{#if ENABLE_AUDIO}
+	<div class="inline-grid *:[grid-area:1/1]">
+		{#if !peerConnected}
+			<div class="status status-error animate-ping"></div>
+			<div class="status status-error"></div>
+		{:else}
+			<div class="status status-success animate-ping"></div>
+			<div class="status status-success"></div>
+		{/if}
+	</div>
+{/if}
+
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
 
-<div class="m-4 mt-8 flex flex-wrap justify-center gap-4 font-mono">
-	{#if !spectrumId}
-		<button onclick={toggleCreateModal} class="btn btn-warning rounded-lg px-4 py-2"
-			><Fa icon={faPlus} />Démarrer un Spectrum</button
-		>
-		<button onclick={toggleJoinModal} class="btn btn-success rounded-lg px-4 py-2"
-			><Fa icon={faRightFromBracket} />Rejoindre un Spectrum</button
-		>
-	{:else}
-		<span class="float-left px-4 py-2">
-			<div class="inline-grid *:[grid-area:1/1]">
-				<div class="status status-success"></div>
-			</div>
-			Spectrum en cours - Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b><button
-				class={showSpectrumId ? 'forbidden' : ''}
-				style="background: none; border: none; outline: none; box-shadow: none;"
-				onclick={toggleShowSpectrumId}>👁️</button
-			>
-		</span>
+<div class="m-4 mt-8 flex flex-wrap items-center justify-center gap-4 font-mono">
+	<span class="px-4 py-2">
+		<div class="inline-grid *:[grid-area:1/1]">
+			<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>
+		</div>
+		{#if spectrumId}
+			<span class="inline-flex items-center">
+				Spectrum en cours &mdash; Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b>
+				<div
+					class="tooltip inline-block align-baseline"
+					data-tip={showSpectrumId ? "Cacher l'identifiant" : "Montrer l'identifiant"}
+				>
+					<label class="swap">
+						<input type="checkbox" class="hidden" bind:checked={showSpectrumId} />
+						<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faEye} /></div>
+						<div class="swap-off btn btn-ghost btn-circle"><Fa icon={faEyeSlash} /></div>
+					</label>
+				</div>
+			</span>
+		{:else}
+			Pas de Spectrum en cours
+		{/if}
+	</span>
 
+	{#if spectrumId}
 		<button
 			class="btn btn-success rounded-lg px-4 py-2"
 			use:copy={{
@@ -721,22 +866,26 @@
 				}
 			}}
 		>
-			<Fa icon={faCopy} /> Copier Lien
+			<Fa icon={faCopy} /> Copier le lien
 		</button>
 
 		<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
 			><Fa icon={faPersonWalkingArrowRight} /> Quitter le Spectrum</button
 		>
+	{:else}
+		<button onclick={toggleCreateModal} class="btn btn-warning rounded-lg px-4 py-2"
+			><Fa icon={faPlayCircle} />Démarrer un Spectrum</button
+		>
+		<button onclick={toggleJoinModal} class="btn btn-success rounded-lg px-4 py-2"
+			><Fa icon={faRightFromBracket} />Rejoindre un Spectrum</button
+		>
 	{/if}
 </div>
 
 <div class="mt-8 flex flex-wrap" style="position: relative;">
-	{#if !spectrumId}
-		<div class="overlay glass">Pas de spectrum en cours</div>
-	{/if}
 	<div class="mb-4 w-full md:w-3/4 md:pr-2 lg:w-2/3 lg:pr-4">
 		<div class="card bg-base-100 w-full shadow-sm" bind:clientWidth={canvasWidth}>
-			<header class="p-0 font-mono">
+			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
 					<input
 						name="claim"
@@ -759,7 +908,7 @@
 							}
 						}}
 					/>
-					<span class="font-bold">Claim</span>
+					<span class="font-bold"><Fa icon={faMapPin} /> Claim</span>
 				</label>
 			</header>
 
@@ -822,20 +971,14 @@
 			<table class="table">
 				<colgroup>
 					<col style="width: 10%;" />
-					{#if adminModeOn}
-						<col style="width: 40%;" />
-						<col style="width: 50%;" />
-					{:else}
-						<col style="width: 90%;" />
-					{/if}
+					<col style="width: 40%;" />
+					<col style="width: 50%;" />
 				</colgroup>
 				<tbody class="overflow-y-auto">
 					<tr>
-						<th class="text-center"><Fa icon={faPalette} /> </th>
+						<th class="text-center"><Fa icon={faPalette} /></th>
 						<th><Fa icon={faPerson} /> Participants</th>
-						{#if adminModeOn}
-							<th><Fa icon={faExclamation} /> Actions</th>
-						{/if}
+						<th><Fa icon={faExclamation} /> Actions</th>
 					</tr>
 					{#if spectrumId}
 						<tr>
@@ -847,9 +990,22 @@
 							<td>
 								<span class="text-sm"><b>{nickname}{adminModeOn ? '*' : ''}</b> (Vous-même)</span>
 							</td>
-							{#if adminModeOn}
-								<td> &nbsp; </td>
-							{/if}
+							<td>
+								{#if ENABLE_AUDIO}
+									<div
+										class="tooltip"
+										data-tip={microphone ? 'Éteindre le micro' : 'Allumer le micro'}
+									>
+										<label class="swap">
+											<input type="checkbox" class="hidden" bind:checked={microphone} />
+											<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faMicrophone} /></div>
+											<div class="swap-off btn btn-ghost btn-circle text-red-400">
+												<Fa icon={faMicrophoneSlash} />
+											</div>
+										</label>
+									</div>
+								{/if}
+							</td>
 						</tr>
 					{/if}
 					{#each Object.entries(others) as [colorHex, other]}
@@ -878,6 +1034,8 @@
 										>
 									</div>
 								</td>
+							{:else}
+								<td>&nbsp;</td>
 							{/if}
 						</tr>
 					{/each}
@@ -895,7 +1053,7 @@
 					</tr>
 				</thead>
 				<tbody
-					class="overflow-y-auto"
+					class="block max-h-300 overflow-y-auto"
 					bind:this={tbodyRef}
 					onmouseenter={() => (isHoveringHistory = true)}
 					onmouseleave={() => (isHoveringHistory = false)}
@@ -922,42 +1080,10 @@
 <p>&nbsp;</p>
 
 <style>
-	header {
-		width: 100%;
-	}
-
 	table {
 		table-layout: fixed;
 		box-shadow:
 			0 2px 5px 0 rgba(0, 0, 0, 0.16),
 			0 2px 10px 0 rgba(0, 0, 0, 0.12);
-	}
-
-	.overlay {
-		box-shadow: 0 0 15px 5px rgba(0, 0, 0, 0.6);
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-color: rgba(0, 0, 0, 0.7); /* semi-transparent black */
-		color: white;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: x-large;
-		z-index: 10;
-	}
-
-	#history tbody {
-		max-height: 300px;
-		display: block;
-	}
-
-	.forbidden::after {
-		content: '🚫';
-		position: relative;
-		left: -19px;
-		top: 0;
 	}
 </style>
