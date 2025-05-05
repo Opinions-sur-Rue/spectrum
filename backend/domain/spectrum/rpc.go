@@ -10,18 +10,18 @@ import (
 	"strings"
 
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
-
 	log "github.com/sirupsen/logrus"
 )
 
 const (
 	spectrum    = "spectrum "
 	newposition = "newposition "
+	update      = "update "
 )
 
 var (
 	newPositions = []string{"569,514", "509,521", "426,521", "514,566", "424,569", "382,523"}
-	r            = regexp.MustCompile(`^(emoji|signin|nickname|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin)(\s+([0-9a-f-]*))?(\s+([0-9]+,[0-9]+))?(\s+([\x{1F600}-\x{1F6FF}|[\x{2600}-\x{26FF}]|[\x{1FAE3}]|[\x{1F92F}]|[\x{1F91A}]|[\x{1F99D}]|[\x{1FAE1}]|[\x{1F6DF}]))?(\s+(.+))?$`)
+	r            = regexp.MustCompile(`^(emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin)(\s+([0-9a-f-]*))?(\s+([0-9]+,[0-9]+))?(\s+([\x{1F600}-\x{1F6FF}|[\x{2600}-\x{26FF}]|[\x{1FAE3}]|[\x{1F92F}]|[\x{1F91A}]|[\x{1F99D}]|[\x{1FAE1}]|[\x{1F6DF}]))?(\s+(.+))?$`)
 )
 
 var (
@@ -57,9 +57,9 @@ func (c *Client) EvaluateRPC(command string) error {
 				adminUser := ""
 				if slices.Contains(c.hub.rooms[roomID].admins, participant.UserID) {
 					adminUser = "*"
-					c.send <- []byte("update " + participant.Color + " N,A " + participant.Nickname + adminUser)
+					c.send <- []byte(update + participant.Color + " N,A " + participant.Nickname + adminUser)
 				} else {
-					c.send <- []byte("update " + participant.Color + " " + participant.LastPosition() + " " + participant.Nickname)
+					c.send <- []byte(update + participant.Color + " " + participant.LastPosition() + " " + participant.Nickname)
 				}
 			}
 			c.hub.MessageUser(c.UserID(), c.UserID(), newposition+c.hub.users[c.userID].LastPosition())
@@ -98,9 +98,9 @@ func (c *Client) EvaluateRPC(command string) error {
 				adminUser := ""
 				if slices.Contains(c.hub.rooms[roomID].admins, participant.UserID) {
 					adminUser = "*"
-					c.send <- []byte("update " + participant.Color + " N,A " + participant.Nickname + adminUser)
+					c.send <- []byte(update + participant.Color + " N,A " + participant.Nickname + adminUser)
 				} else {
-					c.send <- []byte("update " + participant.Color + " " + participant.LastPosition() + " " + participant.Nickname)
+					c.send <- []byte(update + participant.Color + " " + participant.LastPosition() + " " + participant.Nickname)
 				}
 			}
 			c.hub.MessageUser(c.UserID(), c.UserID(), "claim "+c.hub.rooms[roomID].Topic())
@@ -148,6 +148,11 @@ func (c *Client) EvaluateRPC(command string) error {
 		if c.hub.users[c.UserID()].IsInRoom() {
 			roomID := c.hub.users[c.UserID()].Room()
 			c.hub.rooms[roomID].SetTopic(subMatch[9])
+			c.hub.MessageRoom(roomID, command)
+		}
+	case subMatch[1] == "voicechat":
+		if c.hub.users[c.UserID()].IsInRoom() {
+			roomID := c.hub.users[c.UserID()].Room()
 			c.hub.MessageRoom(roomID, command)
 		}
 	default:

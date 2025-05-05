@@ -11,22 +11,22 @@ function parseLegacyOptions(
 	return typeof options === 'number' ? { timeout: options } : options;
 }
 
-export function send(message: string, type = 'default', options: number | NotificationOptions) {
+export function send(message: string, type: string, options?: number | NotificationOptions) {
 	notification.set({ type, message, options: parseLegacyOptions(options) });
 }
 
-export function danger(message: string, options: number | NotificationOptions) {
+export function danger(message: string, options?: number | NotificationOptions) {
 	send(message, 'danger', options);
 }
 
-export function warning(message: string, options: number | NotificationOptions) {
+export function warning(message: string, options?: number | NotificationOptions) {
 	send(message, 'warning', options);
 }
 
-export function info(message: string, options: number | NotificationOptions) {
+export function info(message: string, options?: number | NotificationOptions) {
 	send(message, 'info', options);
 }
 
-export function success(message: string, options: number | NotificationOptions) {
+export function success(message: string, options?: number | NotificationOptions) {
 	send(message, 'success', options);
 }

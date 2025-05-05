@@ -14,7 +14,7 @@
 </svelte:head>
 
 <section>
-	<article class="p-4 md:m-4 lg:m-8">
+	<article class="p-2 md:m-4 lg:m-8">
 		<slot />
 	</article>
 
