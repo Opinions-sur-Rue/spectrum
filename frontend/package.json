@@ -30,7 +30,7 @@
 		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/svelte": "^5.2.4",
 		"daisyui": "^5.0.35",
-		"eslint": "^9.25.1",
+		"eslint": "^9.26.0",
 		"eslint-config-prettier": "^10.1.2",
 		"eslint-plugin-svelte": "^3.0.0",
 		"globals": "^16.0.0",
