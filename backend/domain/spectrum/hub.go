@@ -77,52 +77,53 @@ func (h *Hub) LinkUserWithClient(userID string, client *Client) {
 	h.mappingUserIDToClient[userID] = client
 }
 
-func (h *Hub) NewRoom(creatorUserID string, creatorColor string) (string, error) {
+func (h *Hub) NewRoom(creatorUserID string) (string, string, error) {
 	roomID := utils.GenerateRandomString(4)
 
 	room := NewRoom(h.users[creatorUserID], roomID, "")
 
-	err := room.AddUser(creatorColor, h.users[creatorUserID])
+	creatorColor, err := room.AddUser(h.users[creatorUserID])
 	if err != nil {
-		return "", ErrUnknownAtRoomCreation
+		return "", "", ErrUnknownAtRoomCreation
 	}
 
 	h.rooms[roomID] = room
 
-	return roomID, nil
+	return roomID, creatorColor, nil
 }
 
-func (h *Hub) NewPrivateRoom(creatorUserID string, creatorColor string) (string, string, error) {
-	roomID, err := h.NewRoom(creatorUserID, creatorColor)
+func (h *Hub) NewPrivateRoom(creatorUserID string) (string, string, string, error) {
+	roomID, creatorColor, err := h.NewRoom(creatorUserID)
 	if err != nil {
-		return "", "", ErrUnknownAtRoomCreation
+		return "", "", "", ErrUnknownAtRoomCreation
 	}
 	password := utils.GenerateRandomString(12)
 
 	err = h.rooms[roomID].SetPassword(password)
 	if err != nil {
-		return "", "", errors.New("unknown problem at room locking")
+		return "", "", "", errors.New("unknown problem at room locking")
 	}
 
-	return roomID, password, nil
+	return roomID, creatorColor, password, nil
 }
 
-func (h *Hub) JoinRoom(roomID string, userID string, color string) error {
+func (h *Hub) JoinRoom(roomID string, userID string) (string, error) {
 	var room *Room
 	if r, ok := h.rooms[roomID]; !ok {
-		return ErrRoomNotFound
+		return "", ErrRoomNotFound
 	} else {
 		room = r
 	}
 
 	if room.IsClosed() {
-		return ErrRoomClosed
+		return "", ErrRoomClosed
 	}
 
 	user := h.users[userID]
 
-	if err := room.AddUser(color, user); err != nil {
-		return errors.Join(err, ErrUserCannotJoin)
+	color, err := room.AddUser(user)
+	if err != nil {
+		return "", errors.Join(err, ErrUserCannotJoin)
 	}
 
 	user.SetRoom(roomID)
@@ -134,17 +135,17 @@ func (h *Hub) JoinRoom(roomID string, userID string, color string) error {
 
 	h.MessageRoom(roomID, "joined "+userNickname)
 
-	return nil
+	return color, nil
 }
 
-func (h *Hub) JoinPrivateRoom(roomID string, userID string, password string, color string) error {
+func (h *Hub) JoinPrivateRoom(roomID string, userID string, password string) (string, error) {
 	room := h.rooms[roomID]
 
 	if password != room.password {
-		return ErrWrongRoomOrPassword
+		return "", ErrWrongRoomOrPassword
 	}
 
-	return h.JoinRoom(roomID, userID, color)
+	return h.JoinRoom(roomID, userID)
 }
 
 func (h *Hub) Broadcast(senderID string, content string) {
