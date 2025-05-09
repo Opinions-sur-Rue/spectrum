@@ -164,8 +164,10 @@
 		if (ENABLE_AUDIO) {
 			if (microphone) {
 				localStream?.getTracks().forEach((track) => (track.enabled = true));
+				websocket?.send(`microphoneunmute ${userId} ${peerId}`);
 			} else {
 				localStream?.getTracks().forEach((track) => (track.enabled = false));
+				websocket?.send(`microphonemute ${userId} ${peerId}`);
 			}
 		}
 	});
@@ -186,6 +188,16 @@
 	}
 
 	let svg: any;
+	let averageVoice: number = $state(0);
+	let voiceIndicator = $derived(1 + averageVoice / 100);
+	let otherVoices = $derived.by(() => {
+		const voices: any = {};
+		for (const [key, other] of Object.entries(others)) {
+			voices[key] = 1 + ((other as any).averageVoice ?? 0) / 100;
+			console.log(`Average voice for ${key}: ${voices[key]} ${(other as any).averageVoice}`);
+		}
+		return voices;
+	});
 
 	async function getAudioStream() {
 		try {
@@ -197,16 +209,88 @@
 				}
 			});
 			localStream?.getTracks().forEach((track) => (track.enabled = false));
+			const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+			const source = audioContext.createMediaStreamSource(localStream);
+
+			const analyser = audioContext.createAnalyser();
+			analyser.fftSize = 512;
+
+			source.connect(analyser);
+
+			const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+			function detectVoice() {
+				analyser.getByteFrequencyData(dataArray);
+				let values = 0;
+
+				for (let i = 0; i < dataArray.length; i++) {
+					values += dataArray[i];
+				}
+
+				const average = values / dataArray.length;
+
+				if (average > 20) {
+					averageVoice = average;
+				} else {
+					averageVoice = 0;
+				}
+
+				requestAnimationFrame(detectVoice);
+			}
+
+			detectVoice();
 		} catch (err) {
 			console.error('Error accessing microphone:', err);
 		}
 	}
 
-	function playAudio(stream: MediaStream) {
+	function playAudio(voiceId: string, stream: MediaStream) {
+		let otherId: string | undefined;
+		for (const [key, value] of Object.entries(others)) {
+			if ((value as any).voiceId === voiceId) {
+				otherId = key;
+				break;
+			}
+		}
+		if (!otherId) return;
+
 		const audio = new Audio();
 		audio.srcObject = stream;
 		audio.autoplay = true;
 		audio.play().catch(console.error);
+
+		const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+		const source = audioContext.createMediaStreamSource(stream);
+
+		const analyser = audioContext.createAnalyser();
+		analyser.fftSize = 512;
+
+		source.connect(analyser);
+
+		const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+		function detectVoice() {
+			analyser.getByteFrequencyData(dataArray);
+			let values = 0;
+
+			for (let i = 0; i < dataArray.length; i++) {
+				values += dataArray[i];
+			}
+
+			const average = values / dataArray.length;
+
+			if (average > 20) {
+				others[otherId!].averageVoice = average;
+			} else {
+				others[otherId!].averageVoice = 0;
+			}
+
+			requestAnimationFrame(detectVoice);
+		}
+
+		detectVoice();
 	}
 
 	function connectToPeer(previousId?: string) {
@@ -263,7 +347,7 @@
 
 		peer.on('call', (call) => {
 			call.answer(localStream);
-			call.on('stream', (remoteStream) => playAudio(remoteStream));
+			call.on('stream', (remoteStream) => playAudio(call.peer, remoteStream));
 			if (connections.has(call.peer) == false) {
 				console.log('CALLING BACK', call.peer);
 				attemptCallWithLimit(peer, call.peer, localStream);
@@ -537,7 +621,8 @@
 						? initOtherPellet(otherUserId, otherNickname)
 						: null,
 				target: coords && !isNaN(coords.x) && !isNaN(coords.y) ? coords : undefined,
-				nickname: otherNickname
+				nickname: otherNickname,
+				microphone: false
 			};
 		} else if (coords && !isNaN(coords.x) && !isNaN(coords.y)) {
 			// known user
@@ -638,7 +723,7 @@
 		if (!listenning) return;
 
 		const re = new RegExp(
-			/^(ack|nack|update|claim|spectrum|newposition|userleft|madeadmin|receive|voicechat)(\s+([0-9a-f]*))?(\s+([0-9N-]+,[0-9A-]+))?(\s+(.+))?$/gu
+			/^(ack|nack|update|claim|spectrum|newposition|userleft|madeadmin|receive|voicechat|microphonemute|microphoneunmute)(\s+([0-9a-f]*))?(\s+([0-9N-]+,[0-9A-]+))?(\s+(.+))?$/gu
 		);
 		const matches = [...line.matchAll(re)][0];
 
@@ -704,7 +789,19 @@
 					}, 3000);
 				}
 			} else if (command == 'voicechat') {
-				if (otherUserId != userId) attemptCallWithLimit(peer, matches[7].toString(), localStream);
+				if (otherUserId != userId) {
+					const voiceId = matches[7].toString();
+					others[otherUserId].voiceId = voiceId;
+					attemptCallWithLimit(peer, voiceId, localStream);
+				}
+			} else if (command == 'microphonemute') {
+				if (otherUserId != userId) {
+					others[otherUserId].microphone = false;
+				}
+			} else if (command == 'microphoneunmute') {
+				if (otherUserId != userId) {
+					others[otherUserId].microphone = true;
+				}
 			} else if (command == 'spectrum') {
 				showJoinModal = false;
 				userId = matches[3];
@@ -987,7 +1084,14 @@
 						<tr>
 							<td>
 								<div class="inline-grid *:[grid-area:1/1]">
-									<div class="status" style="background: #{userId}; color: #{userId}"></div>
+									<div
+										class="status status-lg animate-ping transition-transform duration-100"
+										style="transform: scale({voiceIndicator})"
+									></div>
+									<div
+										class="status status-lg"
+										style="background: #{userId}; color: #{userId}; transform: scale({voiceIndicator})"
+									></div>
 								</div>
 							</td>
 							<td>
@@ -1015,31 +1119,48 @@
 						<tr class="odd:bg-white even:bg-gray-50">
 							<td>
 								<div class="inline-grid *:[grid-area:1/1]">
-									<div class="status" style="background: #{colorHex}; color: #{colorHex}"></div>
+									<div
+										class="status status-lg animate-ping transition-transform duration-100"
+										style="transform: scale({otherVoices[colorHex]})"
+									></div>
+									<div
+										class="status status-lg"
+										style="background: #{colorHex}; color: #{colorHex}; transform: scale({otherVoices[
+											colorHex
+										]})"
+									></div>
 								</div>
 							</td>
 							<td>
 								<span class="text-sm"><b>{(other as any).nickname}</b></span>
 							</td>
-							{#if adminModeOn}
-								<td>
+							<td>
+								{#if ENABLE_AUDIO}
+									<label class="swap" class:swap-active={(other as any).microphone}>
+										<div class="swap-on btn btn-ghost btn-circle btn-disabled">
+											<Fa icon={faMicrophone} />
+										</div>
+										<div class="swap-off btn btn-ghost btn-circle btn-disabled text-red-400">
+											<Fa icon={faMicrophoneSlash} />
+										</div>
+									</label>
+								{/if}
+								{#if adminModeOn}
 									<div class="tooltip" data-tip="Retirer du spectrum">
-										<button class="btn btn-error btn-ghost btn-circle btn-disabled float-right"
+										<button class="btn btn-error btn-ghost btn-circle btn-disabled"
 											><Fa icon={faUserSlash} /></button
 										>
 									</div>
 									<div class="tooltip" data-tip="Rendre admin">
 										<button
-											class="btn btn-secondary btn-ghost btn-circle float-right"
+											class="btn btn-secondary btn-ghost btn-circle hover:bg-red-500"
 											onclick={() => {
 												makeAdmin(colorHex);
 											}}><Fa icon={faCirclePlus} /></button
 										>
 									</div>
-								</td>
-							{:else}
-								<td>&nbsp;</td>
-							{/if}
+								{/if}
+							</td>
 						</tr>
 					{/each}
 				</tbody>
