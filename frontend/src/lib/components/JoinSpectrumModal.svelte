@@ -1,12 +1,8 @@
 <script lang="ts">
-	/* eslint svelte/no-at-html-tags: "off" */
-	import { palette } from '$lib/spectrum/palette';
-	import { darkenHexColor } from '$lib/utils';
-
 	interface ModalProps {
 		toggle: boolean;
 		spectrumId: string | undefined;
-		onSubmit: (nickname: string, initialClaim: string, userId: string) => void;
+		onSubmit: (nickname: string, initialClaim: string) => void;
 	}
 
 	let { toggle = $bindable(false), spectrumId = $bindable(), onSubmit }: ModalProps = $props();
@@ -25,7 +21,6 @@
 	});
 
 	let nickname: string | undefined = $state();
-	let userId: string | undefined = $state();
 </script>
 
 <dialog id={modalId} class="modal">
@@ -36,11 +31,7 @@
 				onclick={() => (toggle = false)}>✕</button
 			>
 		</form>
-
-		<form
-			class="p-4"
-			onsubmit={() => spectrumId && nickname && userId && onSubmit(spectrumId, nickname, userId)}
-		>
+		<form class="p-4" onsubmit={() => spectrumId && nickname && onSubmit(spectrumId, nickname)}>
 			<label class="label font-bold text-gray-900" for="spectrumId">Identifiant du Spectrum</label>
 			<input
 				class="input mb-4 block w-full"
@@ -59,28 +50,6 @@
 				id="nickname1"
 				required
 			/>
-			<p><b>Choisissez une couleur</b></p>
-			<div class="grid grid-cols-3 grid-rows-4 gap-0 p-4">
-				{#each Object.entries(palette) as [colorHex, colorName] (colorHex)}
-					<div class="m-2">
-						<label class="label font-mono">
-							<input
-								class="radio"
-								type="radio"
-								name="color"
-								value={colorHex}
-								bind:group={userId}
-								style="background-color: #{colorHex} !important; color: #{darkenHexColor(
-									colorHex,
-									50
-								)} !important; border: 1px solid #{darkenHexColor(colorHex, 20)} !important;"
-							/>
-							{@html colorName.replace(/ /g, '&nbsp;')}
-						</label>
-					</div>
-				{/each}
-			</div>
-
 			<div>
 				<button class="btn btn-success float-left" type="submit">Rejoindre le Spectrum</button>
 				<button class="btn btn-warning float-right" onclick={() => (toggle = false)} type="button"

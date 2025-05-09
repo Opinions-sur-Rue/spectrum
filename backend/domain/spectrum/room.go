@@ -2,20 +2,18 @@ package spectrum
 
 import (
 	"errors"
-	"slices"
+	"math/rand"
 )
 
 var generalColors = []string{
-	"aeaeae", // Neutral gray
-	"ff5555", // Bright red
-	"cd5334", // Burnt orange
-	"ff9955", // Vibrant orange
-	"ffe680", // Soft yellow
-	"aade87", // Light green
-	"4b0082", // Pale teal
-	"aaeeff", // Light cyan
-	"c6afe9", // Soft lavender
-	"d473d4", // Muted mauve
+	"ad1717",
+	"9f3014",
+	"8d3f0c",
+	"695504",
+	"296003",
+	"0c5e72",
+	"6b2fc6",
+	"961896",
 }
 
 type Room struct {
@@ -75,21 +73,37 @@ func (r *Room) SetPassword(password string) error {
 	return nil
 }
 
-func (r *Room) AddUser(color string, user *User) error {
+func (r *Room) AddUser(user *User) (string, error) {
 	if r.closed {
-		return errors.New("room closed")
+		return "", errors.New("room closed")
 	}
 
-	if !slices.Contains(generalColors, color) {
-		return errors.New("unknown color")
+	// Generate a slice containing colorIndices from 0 to n-1
+	colorIndices := make([]int, len(generalColors))
+	for i := 0; i < len(generalColors); i++ {
+		colorIndices[i] = i
 	}
 
-	if _, alreadyPresent := r.participants[color]; alreadyPresent {
-		return errors.New("color already taken")
+	var color string = ""
+
+	for len(colorIndices) != 0 {
+		x := rand.Intn(len(colorIndices))
+
+		if _, alreadyPresent := r.participants[generalColors[x]]; alreadyPresent {
+			// color already taken
+			colorIndices = append(colorIndices[:x], colorIndices[x+1:]...)
+		} else {
+			r.participants[generalColors[x]] = user
+			color = generalColors[x]
+			break
+		}
 	}
 
-	r.participants[color] = user
-	return nil
+	if color == "" {
+		return "", errors.New("room is full")
+	}
+
+	return color, nil
 }
 
 func (r *Room) SetAdminByColor(color string) error {

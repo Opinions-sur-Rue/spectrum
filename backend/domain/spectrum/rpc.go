@@ -70,28 +70,28 @@ func (c *Client) EvaluateRPC(command string) error {
 		c.hub.users[c.UserID()].SetNickname(subMatch[9])
 	case subMatch[1] == "startspectrum":
 		spt := strings.Split(subMatch[9], " ")
-		roomID, err := c.hub.NewRoom(c.UserID(), spt[1])
+		roomID, color, err := c.hub.NewRoom(c.UserID())
 		if err != nil {
 			c.send <- valueobjects.RPC_NACK.ExportWith(err.Error())
 			break
 		}
 		c.hub.users[c.UserID()].SetRoom(roomID)
-		c.hub.users[c.UserID()].SetColor(spt[1])
+		c.hub.users[c.UserID()].SetColor(color)
 		c.hub.users[c.UserID()].SetNickname(spt[0])
-		c.send <- []byte(spectrum + spt[1] + " " + roomID + " " + spt[0] + " true")
+		c.send <- []byte(spectrum + color + " " + roomID + " " + spt[0] + " true")
 	case subMatch[1] == "joinspectrum":
 		spt := strings.Split(subMatch[9], " ")
 		roomID := spt[0]
-		c.hub.users[c.UserID()].SetNickname(spt[1])
-		c.hub.users[c.UserID()].SetColor(spt[2])
-		err := c.hub.JoinRoom(roomID, c.UserID(), spt[2])
+		color, err := c.hub.JoinRoom(roomID, c.UserID())
 		if err != nil {
 			// Nothing
 			log.Error(err.Error())
 			c.send <- valueobjects.RPC_NACK.ExportWith(err.Error())
 		} else {
+			c.hub.users[c.UserID()].SetNickname(spt[1])
+			c.hub.users[c.UserID()].SetColor(color)
 			c.hub.users[c.UserID()].SetRoom(roomID)
-			c.send <- []byte(spectrum + spt[2] + " " + roomID + " " + spt[1] + " false")
+			c.send <- []byte(spectrum + color + " " + roomID + " " + spt[1] + " false")
 			c.hub.MessageUser(c.UserID(), c.UserID(), newposition+newPositions[rand.Intn(len(newPositions))%len(newPositions)])
 
 			for _, participant := range c.hub.rooms[roomID].participants {

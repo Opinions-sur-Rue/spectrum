@@ -37,7 +37,6 @@
 		OFFSET_SUBSTITLE,
 		PUBLIC_URL
 	} from '$lib/env';
-	import { palette } from '$lib/spectrum/palette';
 	import { startWebsocket } from '$lib/spectrum/websocket';
 	import { Canvas, Circle, FabricText, Group, loadSVGFromURL, Rect, util } from 'fabric';
 	import { onMount, tick } from 'svelte';
@@ -190,7 +189,13 @@
 
 	async function getAudioStream() {
 		try {
-			localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			localStream = await navigator.mediaDevices.getUserMedia({
+				audio: {
+					echoCancellation: true,
+					noiseSuppression: true,
+					autoGainControl: true
+				}
+			});
 			localStream?.getTracks().forEach((track) => (track.enabled = false));
 		} catch (err) {
 			console.error('Error accessing microphone:', err);
@@ -358,15 +363,13 @@
 
 	function initPellet() {
 		console.log('Initalizing Your Pellet');
+		if (!userId) return false;
+
 		const options = {
 			top: 0,
 			left: 0,
 			radius: 12
 		};
-
-		// only if not assigned, then random
-		if (!userId)
-			userId = Object.keys(palette)[util.getRandomInt(0, Object.keys(palette).length - 1)];
 
 		if (!nickname) nickname = 'Participant ' + (Math.floor(Math.random() * 100) + 1);
 
@@ -385,7 +388,7 @@
 			left: circle.left + circle.radius + 20,
 			top: circle.top - circle.radius - 11,
 			fontSize: 14,
-			color: '#f9f9f9',
+			fill: '#ffffff',
 			hasBorders: false,
 			hasContext: false,
 			opacity: 0.5
@@ -397,7 +400,7 @@
 			width: text.width + 10,
 			height: text.height + 10,
 			fill: `#${userId}`,
-			stroke: '#f9f9f9',
+			stroke: '#e0e0e0',
 			strokeWidth: 3,
 			strokeUniform: true,
 			hasBorders: false,
@@ -486,7 +489,7 @@
 			left: circle.left + circle.radius + 20,
 			top: circle.top - circle.radius - 11,
 			fontSize: 14,
-			color: '#f9f9f9',
+			fill: '#ffffff',
 			evented: false,
 			hasBorders: false,
 			hasContext: false
@@ -498,7 +501,7 @@
 			width: text.width + 10,
 			height: text.height + 10,
 			fill: `#${userId}`,
-			stroke: '#f9f9f9',
+			stroke: '#e0e0e0',
 			strokeWidth: 3,
 			strokeUniform: true,
 			evented: false,
@@ -746,18 +749,18 @@
 		websocket.send('resetpositions');
 	}
 
-	function onCreateSpectrum(nickname: string, initialClaim: string, userId: string) {
+	function onCreateSpectrum(nickname: string, initialClaim: string) {
 		listenning = true;
 		claim = initialClaim;
-		websocket.send(`startspectrum ${nickname} ${userId}`);
+		websocket.send(`startspectrum ${nickname}`);
 		showCreateModal = false;
 		adminModeOn = true;
 		websocket.send(`claim ${claim}`);
 	}
 
-	function onJoinSpectrum(spectrumId: string, nickname: string, userId: string) {
+	function onJoinSpectrum(spectrumId: string, nickname: string) {
 		listenning = true;
-		websocket.send(`joinspectrum ${spectrumId} ${nickname} ${userId}`);
+		websocket.send(`joinspectrum ${spectrumId} ${nickname}`);
 	}
 
 	let adminModeOn: boolean = $state(false);
