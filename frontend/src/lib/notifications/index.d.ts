@@ -11,14 +11,7 @@ export interface TNotifier {
 	success(message: string, timeout?: any): void;
 }
 
-export interface ITheme {
-	danger: '#bb2124';
-	success: '#22bb33';
-	warning: '#f0ad4e';
-	info: '#5bc0de';
-	default: '#aaaaaa';
-}
-type IProps = { themes?: ITheme; timeout?: any; persist?: boolean };
+type IProps = { timeout?: any; persist?: boolean };
 
 export class NotificationDisplay extends SvelteComponentTyped<IProps> {}
 

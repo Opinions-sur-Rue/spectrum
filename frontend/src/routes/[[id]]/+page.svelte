@@ -1019,7 +1019,7 @@
 								</div>
 							</td>
 							<td>
-								<span class="text-sm"><b>{other.nickname}</b></span>
+								<span class="text-sm"><b>{(other as any).nickname}</b></span>
 							</td>
 							{#if adminModeOn}
 								<td>

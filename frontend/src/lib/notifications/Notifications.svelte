@@ -3,13 +3,14 @@
 	import { writable } from 'svelte/store';
 	import { toaster } from './toaster.js';
 
-	let themes = {
+	const themes = {
 		danger: 'error',
 		success: 'success',
 		warning: 'warning',
 		info: 'info',
 		default: 'info'
 	};
+	type ThemeKey = keyof typeof themes;
 
 	export let timeout = 3000;
 	export let sessionKey = 'spectrum-toasts';
@@ -25,12 +26,9 @@
 
 	let toasts = writable<Toast[]>([]);
 
-	/**
-	 * @param {CustomEvent} event
-	 */
-	function createToast({ detail }) {
+	function createToast({ detail }: CustomEvent) {
 		const { message, type, options = {} } = detail;
-		const background = themes[type] || themes.default;
+		const background = themes[type as ThemeKey] || themes.default;
 		const persist = options.persist;
 		const computedTimeout = options.persist ? 0 : options.timeout || timeout;
 		const id = Math.random()
@@ -46,7 +44,11 @@
 				])
 			);
 		} catch (e) {
-			console.log('Cannot use session storage ' + e.message);
+			if (e instanceof Error) {
+				console.log('Cannot use session storage: ' + e.message);
+			} else {
+				console.log('Cannot use session storage: Unknown error', e);
+			}
 		}
 
 		toasts.update((current) => [
@@ -62,11 +64,8 @@
 		]);
 	}
 
-	/**
-	 * @param {any} id
-	 */
 	function purge(id: string) {
-		const filter = (/** @type {{ id: any; }} */ t) => t.id !== id;
+		const filter = (t: { id: string }) => t.id !== id;
 		toasts.update((current) => current.filter(filter));
 		try {
 			sessionStorage.setItem(

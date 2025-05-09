@@ -1,18 +1,14 @@
-import { API_URL, DEBUG } from '$lib/env.js';
+import { API_URL, DEBUG } from '$lib/env';
 
 const WS_URL = API_URL.replace('http://', 'ws://').replace('https://', 'wss://');
 
-/**
- * @type {WebSocket}
- */
-let websocket;
+let websocket: WebSocket;
 
-/**
- * @param {() => any} onOpenCallback
- * @param {(arg1: string) => any} onMessageCallback
- * @param {() => any} onCloseCallback
- */
-export function startWebsocket(onOpenCallback, onMessageCallback, onCloseCallback) {
+export function startWebsocket(
+	onOpenCallback: () => void,
+	onMessageCallback: (arg: string) => void,
+	onCloseCallback: () => void
+) {
 	let websocketOutput = '';
 
 	websocket = new WebSocket(WS_URL + '/spectrum/ws');
