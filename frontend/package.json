@@ -51,7 +51,7 @@
 	},
 	"dependencies": {
 		"@inlang/paraglide-js": "^2.0.12",
-		"fabric": "^6.6.4",
+		"fabric": "^6.6.5",
 		"peerjs": "^1.5.4"
 	}
 }
