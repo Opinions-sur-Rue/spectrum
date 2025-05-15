@@ -293,7 +293,7 @@
 		detectVoice();
 	}
 
-	function connectToPeer(previousId?: string) {
+	function connectToPeer() {
 		// If a peer instance already exists, destroy it
 		if (peer && !peer.destroyed) {
 			peer.destroy();
@@ -317,8 +317,7 @@
 			}
 		};
 
-		if (previousId) peer = new Peer(previousId, options);
-		else peer = new Peer(options);
+		peer = new Peer(options);
 
 		// Handle the 'open' event
 		peer.on('open', (id) => {
@@ -331,10 +330,20 @@
 		// Handle errors
 		peer.on('error', (err) => {
 			console.error('Peer error:', err);
-			peerConnected = false;
 			if (err.type === 'unavailable-id') {
+				peerConnected = false;
 				// Retry after a delay if the ID is still considered in use
-				setTimeout(() => connectToPeer(previousId), 1000);
+				setTimeout(() => connectToPeer(), 1000);
+			} else if (err.type === 'peer-unavailable') {
+				console.log('Failed to connect with peer, trying again');
+				const match = err.message.match(/[0-9a-fA-F\-]{36}$/);
+				if (match) {
+					const peerId = match[0];
+					console.log('Peer ID:', peerId);
+					peer.call(peerId, localStream!);
+				} else {
+					console.log('No peer ID found in error message.');
+				}
 			}
 		});
 
@@ -342,7 +351,7 @@
 		peer.on('disconnected', () => {
 			peerConnected = false;
 			console.warn('Peer disconnected. Attempting to reconnect...');
-			connectToPeer(previousId);
+			peer.reconnect();
 		});
 
 		peer.on('call', (call) => {
@@ -358,8 +367,9 @@
 
 	onMount(() => {
 		if (ENABLE_AUDIO) {
-			getAudioStream();
-			connectToPeer();
+			getAudioStream().then(() => {
+				connectToPeer();
+			});
 		}
 
 		currentOpinion = 'notReplied';
@@ -825,7 +835,7 @@
 		attempt: number = 1
 	) {
 		if (peer && localStream) {
-			peer.call(targetId, localStream);
+			connections.set(targetId, peer.call(targetId, localStream));
 		} else if (attempt <= maxRetries) {
 			setTimeout(() => {
 				attemptCallWithLimit(peer, targetId, localStream, maxRetries, attempt + 1);
