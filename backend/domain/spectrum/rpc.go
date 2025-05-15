@@ -150,8 +150,36 @@ func (c *Client) EvaluateRPC(command string) error {
 			c.hub.rooms[roomID].SetTopic(subMatch[9])
 			c.hub.MessageRoom(roomID, command)
 		}
-	case subMatch[1] == "voicechat", subMatch[1] == "microphoneunmute", subMatch[1] == "microphonemute":
-		if c.hub.users[c.UserID()].IsInRoom() {
+	case subMatch[1] == "voicechat":
+		user := c.hub.users[c.UserID()]
+		if user.IsInRoom() {
+			user.SetLastVoiceId(subMatch[9])
+			roomID := c.hub.users[c.UserID()].Room()
+			c.hub.MessageRoom(roomID, command)
+
+			for _, participant := range c.hub.rooms[roomID].participants {
+				if participant.LastVoiceId() != "" && participant.UserID != c.UserID() {
+					c.send <- []byte("voicechat " + participant.Color + " " + participant.LastVoiceId())
+
+					if participant.MicrophoneEnabled() {
+						c.send <- []byte("microphoneunmute " + participant.Color)
+					} else {
+						c.send <- []byte("microphonemute " + participant.Color)
+					}
+				}
+			}
+		}
+	case subMatch[1] == "microphoneunmute":
+		user := c.hub.users[c.UserID()]
+		if user.IsInRoom() {
+			user.SetMicrophoneEnabled(true)
+			roomID := c.hub.users[c.UserID()].Room()
+			c.hub.MessageRoom(roomID, command)
+		}
+	case subMatch[1] == "microphonemute":
+		user := c.hub.users[c.UserID()]
+		if user.IsInRoom() {
+			user.SetMicrophoneEnabled(false)
 			roomID := c.hub.users[c.UserID()].Room()
 			c.hub.MessageRoom(roomID, command)
 		}

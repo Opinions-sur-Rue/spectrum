@@ -174,7 +174,7 @@
 
 	$effect(() => {
 		if (ENABLE_AUDIO) {
-			if (spectrumId && peerId) {
+			if (spectrumId && peerId && userId) {
 				websocket.send(`voicechat ${userId} ${peerId}`);
 			}
 		}
@@ -350,7 +350,7 @@
 			call.on('stream', (remoteStream) => playAudio(call.peer, remoteStream));
 			if (connections.has(call.peer) == false) {
 				console.log('CALLING BACK', call.peer);
-				attemptCallWithLimit(peer, call.peer, localStream);
+				//attemptCallWithLimit(peer, call.peer, localStream);
 				connections.set(call.peer, call);
 			}
 		});

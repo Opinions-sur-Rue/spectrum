@@ -8,12 +8,17 @@ type User struct {
 	Color                string
 	currentRoomID        string
 	lastPosition         string
+	lastVoiceId          string
+	microphoneEnabled    bool
 	beginningGracePeriod int64
 }
 
 func NewUser(userID string) *User {
 	return &User{
 		UserID:               userID,
+		lastVoiceId:          "",
+		lastPosition:         "",
+		microphoneEnabled:    false,
 		beginningGracePeriod: math.MaxInt64 - 100,
 	}
 }
@@ -39,6 +44,22 @@ func (u *User) LastPosition() string {
 	}
 
 	return "N,A" // Not applicable
+}
+
+func (u *User) SetLastVoiceId(lastVoiceId string) {
+	u.lastVoiceId = lastVoiceId
+}
+
+func (u *User) LastVoiceId() string {
+	return u.lastVoiceId
+}
+
+func (u *User) SetMicrophoneEnabled(enabled bool) {
+	u.microphoneEnabled = enabled
+}
+
+func (u *User) MicrophoneEnabled() bool {
+	return u.microphoneEnabled
 }
 
 func (u *User) Room() string {
