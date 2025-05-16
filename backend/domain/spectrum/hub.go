@@ -247,7 +247,7 @@ func (h *Hub) Routine(ctx context.Context) {
 				}
 				for _, participantToNotify := range participantsToNotify {
 					for _, participantDeleted := range participantsDeleted {
-						h.MessageUser(participantToNotify, participantToNotify, "userleft "+participantDeleted)
+						h.MessageUser(participantToNotify, participantToNotify, userleft+participantDeleted)
 					}
 				}
 			}

@@ -11,6 +11,7 @@
 		faExclamation,
 		faEye,
 		faEyeSlash,
+		faLock,
 		faMapPin,
 		faMicrophone,
 		faMicrophoneSlash,
@@ -44,6 +45,7 @@
 	import { lerp, pointInPolygon } from '$lib/utils';
 	import Peer from 'peerjs';
 	import * as pkg from 'peerjs';
+	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 
 	const opinions = {
 		stronglyAgree: "Complètement d'accord",
@@ -176,6 +178,7 @@
 		if (ENABLE_AUDIO) {
 			if (spectrumId && peerId && userId) {
 				websocket.send(`voicechat ${userId} ${peerId}`);
+				websocket.send(`microphonemute ${userId} ${peerId}`);
 			}
 		}
 	});
@@ -194,7 +197,6 @@
 		const voices: any = {};
 		for (const [key, other] of Object.entries(others)) {
 			voices[key] = 1 + ((other as any).averageVoice ?? 0) / 100;
-			console.log(`Average voice for ${key}: ${voices[key]} ${(other as any).averageVoice}`);
 		}
 		return voices;
 	});
@@ -664,6 +666,9 @@
 		claim = c.replace(/^(\|\|)+|(\|\|)+$/g, '');
 	}
 
+	let trigger = $state(false);
+	let emoji: string = $state('');
+
 	function sendEmoji(emojiIndex: number) {
 		const emojis = ['😜', '🤚', '😵', '🤯', '🫣', '🛟', '🦝'];
 		websocket.send('emoji ' + emojis[emojiIndex]);
@@ -758,6 +763,9 @@
 				if (otherUserId != userId) {
 					log(`${others[otherUserId].nickname} a quitté le spectrum`);
 					deletePellet(otherUserId);
+				} else {
+					log(`Vous avez quitté le spectrum`);
+					leaveSpectrum();
 				}
 			} else if (command == 'receive') {
 				if (otherUserId != userId) {
@@ -769,6 +777,9 @@
 				} else {
 					log(`Vous avez envoyé : ${matches[7]}`);
 				}
+				trigger = false;
+				emoji = matches[7];
+				requestAnimationFrame(() => (trigger = true)); // retrigger animation
 			} else if (command == 'madeadmin') {
 				if (otherUserId != userId) {
 					deletePellet(otherUserId, true);
@@ -888,6 +899,12 @@
 		websocket.send(`makeadmin ${id}`);
 	}
 
+	function kick(id: string) {
+		if (!adminModeOn) return;
+
+		websocket.send(`kick ${id}`);
+	}
+
 	let showSpectrumId = $state(false);
 
 	let showJoinModal = $state(false);
@@ -912,6 +929,7 @@
 			delete others[key];
 		}
 		myCanvas.renderAll();
+		peer.disconnect();
 	}
 
 	const copied = () => {
@@ -941,6 +959,7 @@
 
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
+<EmojiBurst {emoji} {trigger} />
 
 <div class="m-4 mt-8 flex flex-wrap items-center justify-center gap-4 font-mono">
 	<span class="px-4 py-2">
@@ -1115,8 +1134,12 @@
 									>
 										<label class="swap">
 											<input type="checkbox" class="hidden" bind:checked={microphone} />
-											<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faMicrophone} /></div>
-											<div class="swap-off btn btn-ghost btn-circle text-red-400">
+											<div class="swap-on btn btn-ghost btn-square rounded-xl">
+												<Fa icon={faMicrophone} />
+											</div>
+											<div
+												class="swap-off btn btn-square rounded-xl border-0 bg-red-500/20 text-red-500"
+											>
 												<Fa icon={faMicrophoneSlash} />
 											</div>
 										</label>
@@ -1142,31 +1165,37 @@
 								</div>
 							</td>
 							<td>
-								<span class="text-sm"><b>{(other as any).nickname}</b></span>
-							</td>
-							<td>
 								{#if ENABLE_AUDIO}
-									<label class="swap" class:swap-active={(other as any).microphone}>
-										<div class="swap-on btn btn-ghost btn-circle btn-disabled">
+									<label
+										class="swap swap-flip cursor-default"
+										class:swap-active={(other as any).microphone}
+									>
+										<div class="swap-on">
 											<Fa icon={faMicrophone} />
 										</div>
-										<div class="swap-off btn btn-ghost btn-circle btn-disabled text-red-400">
+										<div class="swap-off text-red-500">
 											<Fa icon={faMicrophoneSlash} />
 										</div>
 									</label>
 								{/if}
+								<span class="text-sm"><b>{(other as any).nickname}</b></span>
+							</td>
+							<td>
 								{#if adminModeOn}
 									<div class="tooltip" data-tip="Retirer du spectrum">
-										<button class="btn btn-error btn-ghost btn-circle btn-disabled"
-											><Fa icon={faUserSlash} /></button
+										<button
+											class="btn btn-square rounded-xl border-0 bg-orange-500/20 text-orange-500"
+											onclick={() => {
+												kick(colorHex);
+											}}><Fa icon={faUserSlash} /></button
 										>
 									</div>
 									<div class="tooltip" data-tip="Rendre admin">
 										<button
-											class="btn btn-secondary btn-ghost btn-circle hover:bg-red-500"
+											class="btn btn-square rounded-xl border-0 bg-amber-500/20 text-amber-500"
 											onclick={() => {
 												makeAdmin(colorHex);
-											}}><Fa icon={faCirclePlus} /></button
+											}}><Fa icon={faLock} /></button
 										>
 									</div>
 								{/if}

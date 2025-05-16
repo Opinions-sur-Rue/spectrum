@@ -16,10 +16,11 @@
 	progressValue.set(100).then(() => close());
 </script>
 
-<div role="alert" class={'alert alert- z-1000' + background} transition:fade>
+<div role="alert" class={`alert z-1000 alert-${background}`} transition:fade>
 	<button class="close" on:click={() => close()}> ✕ </button>
 	<div class="content">
 		{message}
-		<progress class="progress w-full" value={progressValue.current} max="100"></progress>
+		<progress class="progress m-0 max-h-px w-full" value={progressValue.current} max="100"
+		></progress>
 	</div>
 </div>
