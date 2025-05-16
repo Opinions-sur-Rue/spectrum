@@ -3,17 +3,18 @@ package spectrum
 import (
 	"errors"
 	"math/rand"
+	"slices"
 )
 
 var generalColors = []string{
-	"ad1717",
-	"9f3014",
-	"8d3f0c",
-	"695504",
-	"296003",
-	"0c5e72",
-	"6b2fc6",
-	"961896",
+	"e5130a",
+	"e5783e",
+	"e5d450",
+	"92e550",
+	"51cde2",
+	"5950e5",
+	"ad50e5",
+	"4e4c4e",
 }
 
 type Room struct {
@@ -125,6 +126,14 @@ func (r *Room) SetAdmin(user *User) error {
 	}
 	r.admins = append(r.admins, user.UserID)
 	return nil
+}
+
+func (r *Room) IsAdmin(userID string) bool {
+	if r.closed {
+		return false
+	}
+
+	return slices.Contains(r.admins, userID)
 }
 
 func (r *Room) Close() error {

@@ -17,11 +17,12 @@ const (
 	spectrum    = "spectrum "
 	newposition = "newposition "
 	update      = "update "
+	userleft    = "userleft "
 )
 
 var (
 	newPositions = []string{"569,514", "509,521", "426,521", "514,566", "424,569", "382,523"}
-	r            = regexp.MustCompile(`^(emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute)(\s+([0-9a-f-]*))?(\s+([0-9]+,[0-9]+))?(\s+([\x{1F600}-\x{1F6FF}|[\x{2600}-\x{26FF}]|[\x{1FAE3}]|[\x{1F92F}]|[\x{1F91A}]|[\x{1F99D}]|[\x{1FAE1}]|[\x{1F6DF}]))?(\s+(.+))?$`)
+	r            = regexp.MustCompile(`^(emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick)(\s+([0-9a-f-]*))?(\s+([0-9]+,[0-9]+))?(\s+([\x{1F600}-\x{1F6FF}|[\x{2600}-\x{26FF}]|[\x{1FAE3}]|[\x{1F92F}]|[\x{1F91A}]|[\x{1F99D}]|[\x{1FAE1}]|[\x{1F6DF}]))?(\s+(.+))?$`)
 )
 
 var (
@@ -42,7 +43,9 @@ func (c *Client) EvaluateRPC(command string) error {
 
 	switch {
 	case subMatch[1] == "emoji":
-		c.hub.MessageRoom(c.hub.users[c.UserID()].Room(), "receive "+c.hub.users[c.UserID()].Color+" "+subMatch[7])
+		if c.hub.users[c.UserID()].IsInRoom() {
+			c.hub.MessageRoom(c.hub.users[c.UserID()].Room(), "receive "+c.hub.users[c.UserID()].Color+" "+subMatch[7])
+		}
 	case subMatch[1] == "signin":
 		c.SetUserID(subMatch[3])
 		c.hub.LinkUserWithClient(c.UserID(), c)
@@ -113,7 +116,7 @@ func (c *Client) EvaluateRPC(command string) error {
 			break
 		}
 		c.send <- valueobjects.RPC_ACK.Export()
-		c.hub.MessageRoom(roomID, "userleft "+c.hub.users[c.userID].Color)
+		c.hub.MessageRoom(roomID, userleft+c.hub.users[c.userID].Color)
 		c.hub.users[c.userID].SetColor("")
 		c.hub.users[c.userID].SetRoom("")
 	case subMatch[1] == "update":
@@ -142,6 +145,24 @@ func (c *Client) EvaluateRPC(command string) error {
 				}
 				c.hub.MessageUser(c.UserID(), user.UserID, newposition+newPositions[i%len(newPositions)])
 				i = i + 1
+			}
+		}
+	case subMatch[1] == "kick":
+		if c.hub.users[c.UserID()].IsInRoom() {
+			roomID := c.hub.users[c.UserID()].Room()
+			if c.hub.rooms[roomID].IsAdmin(c.UserID()) {
+				c.hub.MessageRoom(roomID, userleft+subMatch[3])
+				err := c.hub.rooms[roomID].Leave(subMatch[3])
+				if err != nil {
+					c.send <- valueobjects.RPC_NACK.ExportWith(err.Error())
+					break
+				}
+				for _, user := range c.hub.users {
+					if user.Color == subMatch[3] && user.Room() == roomID {
+						user.SetColor("")
+						user.SetRoom("")
+					}
+				}
 			}
 		}
 	case subMatch[1] == "claim":
