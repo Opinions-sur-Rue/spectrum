@@ -22,6 +22,7 @@
 		faPlayCircle,
 		faRightFromBracket,
 		faRotateLeft,
+		faSatelliteDish,
 		faStop,
 		faUserSlash
 	} from '@fortawesome/free-solid-svg-icons';
@@ -935,90 +936,102 @@
 	const copied = () => {
 		notifier.success('Lien du Spectrum copié!');
 	};
+
+	let streamerMode = $state(false);
 </script>
-
-<Header
-	subtitle="Plate-forme de spectrum en ligne de 2 à 6 participants"
-	logo={LOGO_URL}
-	logoWidth={LOGO_WIDTH}
-	offsetSubtitle={OFFSET_SUBSTITLE}
-	title={HEADER_TITLE}
-/>
-
-{#if ENABLE_AUDIO}
-	<div class="inline-grid *:[grid-area:1/1]">
-		{#if !peerConnected}
-			<div class="status status-error animate-ping"></div>
-			<div class="status status-error"></div>
-		{:else}
-			<div class="status status-success animate-ping"></div>
-			<div class="status status-success"></div>
-		{/if}
-	</div>
-{/if}
 
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
 <EmojiBurst {emoji} {trigger} />
 
-<div class="m-4 mt-8 flex flex-wrap items-center justify-center gap-4 font-mono">
-	<span class="px-4 py-2">
+{#if !streamerMode}
+	<Header
+		subtitle="Plate-forme de spectrum en ligne de 2 à 6 participants"
+		logo={LOGO_URL}
+		logoWidth={LOGO_WIDTH}
+		offsetSubtitle={OFFSET_SUBSTITLE}
+		title={HEADER_TITLE}
+	/>
+
+	{#if ENABLE_AUDIO}
 		<div class="inline-grid *:[grid-area:1/1]">
-			<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>
+			{#if !peerConnected}
+				<div class="status status-error animate-ping"></div>
+				<div class="status status-error"></div>
+			{:else}
+				<div class="status status-success animate-ping"></div>
+				<div class="status status-success"></div>
+			{/if}
 		</div>
-		{#if spectrumId}
-			<span class="inline-flex items-center">
-				Spectrum en cours &mdash; Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b>
-				<div
-					class="tooltip inline-block align-baseline"
-					data-tip={showSpectrumId ? "Cacher l'identifiant" : "Montrer l'identifiant"}
-				>
-					<label class="swap">
-						<input type="checkbox" class="hidden" bind:checked={showSpectrumId} />
-						<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faEye} /></div>
-						<div class="swap-off btn btn-ghost btn-circle"><Fa icon={faEyeSlash} /></div>
-					</label>
-				</div>
-			</span>
-		{:else}
-			Pas de Spectrum en cours
-		{/if}
-	</span>
-
-	{#if spectrumId}
-		<button
-			class="btn btn-success rounded-lg px-4 py-2"
-			use:copy={{
-				text: PUBLIC_URL + '/' + spectrumId,
-				onCopy() {
-					copied();
-				}
-			}}
-		>
-			<Fa icon={faCopy} /> Copier le lien
-		</button>
-
-		<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
-			><Fa icon={faPersonWalkingArrowRight} /> Quitter le Spectrum</button
-		>
-	{:else}
-		<button onclick={toggleCreateModal} class="btn btn-warning rounded-lg px-4 py-2"
-			><Fa icon={faPlayCircle} />Démarrer un Spectrum</button
-		>
-		<button onclick={toggleJoinModal} class="btn btn-success rounded-lg px-4 py-2"
-			><Fa icon={faRightFromBracket} />Rejoindre un Spectrum</button
-		>
 	{/if}
-</div>
 
-<div class="mt-8 flex flex-wrap" style="position: relative;">
-	<div class="mb-4 w-full md:w-3/4 md:pr-2 lg:w-2/3 lg:pr-4">
+	<div class="m-4 mt-8 flex flex-wrap items-center justify-center gap-4 font-mono">
+		<span class="px-4 py-2">
+			<div class="inline-grid *:[grid-area:1/1]">
+				<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>
+			</div>
+			{#if spectrumId}
+				<span class="inline-flex items-center">
+					Spectrum en cours &mdash; Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b>
+					<div
+						class="tooltip inline-block align-baseline"
+						data-tip={showSpectrumId ? "Cacher l'identifiant" : "Montrer l'identifiant"}
+					>
+						<label class="swap">
+							<input type="checkbox" class="hidden" bind:checked={showSpectrumId} />
+							<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faEye} /></div>
+							<div class="swap-off btn btn-ghost btn-circle"><Fa icon={faEyeSlash} /></div>
+						</label>
+					</div>
+				</span>
+			{:else}
+				Pas de Spectrum en cours
+			{/if}
+		</span>
+
+		{#if spectrumId}
+			<button
+				class="btn btn-success rounded-lg px-4 py-2"
+				use:copy={{
+					text: PUBLIC_URL + '/' + spectrumId,
+					onCopy() {
+						copied();
+					}
+				}}
+			>
+				<Fa icon={faCopy} /> Copier le lien
+			</button>
+			<button onclick={() => (streamerMode = true)} class="btn btn-info rounded-lg px-4 py-2"
+				><Fa icon={faSatelliteDish} />Streamer Mode</button
+			>
+			<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
+				><Fa icon={faPersonWalkingArrowRight} /> Quitter le Spectrum</button
+			>
+		{:else}
+			<button onclick={toggleCreateModal} class="btn btn-warning rounded-lg px-4 py-2"
+				><Fa icon={faPlayCircle} />Démarrer un Spectrum</button
+			>
+			<button onclick={toggleJoinModal} class="btn btn-success rounded-lg px-4 py-2"
+				><Fa icon={faRightFromBracket} />Rejoindre un Spectrum</button
+			>
+		{/if}
+	</div>
+{:else}
+	<div class="absolute top-5 right-5">
+		<button onclick={() => (streamerMode = false)} class="btn btn-info btn-circle"
+			><Fa icon={faSatelliteDish} /></button
+		>
+	</div>
+{/if}
+
+<div class="relative mt-8 flex flex-wrap">
+	<div class="mb-4 w-full {!streamerMode ? 'md:w-3/4 md:pr-2 lg:w-2/3 lg:pr-4' : ''}">
 		<div class="card bg-base-100 w-full shadow-sm" bind:clientWidth={canvasWidth}>
 			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
 					<input
 						name="claim"
-						class="input input-lg !w-full"
+						class="input {!streamerMode ? 'input-lg' : 'input-xl'} !w-full"
 						type="text"
 						placeholder="Claim"
 						readonly={!adminModeOn}
@@ -1093,7 +1106,7 @@
 		</div>
 	</div>
 
-	<div class="w-full md:w-1/4 lg:w-1/3">
+	<div class="w-full {!streamerMode ? 'md:w-1/4 lg:w-1/3' : ''}">
 		<div
 			class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 bg-linear-to-bl to-50% font-mono"
 		>
