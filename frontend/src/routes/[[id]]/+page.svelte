@@ -1017,15 +1017,17 @@
 		{/if}
 	</div>
 {:else}
-	<div class="absolute top-5 right-5">
-		<button onclick={() => (streamerMode = false)} class="btn btn-info btn-circle"
-			><Fa icon={faSatelliteDish} /></button
-		>
+	<div class="fixed top-5 right-5 z-1000">
+		<div class="tooltip tooltip-left" data-tip="Quitter mode streamer">
+			<button onclick={() => (streamerMode = false)} class="btn btn-info btn-circle"
+				><Fa icon={faSatelliteDish} /></button
+			>
+		</div>
 	</div>
 {/if}
 
 <div class="relative mt-8 flex flex-wrap">
-	<div class="mb-4 w-full {!streamerMode ? 'md:w-3/4 md:pr-2 lg:w-2/3 lg:pr-4' : ''}">
+	<div class="mb-4 w-full md:w-3/4 md:pr-2 lg:w-2/3 lg:pr-4">
 		<div class="card bg-base-100 w-full shadow-sm" bind:clientWidth={canvasWidth}>
 			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
@@ -1066,11 +1068,11 @@
 						></button
 					>
 
-					<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={initPellet}
+					<!--<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={initPellet}
 						><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
 							Créer mon Palet</span
 						></button
-					>
+						>-->
 
 					<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
 						><Fa icon={faStop} /><span class="hidden lg:!inline-block">
@@ -1106,83 +1108,145 @@
 		</div>
 	</div>
 
-	<div class="w-full {!streamerMode ? 'md:w-1/4 lg:w-1/3' : ''}">
-		<div
-			class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 bg-linear-to-bl to-50% font-mono"
-		>
-			<table class="table">
-				<colgroup>
-					<col style="width: 10%;" />
-					<col style="width: 40%;" />
-					<col style="width: 50%;" />
-				</colgroup>
-				<tbody class="overflow-y-auto">
-					<tr>
-						<th class="text-center"><Fa icon={faPalette} /></th>
-						<th><Fa icon={faPerson} /> Participants</th>
-						<th><Fa icon={faExclamation} /> Actions</th>
-					</tr>
-					{#if spectrumId}
+	<div class="w-full md:w-1/4 lg:w-1/3">
+		{#if !streamerMode}
+			<div
+				class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 bg-linear-to-bl to-50% font-mono"
+			>
+				<table class="table">
+					<colgroup>
+						<col style="width: 10%;" />
+						<col style="width: 40%;" />
+						<col style="width: 50%;" />
+					</colgroup>
+					<tbody class="overflow-y-auto">
 						<tr>
-							<td>
-								<div class="inline-grid *:[grid-area:1/1]">
-									<div
-										class="status status-lg animate-ping transition-transform duration-100"
-										style="transform: scale({voiceIndicator})"
-									></div>
-									<div
-										class="status status-lg"
-										style="background: #{userId}; color: #{userId}; transform: scale({voiceIndicator})"
-									></div>
-								</div>
-							</td>
-							<td>
-								<span class="text-sm"><b>{nickname}{adminModeOn ? '*' : ''}</b> (Vous-même)</span>
-							</td>
-							<td>
-								{#if ENABLE_AUDIO}
-									<div
-										class="tooltip"
-										data-tip={microphone ? 'Éteindre le micro' : 'Allumer le micro'}
-									>
-										<label class="swap">
-											<input type="checkbox" class="hidden" bind:checked={microphone} />
-											<div class="swap-on btn btn-ghost btn-square rounded-xl">
+							<th class="text-center"><Fa icon={faPalette} /></th>
+							<th><Fa icon={faPerson} /> Participants</th>
+							<th><Fa icon={faExclamation} /> Actions</th>
+						</tr>
+						{#if spectrumId}
+							<tr>
+								<td>
+									<div class="inline-grid *:[grid-area:1/1]">
+										<div
+											class="status status-lg animate-ping transition-transform duration-100"
+											style="transform: scale({voiceIndicator})"
+										></div>
+										<div
+											class="status status-lg"
+											style="background: #{userId}; color: #{userId}; transform: scale({voiceIndicator})"
+										></div>
+									</div>
+								</td>
+								<td>
+									<span class="text-sm"><b>{nickname}{adminModeOn ? '*' : ''}</b> (Vous-même)</span>
+								</td>
+								<td>
+									{#if ENABLE_AUDIO}
+										<div
+											class="tooltip"
+											data-tip={microphone ? 'Éteindre le micro' : 'Allumer le micro'}
+										>
+											<label class="swap">
+												<input type="checkbox" class="hidden" bind:checked={microphone} />
+												<div class="swap-on btn btn-ghost btn-square rounded-xl">
+													<Fa icon={faMicrophone} />
+												</div>
+												<div
+													class="swap-off btn btn-square rounded-xl border-0 bg-red-500/20 text-red-500"
+												>
+													<Fa icon={faMicrophoneSlash} />
+												</div>
+											</label>
+										</div>
+									{/if}
+								</td>
+							</tr>
+						{/if}
+						{#each Object.entries(others) as [colorHex, other]}
+							<tr class="odd:bg-white even:bg-gray-50">
+								<td>
+									<div class="inline-grid *:[grid-area:1/1]">
+										<div
+											class="status status-lg animate-ping transition-transform duration-100"
+											style="transform: scale({otherVoices[colorHex]})"
+										></div>
+										<div
+											class="status status-lg"
+											style="background: #{colorHex}; color: #{colorHex}; transform: scale({otherVoices[
+												colorHex
+											]})"
+										></div>
+									</div>
+								</td>
+								<td>
+									{#if ENABLE_AUDIO}
+										<label
+											class="swap swap-flip cursor-default"
+											class:swap-active={(other as any).microphone}
+										>
+											<div class="swap-on">
 												<Fa icon={faMicrophone} />
 											</div>
-											<div
-												class="swap-off btn btn-square rounded-xl border-0 bg-red-500/20 text-red-500"
-											>
+											<div class="swap-off text-red-500">
 												<Fa icon={faMicrophoneSlash} />
 											</div>
 										</label>
-									</div>
-								{/if}
-							</td>
-						</tr>
-					{/if}
-					{#each Object.entries(others) as [colorHex, other]}
-						<tr class="odd:bg-white even:bg-gray-50">
-							<td>
-								<div class="inline-grid *:[grid-area:1/1]">
-									<div
-										class="status status-lg animate-ping transition-transform duration-100"
-										style="transform: scale({otherVoices[colorHex]})"
-									></div>
-									<div
-										class="status status-lg"
-										style="background: #{colorHex}; color: #{colorHex}; transform: scale({otherVoices[
-											colorHex
-										]})"
-									></div>
-								</div>
-							</td>
-							<td>
+									{/if}
+									<span class="text-sm"><b>{(other as any).nickname}</b></span>
+								</td>
+								<td>
+									{#if adminModeOn}
+										<div class="tooltip" data-tip="Retirer du spectrum">
+											<button
+												class="btn btn-square rounded-xl border-0 bg-orange-500/20 text-orange-500"
+												onclick={() => {
+													kick(colorHex);
+												}}><Fa icon={faUserSlash} /></button
+											>
+										</div>
+										<div class="tooltip" data-tip="Rendre admin">
+											<button
+												class="btn btn-square rounded-xl border-0 bg-amber-500/20 text-amber-500"
+												onclick={() => {
+													makeAdmin(colorHex);
+												}}><Fa icon={faLock} /></button
+											>
+										</div>
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{:else}
+			<div class="mb-4 grid grid-cols-3 gap-4">
+				<div class="card bg-base-100 border-base-300 w-full border p-4 shadow-md">
+					<div class="flex items-center space-x-4">
+						<!-- Avatar or status indicator -->
+						<div class="relative">
+							<div class="inline-grid *:[grid-area:1/1]">
+								<div
+									class="status status-xl animate-ping transition-transform duration-100"
+									style="transform: scale({voiceIndicator})"
+								></div>
+								<div
+									class="status status-xl"
+									style="background: #{userId}; color: #{userId}; transform: scale({voiceIndicator})"
+								></div>
+							</div>
+						</div>
+						<!-- Participant info -->
+						<div class="flex-1">
+							<div class="text-base font-bold">
+								<span class="text-sm"><b>{nickname}{adminModeOn ? '*' : ''}</b></span>
+							</div>
+							<div class="text-sm text-gray-500">
 								{#if ENABLE_AUDIO}
-									<label
-										class="swap swap-flip cursor-default"
-										class:swap-active={(other as any).microphone}
-									>
+									<label class="swap swap-flip">
+										<input type="checkbox" bind:checked={microphone} class="hidden" />
 										<div class="swap-on">
 											<Fa icon={faMicrophone} />
 										</div>
@@ -1191,33 +1255,54 @@
 										</div>
 									</label>
 								{/if}
-								<span class="text-sm"><b>{(other as any).nickname}</b></span>
-							</td>
-							<td>
-								{#if adminModeOn}
-									<div class="tooltip" data-tip="Retirer du spectrum">
-										<button
-											class="btn btn-square rounded-xl border-0 bg-orange-500/20 text-orange-500"
-											onclick={() => {
-												kick(colorHex);
-											}}><Fa icon={faUserSlash} /></button
+							</div>
+						</div>
+					</div>
+				</div>
+				{#each Object.entries(others) as [colorHex, other]}
+					<div class="card bg-base-100 border-base-300 w-full border p-4 shadow-md">
+						<div class="flex items-center space-x-4">
+							<!-- Avatar or status indicator -->
+							<div class="relative">
+								<div class="inline-grid *:[grid-area:1/1]">
+									<div
+										class="status status-xl animate-ping transition-transform duration-100"
+										style="transform: scale({otherVoices[colorHex]})"
+									></div>
+									<div
+										class="status status-xl"
+										style="background: #{colorHex}; color: #{colorHex}; transform: scale({otherVoices[
+											colorHex
+										]})"
+									></div>
+								</div>
+							</div>
+							<!-- Participant info -->
+							<div class="flex-1">
+								<div class="text-base font-bold">
+									{(other as any).nickname}
+								</div>
+								<div class="text-sm text-gray-500">
+									{#if ENABLE_AUDIO}
+										<label
+											class="swap swap-flip cursor-default"
+											class:swap-active={(other as any).microphone}
 										>
-									</div>
-									<div class="tooltip" data-tip="Rendre admin">
-										<button
-											class="btn btn-square rounded-xl border-0 bg-amber-500/20 text-amber-500"
-											onclick={() => {
-												makeAdmin(colorHex);
-											}}><Fa icon={faLock} /></button
-										>
-									</div>
-								{/if}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+											<div class="swap-on">
+												<Fa icon={faMicrophone} />
+											</div>
+											<div class="swap-off text-red-500">
+												<Fa icon={faMicrophoneSlash} />
+											</div>
+										</label>
+									{/if}
+								</div>
+							</div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
 		<div
 			id="history"
 			class="card bg-base-100 card-border border-base-300 from-base-content/5 bg-linear-to-bl to-50% font-mono"
