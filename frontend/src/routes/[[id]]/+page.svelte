@@ -212,7 +212,7 @@
 				}
 			});
 			localStream?.getTracks().forEach((track) => (track.enabled = false));
-			const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+			const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
 			const source = audioContext.createMediaStreamSource(localStream);
 
@@ -263,7 +263,7 @@
 		audio.autoplay = true;
 		audio.play().catch(console.error);
 
-		const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+		const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
 		const source = audioContext.createMediaStreamSource(stream);
 
@@ -1241,7 +1241,7 @@
 						<!-- Participant info -->
 						<div class="flex-1">
 							<div class="text-base font-bold">
-								<span class="text-sm"><b>{nickname}{adminModeOn ? '*' : ''}</b></span>
+								<span class="text-sm truncate"><b>{nickname}{adminModeOn ? '*' : ''}</b></span>
 							</div>
 							<div class="text-sm text-gray-500">
 								{#if ENABLE_AUDIO}
@@ -1279,7 +1279,7 @@
 							</div>
 							<!-- Participant info -->
 							<div class="flex-1">
-								<div class="text-base font-bold">
+								<div class="text-base font-bold truncate">
 									{(other as any).nickname}
 								</div>
 								<div class="text-sm text-gray-500">
