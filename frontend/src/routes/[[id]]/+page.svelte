@@ -1241,7 +1241,7 @@
 						<!-- Participant info -->
 						<div class="flex-1">
 							<div class="text-base font-bold">
-								<span class="text-sm truncate"><b>{nickname}{adminModeOn ? '*' : ''}</b></span>
+								<span class="truncate text-sm"><b>{nickname}{adminModeOn ? '*' : ''}</b></span>
 							</div>
 							<div class="text-sm text-gray-500">
 								{#if ENABLE_AUDIO}
@@ -1279,7 +1279,7 @@
 							</div>
 							<!-- Participant info -->
 							<div class="flex-1">
-								<div class="text-base font-bold truncate">
+								<div class="truncate text-base font-bold">
 									{(other as any).nickname}
 								</div>
 								<div class="text-sm text-gray-500">
