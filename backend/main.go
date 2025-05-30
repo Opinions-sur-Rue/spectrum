@@ -8,8 +8,10 @@ import (
 	"Opinions-sur-Rue/spectrum/api"
 	_ "Opinions-sur-Rue/spectrum/docs"
 	"Opinions-sur-Rue/spectrum/utils"
+
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"github.com/steampoweredtaco/gotiktoklive"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
@@ -44,6 +46,45 @@ type Health struct {
 func initLogging() {
 	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.JSONFormatter{})
+}
+
+func initTiktok() {
+	tiktok, err := gotiktoklive.NewTikTok()
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("Connected to tiktok")
+
+	live, err := tiktok.TrackUser("marc.gury.photographe")
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("Connected to user live")
+
+	// Receive livestream events through the live.Events channel
+	for event := range live.Events {
+		switch e := event.(type) {
+
+		// You can specify what to do for specific events. All events are listed below.
+		case gotiktoklive.UserEvent:
+			log.Infof("%T : %s %s\n", e, e.Event, e.User.Username)
+
+		// List viewer count
+		//case gotiktoklive.ViewersEvent:
+		//log.Infof("%T : %d\n", e, e.Viewers)
+
+		case gotiktoklive.ChatEvent:
+			log.Infof("gotiktoklive.UserEvent : %v\n", e)
+
+			// Specify the action for all remaining events
+			//default:
+			//log.Infof("%T : %+v\n", e, e)
+		}
+	}
+
+	log.Info("Finished Tiktok")
 }
 
 // @title			OSR Spectrum API
