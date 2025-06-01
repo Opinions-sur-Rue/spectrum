@@ -6,7 +6,6 @@
 	import Header from '$lib/components/Header.svelte';
 	import { notifier } from '$lib/notifications';
 	import {
-		faCirclePlus,
 		faCopy,
 		faExclamation,
 		faEye,
@@ -24,7 +23,9 @@
 		faRotateLeft,
 		faSatelliteDish,
 		faStop,
-		faUserSlash
+		faUserSlash,
+		faVolumeHigh,
+		faVolumeMute
 	} from '@fortawesome/free-solid-svg-icons';
 	import Fa from 'svelte-fa';
 	import { page } from '$app/state';
@@ -94,11 +95,11 @@
 
 	let tbodyRef: any; // Reference to tbody
 
-	let localStream: MediaStream | undefined;
+	let localStream: MediaStream | undefined = $state();
 	let peer: Peer;
 	let peerId: string | undefined = $state();
 	let peerConnected = $state(false);
-	const connections = new Map<string, pkg.MediaConnection>();
+	const connections = new Map<string, MediaStream>();
 	let microphone: boolean = $state(false);
 
 	function validateOpinion(otherUserId: string) {
@@ -164,7 +165,7 @@
 	});
 
 	$effect(() => {
-		if (ENABLE_AUDIO) {
+		if (ENABLE_AUDIO && peerId) {
 			if (microphone) {
 				localStream?.getTracks().forEach((track) => (track.enabled = true));
 				websocket?.send(`microphoneunmute ${userId} ${peerId}`);
@@ -177,7 +178,7 @@
 
 	$effect(() => {
 		if (ENABLE_AUDIO) {
-			if (spectrumId && peerId && userId) {
+			if (spectrumId && peerId && userId && localStream) {
 				websocket.send(`voicechat ${userId} ${peerId}`);
 				websocket.send(`microphonemute ${userId} ${peerId}`);
 			}
@@ -192,6 +193,7 @@
 	}
 
 	let svg: any;
+	let voiceActivated: boolean = $state(false);
 	let averageVoice: number = $state(0);
 	let voiceIndicator = $derived(1 + averageVoice / 100);
 	let otherVoices = $derived.by(() => {
@@ -203,6 +205,7 @@
 	});
 
 	async function getAudioStream() {
+		console.log('ACTIVATION DU MICRO');
 		try {
 			localStream = await navigator.mediaDevices.getUserMedia({
 				audio: {
@@ -211,7 +214,7 @@
 					autoGainControl: true
 				}
 			});
-			localStream?.getTracks().forEach((track) => (track.enabled = false));
+
 			const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
 			const source = audioContext.createMediaStreamSource(localStream);
@@ -243,12 +246,14 @@
 			}
 
 			detectVoice();
+			voiceActivated = true;
 		} catch (err) {
 			console.error('Error accessing microphone:', err);
 		}
 	}
 
 	function playAudio(voiceId: string, stream: MediaStream) {
+		console.log('Playing audio for voiceId:', voiceId);
 		let otherId: string | undefined;
 		for (const [key, value] of Object.entries(others)) {
 			if ((value as any).voiceId === voiceId) {
@@ -284,10 +289,12 @@
 
 			const average = values / dataArray.length;
 
-			if (average > 20) {
-				others[otherId!].averageVoice = average;
-			} else {
-				others[otherId!].averageVoice = 0;
+			if (others[otherId!]) {
+				if (average > 20) {
+					others[otherId!].averageVoice = average;
+				} else {
+					others[otherId!].averageVoice = 0;
+				}
 			}
 
 			requestAnimationFrame(detectVoice);
@@ -358,23 +365,22 @@
 		});
 
 		peer.on('call', (call) => {
+			console.log('ANSWERING CALL with ', localStream ? 'Micrphone' : 'No micrphone');
 			call.answer(localStream);
-			call.on('stream', (remoteStream) => playAudio(call.peer, remoteStream));
-			if (connections.has(call.peer) == false) {
-				console.log('CALLING BACK', call.peer);
-				//attemptCallWithLimit(peer, call.peer, localStream);
-				connections.set(call.peer, call);
-			}
+
+			console.log('RECEIVED CALL from', call.peer);
+			call.on('stream', (remoteStream) => {
+				playAudio(call.peer, remoteStream);
+
+				if (connections.has(call.peer) == false) {
+					connections.set(call.peer, remoteStream);
+				}
+			});
 		});
 	}
 
 	onMount(() => {
-		if (ENABLE_AUDIO) {
-			getAudioStream().then(() => {
-				connectToPeer();
-			});
-		}
-
+		connectToPeer();
 		currentOpinion = 'notReplied';
 
 		spectrumId = page.params?.id;
@@ -635,7 +641,8 @@
 						: null,
 				target: coords && !isNaN(coords.x) && !isNaN(coords.y) ? coords : undefined,
 				nickname: otherNickname,
-				microphone: false
+				microphone: false,
+				muted: false
 			};
 		} else if (coords && !isNaN(coords.x) && !isNaN(coords.y)) {
 			// known user
@@ -814,7 +821,18 @@
 				if (otherUserId != userId) {
 					const voiceId = matches[7].toString();
 					others[otherUserId].voiceId = voiceId;
-					attemptCallWithLimit(peer, voiceId, localStream);
+					if (localStream && peerId) attemptCallWithLimit(peer, voiceId, localStream, 10);
+				} else {
+					if (!localStream)
+						getAudioStream().then(() => {
+							if (peerId) {
+								for (const key in others) {
+									if (others[key].voiceId) {
+										attemptCallWithLimit(peer, others[key].voiceId, localStream, 10);
+									}
+								}
+							}
+						});
 				}
 			} else if (command == 'microphonemute') {
 				if (otherUserId != userId) {
@@ -847,13 +865,14 @@
 		attempt: number = 1
 	) {
 		if (peer && localStream) {
-			connections.set(targetId, peer.call(targetId, localStream));
+			//connections.set(targetId, peer.call(targetId, localStream));
+			peer.call(targetId, localStream);
 		} else if (attempt <= maxRetries) {
 			setTimeout(() => {
 				attemptCallWithLimit(peer, targetId, localStream, maxRetries, attempt + 1);
 			}, 1000); // Retry after 1 second
 		} else {
-			console.error('Failed to establish peer connection after maximum retries.');
+			console.error(`Failed to establish peer connection to ${targetId} after maximum retries.`);
 		}
 	}
 
@@ -938,6 +957,37 @@
 	};
 
 	let streamerMode = $state(false);
+
+	function toggleMicrophone(event: MouseEvent & { currentTarget: EventTarget & HTMLLabelElement }) {
+		microphone = !microphone;
+
+		// Open microphone for first time, will trigger permission etc, and then call everybody we knew who had voiceId
+		if (!localStream && microphone) {
+			getAudioStream().then(() => {
+				for (const key in others) {
+					if (others[key].voiceId) attemptCallWithLimit(peer, others[key].voiceId, localStream, 10);
+				}
+			});
+		}
+	}
+
+	function toggleMute(userId: string) {
+		if (!ENABLE_AUDIO) return;
+
+		if (others[userId].muted) {
+			connections
+				.get(others[userId].voiceId)
+				?.getTracks()
+				.forEach((track) => (track.enabled = true));
+			others[userId].muted = false;
+		} else {
+			connections
+				.get(others[userId].voiceId)
+				?.getTracks()
+				.forEach((track) => (track.enabled = false));
+			others[userId].muted = true;
+		}
+	}
 </script>
 
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
@@ -952,18 +1002,6 @@
 		offsetSubtitle={OFFSET_SUBSTITLE}
 		title={HEADER_TITLE}
 	/>
-
-	{#if ENABLE_AUDIO}
-		<div class="inline-grid *:[grid-area:1/1]">
-			{#if !peerConnected}
-				<div class="status status-error animate-ping"></div>
-				<div class="status status-error"></div>
-			{:else}
-				<div class="status status-success animate-ping"></div>
-				<div class="status status-success"></div>
-			{/if}
-		</div>
-	{/if}
 
 	<div class="m-4 mt-8 flex flex-wrap items-center justify-center gap-4 font-mono">
 		<span class="px-4 py-2">
@@ -1131,6 +1169,7 @@
 									<div class="inline-grid *:[grid-area:1/1]">
 										<div
 											class="status status-lg animate-ping transition-transform duration-100"
+											class:hidden={!microphone}
 											style="transform: scale({voiceIndicator})"
 										></div>
 										<div
@@ -1148,8 +1187,12 @@
 											class="tooltip"
 											data-tip={microphone ? 'Éteindre le micro' : 'Allumer le micro'}
 										>
-											<label class="swap">
-												<input type="checkbox" class="hidden" bind:checked={microphone} />
+											<!-- svelte-ignore a11y_click_events_have_key_events -->
+											<label
+												class="swap indicator"
+												onclick={toggleMicrophone}
+												class:swap-active={microphone && peerConnected}
+											>
 												<div class="swap-on btn btn-ghost btn-square rounded-xl">
 													<Fa icon={faMicrophone} />
 												</div>
@@ -1158,6 +1201,9 @@
 												>
 													<Fa icon={faMicrophoneSlash} />
 												</div>
+												{#if !peerConnected || !localStream}
+													<span class="badge badge-xs badge-warning indicator-item"></span>
+												{/if}
 											</label>
 										</div>
 									{/if}
@@ -1170,6 +1216,7 @@
 									<div class="inline-grid *:[grid-area:1/1]">
 										<div
 											class="status status-lg animate-ping transition-transform duration-100"
+											class:hidden={!other.microphone}
 											style="transform: scale({otherVoices[colorHex]})"
 										></div>
 										<div
@@ -1197,6 +1244,20 @@
 									<span class="text-sm"><b>{(other as any).nickname}</b></span>
 								</td>
 								<td>
+									<div class="tooltip" data-tip="Rendre muet">
+										<button
+											class="btn btn-square rounded-xl border-0 bg-yellow-500/20 text-yellow-500"
+											onclick={() => {
+												if (other.microphone) toggleMute(colorHex);
+											}}
+										>
+											{#if !other.muted}
+												<Fa icon={faVolumeHigh} />
+											{:else}
+												<Fa icon={faVolumeMute} />
+											{/if}</button
+										>
+									</div>
 									{#if adminModeOn}
 										<div class="tooltip" data-tip="Retirer du spectrum">
 											<button
@@ -1346,5 +1407,9 @@
 		box-shadow:
 			0 2px 5px 0 rgba(0, 0, 0, 0.16),
 			0 2px 10px 0 rgba(0, 0, 0, 0.12);
+	}
+
+	.swap-active {
+		opacity: 1;
 	}
 </style>
