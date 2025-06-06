@@ -6,6 +6,7 @@
 	import Header from '$lib/components/Header.svelte';
 	import { notifier } from '$lib/notifications';
 	import {
+		faCirclePlus,
 		faCopy,
 		faExclamation,
 		faEye,
@@ -675,11 +676,17 @@
 	}
 
 	let trigger = $state(false);
+	let handAnimation = $state(false);
+	let handUsername = $state('');
 	let emoji: string = $state('');
 
 	function sendEmoji(emojiIndex: number) {
-		const emojis = ['😜', '🤚', '😵', '🤯', '🫣', '🛟', '🦝'];
+		const emojis = ['😜', '🤔', '😵', '🤯', '🫣', '🛟', '🦝'];
 		websocket.send('emoji ' + emojis[emojiIndex]);
+	}
+
+	function raiseHand() {
+		websocket.send('emoji 🤚');
 	}
 
 	function animatePellets() {
@@ -786,7 +793,15 @@
 					log(`Vous avez envoyé : ${matches[7]}`);
 				}
 				trigger = false;
+				handAnimation = false;
+				handUsername = '';
 				emoji = matches[7];
+
+				if (emoji === '🤚') {
+					handAnimation = true;
+					handUsername = otherUserId != userId ? others[otherUserId].nickname : nickname;
+				}
+
 				requestAnimationFrame(() => (trigger = true)); // retrigger animation
 			} else if (command == 'madeadmin') {
 				if (otherUserId != userId) {
@@ -992,7 +1007,7 @@
 
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
-<EmojiBurst {emoji} {trigger} />
+<EmojiBurst {emoji} {trigger} {handAnimation} {handUsername} />
 
 {#if !streamerMode}
 	<Header
@@ -1106,11 +1121,11 @@
 						></button
 					>
 
-					<!--<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={initPellet}
+					<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={initPellet}
 						><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
 							Créer mon Palet</span
 						></button
-						>-->
+					>
 
 					<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
 						><Fa icon={faStop} /><span class="hidden lg:!inline-block">
@@ -1133,7 +1148,7 @@
 							class="dropdown-content menu bg-base-100 rounded-box z-1 w-12 p-2 shadow-sm"
 						>
 							<li><button onclick={() => sendEmoji(0)}>😜</button></li>
-							<li><button onclick={() => sendEmoji(1)}>🤚</button></li>
+							<li><button onclick={() => sendEmoji(1)}>🤔</button></li>
 							<li><button onclick={() => sendEmoji(2)}>😵</button></li>
 							<li><button onclick={() => sendEmoji(3)}>🤯</button></li>
 							<li><button onclick={() => sendEmoji(4)}>🫣</button></li>
@@ -1141,6 +1156,9 @@
 							<li><button onclick={() => sendEmoji(6)}>🦝</button></li>
 						</ul>
 					</div>
+					<button class="btn btn-info rounded-lg px-4 py-2 font-mono" onclick={() => raiseHand()}
+						>🤚<span class="hidden lg:!inline-block"> Lever la main</span></button
+					>
 				{/if}
 			</footer>
 		</div>
