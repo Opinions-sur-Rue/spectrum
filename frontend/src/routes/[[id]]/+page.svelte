@@ -85,7 +85,7 @@
 
 	let logs: string[] = $state([]);
 
-	let myPellet: any;
+	let myPellet: any = $state();
 	let moving = false;
 	const cells: any[] = [];
 	const cellsPoints: any[] = [];
@@ -105,6 +105,7 @@
 
 	function validateOpinion(otherUserId: string) {
 		const target = others[otherUserId].pellet;
+		if (!target) return;
 
 		for (let i = 0; i < cells.length; i++) {
 			const cell = cells[i];
@@ -648,6 +649,10 @@
 		} else if (coords && !isNaN(coords.x) && !isNaN(coords.y)) {
 			// known user
 			others[otherUserId].target = coords;
+			if (others[otherUserId].nickname != otherNickname)
+				others[otherUserId].nickname = otherNickname;
+			if (!others[otherUserId].pellet)
+				others[otherUserId].pellet = initOtherPellet(otherUserId, otherNickname);
 		}
 
 		if (coords && (!isNaN(coords.x) || !isNaN(coords.y))) {
@@ -663,6 +668,7 @@
 		if (others[otherUserId].pellet) {
 			myCanvas.remove(others[otherUserId].pellet);
 			myCanvas.renderAll();
+			delete others[otherUserId].pellet;
 		}
 
 		if (!keepUser) {
@@ -815,6 +821,10 @@
 					log('Vous avez été élu admin');
 				}
 			} else if (command == 'newposition') {
+				if (!myPellet) {
+					initPellet();
+				}
+
 				if (myPellet && coords) {
 					myPellet.left = coords.x * scale;
 					myPellet.top = coords.y * scale;
@@ -1121,7 +1131,10 @@
 						></button
 					>
 
-					<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={initPellet}
+					<button
+						class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+						class:btn-disabled={myPellet}
+						onclick={initPellet}
 						><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
 							Créer mon Palet</span
 						></button

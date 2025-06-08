@@ -12,9 +12,10 @@
 		if (timeout) clearTimeout(timeout);
 
 		show = true;
-		// eslint-disable-next-line svelte/infinite-reactive-loop
 		timeout = setTimeout(() => {
+			// eslint-disable-next-line svelte/infinite-reactive-loop
 			show = false;
+			// eslint-disable-next-line svelte/infinite-reactive-loop
 			trigger = false;
 		}, 1600);
 
