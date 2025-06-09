@@ -60,10 +60,8 @@ func (c *Client) EvaluateRPC(command string) error {
 				adminUser := ""
 				if slices.Contains(c.hub.rooms[roomID].admins, participant.UserID) {
 					adminUser = "*"
-					c.send <- []byte(update + participant.Color + " N,A " + participant.Nickname + adminUser)
-				} else {
-					c.send <- []byte(update + participant.Color + " " + participant.LastPosition() + " " + participant.Nickname)
 				}
+				c.send <- []byte(update + participant.Color + " " + participant.LastPosition() + " " + participant.Nickname + adminUser)
 			}
 			c.hub.MessageUser(c.UserID(), c.UserID(), newposition+c.hub.users[c.userID].LastPosition())
 			c.hub.MessageUser(c.UserID(), c.UserID(), "claim "+c.hub.rooms[roomID].Topic())
@@ -101,10 +99,8 @@ func (c *Client) EvaluateRPC(command string) error {
 				adminUser := ""
 				if slices.Contains(c.hub.rooms[roomID].admins, participant.UserID) {
 					adminUser = "*"
-					c.send <- []byte(update + participant.Color + " N,A " + participant.Nickname + adminUser)
-				} else {
-					c.send <- []byte(update + participant.Color + " " + participant.LastPosition() + " " + participant.Nickname)
 				}
+				c.send <- []byte(update + participant.Color + " " + participant.LastPosition() + " " + participant.Nickname + adminUser)
 			}
 			c.hub.MessageUser(c.UserID(), c.UserID(), "claim "+c.hub.rooms[roomID].Topic())
 		}
