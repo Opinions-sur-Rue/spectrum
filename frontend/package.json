@@ -28,7 +28,7 @@
 		"@tailwindcss/typography": "^0.5.15",
 		"@tailwindcss/vite": "^4.1.6",
 		"@testing-library/jest-dom": "^6.6.3",
-		"@testing-library/svelte": "^5.2.4",
+		"@testing-library/svelte": "^5.2.8",
 		"daisyui": "^5.0.35",
 		"eslint": "^9.28.0",
 		"eslint-config-prettier": "^10.1.5",
