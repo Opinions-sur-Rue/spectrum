@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"time"
 
+	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
@@ -93,9 +94,15 @@ func (c *Client) ReadPump() {
 			}
 			break
 		}
-		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
 
-		err = c.EvaluateRPC(string(message))
+		content, err := valueobjects.ParseMessageContent(message)
+		if err != nil {
+			log.Debugf("ReadPump parse error: %v", err)
+			continue
+		}
+
+		err = c.EvaluateRPC(content)
 		if err != nil {
 			log.Debugf("ReadPump read error: %v", err)
 		}

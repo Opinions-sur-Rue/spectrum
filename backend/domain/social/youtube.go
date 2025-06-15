@@ -14,11 +14,11 @@ type YoutubeListener struct {
 	service *youtube.Service
 }
 
-func (l *YoutubeListener) connect(ctx context.Context, liveID string) error {
+func (l *YoutubeListener) connect(ctx context.Context, liveID string, message chan []byte) error {
 	var err error
 
 	if l.service == nil {
-		l.service, err = youtube.NewService(ctx, option.WithAPIKey("AIzaSyCAv8-K-GtSibf9t8yAt4StAaTeVE2FRYY"))
+		l.service, err = youtube.NewService(ctx, option.WithAPIKey("AIzaSyA8HLfFVlV1bTVZgqtdl3BMrettSqROlK8"))
 		if err != nil {
 			return errors.Join(errors.New("error while creating YouTube service"), err)
 		}
@@ -62,6 +62,8 @@ func (l *YoutubeListener) connect(ctx context.Context, liveID string) error {
 			}
 
 			for _, item := range chatResponse.Items {
+				//item.AuthorDetails.ProfileImageUrl
+				//item.AuthorDetails.ChannelId
 				author := item.AuthorDetails.DisplayName
 				message := item.Snippet.DisplayMessage
 				log.Infof("[%s] %s\n", author, message)

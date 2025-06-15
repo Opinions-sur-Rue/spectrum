@@ -1,10 +1,25 @@
 package social
 
+import (
+	"context"
+	"errors"
+)
+
 type ChatListener interface {
-	connect(liveID string) error
+	connect(ctx context.Context, liveID string, messageChannel chan []byte) error
 }
 
-type LiveUserMessage struct {
-	userID  string
-	message string
+var (
+	ErrUnknownServiceType = errors.New("unknown service type")
+)
+
+func CreateListener(serviceType string) (ChatListener, error) {
+	switch serviceType {
+	case "youtube":
+		return &YoutubeListener{}, nil
+	case "tiktok":
+		return &TiktokListener{}, nil
+	default:
+		return nil, ErrUnknownServiceType
+	}
 }
