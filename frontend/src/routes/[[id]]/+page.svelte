@@ -181,8 +181,9 @@
 	$effect(() => {
 		if (ENABLE_AUDIO) {
 			if (spectrumId && peerId && userId && localStream) {
-				websocket.send(`voicechat ${userId} ${peerId}`);
-				websocket.send(`microphonemute ${userId} ${peerId}`);
+				rpc('myvoicechatid');
+
+				rpc('mutedmymicrophone');
 			}
 		}
 	});
@@ -393,12 +394,9 @@
 
 		myCanvas.on({
 			'object:moving': function () {
-				// /** @type {{ target: { width?: any; angle: any; left?: any; top?: any; }; }} */ e
 				moving = true;
-				//websocket.send(`update ${userId} ${e.target.left},${e.target.top}`);
 			},
 			'object:modified': function () {
-				// /** @type {{ target: { left?: any; width?: any; top?: any; setCoords?: any; angle?: number; }; }} */ e
 				moving = false;
 
 				if (currentOpinion != 'notReplied' && currentOpinion != previousOpinion) {
@@ -688,11 +686,20 @@
 
 	function sendEmoji(emojiIndex: number) {
 		const emojis = ['😜', '🤔', '😵', '🤯', '🫣', '🛟', '🦝'];
-		websocket.send('emoji ' + emojis[emojiIndex]);
+		rpc('emoji', emojis[emojiIndex]);
 	}
 
 	function raiseHand() {
-		websocket.send('emoji 🤚');
+		rpc('emoji', '🤚');
+	}
+
+	function rpc(procedure: string, ...args: string[]) {
+		const json = JSON.stringify({
+			procedure: procedure,
+			args: args
+		});
+
+		websocket.send(json);
 	}
 
 	function animatePellets() {
@@ -718,9 +725,7 @@
 
 	function updateMyPellet(force = false) {
 		if (moving || force)
-			websocket.send(
-				`update ${userId} ${Math.round(myPellet.left / scale)},${Math.round(myPellet.top / scale)} ${nickname}`
-			);
+			rpc('myposition', `${Math.round(myPellet.left / scale)},${Math.round(myPellet.top / scale)}`);
 	}
 
 	function drawCanvas(id: string) {
@@ -739,8 +744,7 @@
 	}
 
 	function signIn() {
-		websocket.send('signin ' + getUserId());
-		//connected = true;
+		rpc('signin', getUserId());
 	}
 
 	let isHoveringHistory = false;
@@ -755,32 +759,39 @@
 
 	let claimFocus = false;
 
+	function parseCoords(coords: string) : { x: number; y: number } | null {
+		if (!coords) return null;
+		const parts = coords.split(',');
+		if (parts.length !== 2) return null;
+		const x = parseInt(parts[0]);
+		const y = parseInt(parts[1]);
+		if (isNaN(x) || isNaN(y)) return null;
+		return { x, y };
+	}
+
 	function parseCommand(line: string) {
 		if (!listenning) return;
 
-		const re = new RegExp(
+		/*const re = new RegExp(
 			/^(ack|nack|update|claim|spectrum|newposition|userleft|madeadmin|receive|voicechat|microphonemute|microphoneunmute)(\s+([0-9a-f]*))?(\s+([0-9N-]+,[0-9A-]+))?(\s+(.+))?$/gu
 		);
-		const matches = [...line.matchAll(re)][0];
+		const matches = [...line.matchAll(re)][0];*/
+		const rpc = JSON.parse(line) as { procedure: string; arguments: string[] };
 
-		if (matches) {
-			const command = matches[1].toString();
-			const otherUserId = matches[3];
-			let coords = null;
-
-			if (matches[5]) {
-				const s = matches[5].toString().split(',');
-				coords = { x: parseInt(s[0]), y: parseInt(s[1]) };
-			}
+		if (rpc.procedure) {
+			const command = rpc.procedure
 
 			if (command == 'ack') {
 				if (!initialized) initialized = true;
 				else initPellet();
 			} else if (command == 'nack') {
-				notifier.danger('Désolé, erreur reçue: ' + matches[7]);
+				notifier.danger('Désolé, erreur reçue: ' + rpc.arguments[0]);
 			} else if (command == 'update') {
-				if (otherUserId != userId) updatePellet(otherUserId, coords, matches[7]);
+				const otherUserId = rpc.arguments[0];
+				const coords = parseCoords(rpc.arguments[1]);
+				if (otherUserId != userId) updatePellet(otherUserId, coords);
 			} else if (command == 'userleft') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					log(`${others[otherUserId].nickname} a quitté le spectrum`);
 					deletePellet(otherUserId);
@@ -790,19 +801,20 @@
 					leaveSpectrum();
 				}
 			} else if (command == 'receive') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					notifier.info(
-						others[otherUserId].nickname + ' a envoyé : ' + matches[7].toString(),
+						others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1],
 						5000
 					);
-					log(`${others[otherUserId].nickname} a envoyé : ${matches[7]}`);
+					log(`${others[otherUserId].nickname} a envoyé : ${rpc.arguments[1]}`);
 				} else {
-					log(`Vous avez envoyé : ${matches[7]}`);
+					log(`Vous avez envoyé : ${rpc.arguments[1]}`);
 				}
 				trigger = false;
 				handAnimation = false;
 				handUsername = '';
-				emoji = matches[7];
+				emoji = rpc.arguments[1];
 
 				if (emoji === '🤚') {
 					handAnimation = true;
@@ -811,6 +823,7 @@
 
 				requestAnimationFrame(() => (trigger = true)); // retrigger animation
 			} else if (command == 'madeadmin') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					deletePellet(otherUserId, true);
 					log(`${others[otherUserId].nickname} a été élu admin`);
@@ -826,6 +839,8 @@
 					initPellet();
 				}
 
+				const coords = parseCoords(rpc.arguments[0]);
+
 				if (myPellet && coords) {
 					myPellet.left = coords.x * scale;
 					myPellet.top = coords.y * scale;
@@ -836,7 +851,7 @@
 				moving = false;
 			} else if (command == 'claim') {
 				if (!adminModeOn || (adminModeOn && !claimFocus)) {
-					receivedClaim(matches[7]);
+					receivedClaim(rpc.arguments[0]);
 
 					clearTimeout(updateClaimLog);
 					updateClaimLog = setTimeout(() => {
@@ -844,8 +859,9 @@
 					}, 3000);
 				}
 			} else if (command == 'voicechat') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
-					const voiceId = matches[7].toString();
+					const voiceId = rpc.arguments[1].toString();
 					others[otherUserId].voiceId = voiceId;
 					if (localStream && peerId) attemptCallWithLimit(peer, voiceId, localStream, 10);
 				} else {
@@ -861,22 +877,23 @@
 						});
 				}
 			} else if (command == 'microphonemute') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					others[otherUserId].microphone = false;
 				}
 			} else if (command == 'microphoneunmute') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					others[otherUserId].microphone = true;
 				}
 			} else if (command == 'spectrum') {
 				showJoinModal = false;
-				userId = matches[3];
-				const s = matches[7].toString().split(' ');
-				nickname = s[1];
-				if (s[2] == 'true') {
+				userId = rpc.arguments[0];
+				nickname = rpc.arguments[1];
+				if (rpc.arguments[2] == 'true') {
 					adminModeOn = true;
 				}
-				joinedSpectrum(s[0]);
+				joinedSpectrum(userId);
 
 				log('Vous venez de rejoindre le spectrum.');
 			}
@@ -910,21 +927,21 @@
 	}
 
 	function resetPositions() {
-		websocket.send('resetpositions');
+		rpc('resetpositions');
 	}
 
 	function onCreateSpectrum(nickname: string, initialClaim: string) {
 		listenning = true;
 		claim = initialClaim;
-		websocket.send(`startspectrum ${nickname}`);
+		rpc('startspectrum', nickname);
 		showCreateModal = false;
 		adminModeOn = true;
-		websocket.send(`claim ${claim}`);
+		rpc('claim', claim);
 	}
 
 	function onJoinSpectrum(spectrumId: string, nickname: string) {
 		listenning = true;
-		websocket.send(`joinspectrum ${spectrumId} ${nickname}`);
+		rpc('joinspectrum', spectrumId, nickname);
 	}
 
 	let adminModeOn: boolean = $state(false);
@@ -942,13 +959,13 @@
 	function makeAdmin(id: string) {
 		if (!adminModeOn) return;
 
-		websocket.send(`makeadmin ${id}`);
+		rpc('makeadmin', id);
 	}
 
 	function kick(id: string) {
 		if (!adminModeOn) return;
 
-		websocket.send(`kick ${id}`);
+		rpc('kick', id);
 	}
 
 	let showSpectrumId = $state(false);
@@ -966,7 +983,7 @@
 
 	function leaveSpectrum() {
 		listenning = false;
-		websocket.send(`leavespectrum ${spectrumId}`);
+		rpc('leavespectrum');
 		spectrumId = undefined;
 		adminModeOn = false;
 		myCanvas.remove(myPellet);
@@ -1082,7 +1099,7 @@
 		{/if}
 	</div>
 {:else}
-	<div class="fixed top-5 right-5 z-1000">
+	<div class="z-1000 fixed right-5 top-5">
 		<div class="tooltip tooltip-left" data-tip="Quitter mode streamer">
 			<button onclick={() => (streamerMode = false)} class="btn btn-info btn-circle"
 				><Fa icon={faSatelliteDish} /></button
@@ -1112,8 +1129,8 @@
 							if (claim != previousClaim) log(`Claim: ${claim}`);
 						}}
 						oninput={() => {
-							if (adminModeOn) {
-								websocket.send('claim ||' + claim + '||');
+							if (adminModeOn && claim) {
+								rpc('claim', claim);
 							}
 						}}
 					/>
@@ -1182,7 +1199,7 @@
 	<div class="w-full md:w-1/4 lg:w-1/3">
 		{#if !streamerMode}
 			<div
-				class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 bg-linear-to-bl to-50% font-mono"
+				class="card bg-base-100 card-border border-base-300 from-base-content/5 bg-linear-to-bl mb-4 to-50% font-mono"
 			>
 				<table class="table">
 					<colgroup>
@@ -1408,7 +1425,7 @@
 					</tr>
 				</thead>
 				<tbody
-					class="block max-h-300 overflow-y-auto"
+					class="max-h-300 block overflow-y-auto"
 					bind:this={tbodyRef}
 					onmouseenter={() => (isHoveringHistory = true)}
 					onmouseleave={() => (isHoveringHistory = false)}

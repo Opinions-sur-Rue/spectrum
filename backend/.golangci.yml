@@ -1,25 +1,45 @@
+version: "2"
 linters:
   enable:
     - bodyclose
-    - gci
-    - gofmt
-    - goconst    
+    - goconst
     - gocyclo
     - misspell
     - noctx
-    - reassign    
+    - reassign
     - revive
-    - whitespace    
-
-linters-settings:
-  gci:
-    sections:
-      - standard 
-      - default 
-    custom-order: true
-  gocyclo:
-    min-complexity: 20
-  revive:
-    rules:
-      - name: package-comments
-        disabled: true
+    - whitespace
+  settings:
+    gocyclo:
+      min-complexity: 20
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+      custom-order: true
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
