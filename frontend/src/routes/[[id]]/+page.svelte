@@ -786,6 +786,7 @@
 					deletePellet(otherUserId);
 				} else {
 					log(`Vous avez quitté le spectrum`);
+					notifier.danger('Vous avez quitté le spectrum');
 					leaveSpectrum();
 				}
 			} else if (command == 'receive') {
@@ -975,6 +976,7 @@
 		}
 		myCanvas.renderAll();
 		peer.disconnect();
+		connections.forEach((stream) => stream.getTracks().forEach((t) => t.stop()));
 	}
 
 	const copied = () => {
