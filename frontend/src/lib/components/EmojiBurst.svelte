@@ -92,6 +92,15 @@
 
 	.hand-raised::after {
 		content: attr(data-username);
+		text-shadow:
+			-2px -2px 0 white,
+			0 -2px 0 white,
+			2px -2px 0 white,
+			-2px 0 0 white,
+			2px 0 0 white,
+			-2px 2px 0 white,
+			0 2px 0 white,
+			2px 2px 0 white;
 		text-align: center;
 		font-size: x-large;
 		font-weight: bold;
