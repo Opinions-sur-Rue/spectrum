@@ -371,16 +371,22 @@
 		});
 
 		peer.on('call', (call) => {
-			console.log('ANSWERING CALL with ', localStream ? 'Micrphone' : 'No micrphone');
+			console.log('ANSWERING CALL with ', localStream ? 'Microphone' : 'No microphone');
 			call.answer(localStream);
 
 			console.log('RECEIVED CALL from', call.peer);
 			call.on('stream', (remoteStream) => {
 				playAudio(call.peer, remoteStream);
 
-				if (connections.has(call.peer) == false) {
-					connections.set(call.peer, remoteStream);
+				if (connections.has(call.peer)) {
+					// kill previous connection
+					connections
+						.get(call.peer)
+						?.getTracks()
+						.forEach((element) => element.stop());
 				}
+
+				connections.set(call.peer, remoteStream);
 			});
 		});
 	}
