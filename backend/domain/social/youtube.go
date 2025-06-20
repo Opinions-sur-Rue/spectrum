@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
+
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
@@ -16,17 +17,22 @@ import (
 type YoutubeListener struct {
 	service       *youtube.Service
 	messageFilter *regexp.Regexp
+	secret        string
 }
 
 func (l *YoutubeListener) SetMessageFilter(regex string) {
 	l.messageFilter = regexp.MustCompile(regex)
 }
 
+func (l *YoutubeListener) SetSecret(secret string) {
+	l.secret = secret
+}
+
 func (l *YoutubeListener) Connect(ctx context.Context, liveID string, messageChannel chan []byte) error {
 	var err error
 
 	if l.service == nil {
-		l.service, err = youtube.NewService(ctx, option.WithAPIKey("AIzaSyASxjTTpMVkok53HWkfwX3SC55HSA7T2ps"))
+		l.service, err = youtube.NewService(ctx, option.WithAPIKey(l.secret))
 		if err != nil {
 			return errors.Join(errors.New("error while creating YouTube service"), err)
 		}
@@ -70,8 +76,6 @@ func (l *YoutubeListener) Connect(ctx context.Context, liveID string, messageCha
 			}
 
 			for _, item := range chatResponse.Items {
-				//item.AuthorDetails.ProfileImageUrl
-				//item.AuthorDetails.ChannelId
 				author := item.AuthorDetails.DisplayName
 				message := item.Snippet.DisplayMessage
 				log.Infof("[%s] %s\n", author, message)

@@ -10,6 +10,7 @@ import (
 
 	"Opinions-sur-Rue/spectrum/domain/social"
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -266,7 +267,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 					break
 				}
 
-				listener, err := social.CreateListener(rpc.Arguments[0], "^\\s*spectrum\\s+-?[0-3i]\\s*$")
+				listener, err := social.CreateListener(rpc.Arguments[0], "^\\s*spectrum\\s+-?[0-3i]\\s*$", rpc.Arguments[2])
 				if err != nil {
 					log.Error(err.Error())
 					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())

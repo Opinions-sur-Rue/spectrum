@@ -1,8 +1,13 @@
 package social
 
 import (
+	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 	"context"
+	"errors"
+	"os"
 	"regexp"
+	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/steampoweredtaco/gotiktoklive"
@@ -11,13 +16,23 @@ import (
 type TiktokListener struct {
 	tiktokService *gotiktoklive.TikTok
 	messageFilter *regexp.Regexp
+	secret        string
 }
 
 func (l *TiktokListener) SetMessageFilter(regex string) {
 	l.messageFilter = regexp.MustCompile(regex)
 }
 
-func (l *TiktokListener) Connect(ctx context.Context, liveID string, message chan []byte) error {
+func (l *TiktokListener) SetSecret(secret string) {
+	l.secret = secret
+}
+
+func (l *TiktokListener) Connect(ctx context.Context, liveID string, messageChannel chan []byte) error {
+	if l.secret == "" || l.secret != os.Getenv("TIKTOK_SECRET") {
+		log.Error("invalid tiktok secret")
+		return errors.New("invalid tiktok secret")
+	}
+
 	var err error
 	l.tiktokService, err = gotiktoklive.NewTikTok()
 	if err != nil {
@@ -26,7 +41,7 @@ func (l *TiktokListener) Connect(ctx context.Context, liveID string, message cha
 
 	log.Info("Connected to tiktok")
 
-	live, err := l.tiktokService.TrackUser("marc.gury.photographe")
+	live, err := l.tiktokService.TrackUser(liveID)
 	if err != nil {
 		panic(err)
 	}
@@ -52,9 +67,12 @@ func (l *TiktokListener) Connect(ctx context.Context, liveID string, message cha
 				case gotiktoklive.ChatEvent:
 					log.Infof("gotiktoklive.UserEvent : %v\n", e)
 
-					// Specify the action for all remaining events
-					//default:
-					//log.Infof("%T : %+v\n", e, e)
+					if !l.messageFilter.Match([]byte(strings.ToLower(e.Comment))) {
+						continue
+					}
+
+					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LIVEUSERMESSAGE, strconv.FormatInt(e.User.ID, 10), e.User.Nickname, e.User.ProfilePicture.Urls[0], e.Comment)
+					messageChannel <- reply.Export()
 				}
 			}
 		}
