@@ -7,6 +7,7 @@ import (
 
 type ChatListener interface {
 	Connect(ctx context.Context, liveID string, messageChannel chan []byte) error
+	Disconnect() error
 	SetMessageFilter(regex string)
 	SetSecret(secret string)
 }
@@ -26,5 +27,6 @@ func CreateListener(serviceType string, regexMessageFilter string, secret string
 		return nil, ErrUnknownServiceType
 	}
 	listener.SetMessageFilter(regexMessageFilter)
+	listener.SetSecret(secret)
 	return listener, nil
 }

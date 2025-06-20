@@ -1,7 +1,6 @@
 package social
 
 import (
-	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 	"context"
 	"errors"
 	"os"
@@ -9,14 +8,16 @@ import (
 	"strconv"
 	"strings"
 
+	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 	log "github.com/sirupsen/logrus"
 	"github.com/steampoweredtaco/gotiktoklive"
 )
 
 type TiktokListener struct {
-	tiktokService *gotiktoklive.TikTok
-	messageFilter *regexp.Regexp
-	secret        string
+	tiktokService    *gotiktoklive.TikTok
+	messageFilter    *regexp.Regexp
+	secret           string
+	cancelConnection context.CancelFunc
 }
 
 func (l *TiktokListener) SetMessageFilter(regex string) {
@@ -27,7 +28,17 @@ func (l *TiktokListener) SetSecret(secret string) {
 	l.secret = secret
 }
 
+func (l *TiktokListener) Disconnect() error {
+	if l.cancelConnection != nil {
+		l.cancelConnection()
+	}
+	return nil
+}
+
 func (l *TiktokListener) Connect(ctx context.Context, liveID string, messageChannel chan []byte) error {
+	var newCtx context.Context
+	newCtx, l.cancelConnection = context.WithCancel(ctx)
+
 	if l.secret == "" || l.secret != os.Getenv("TIKTOK_SECRET") {
 		log.Error("invalid tiktok secret")
 		return errors.New("invalid tiktok secret")
@@ -50,8 +61,9 @@ func (l *TiktokListener) Connect(ctx context.Context, liveID string, messageChan
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-newCtx.Done():
 			log.Info("Tiktok listener terminated...")
+			l.cancelConnection = nil
 			return nil
 		case event := <-live.Events:
 			{

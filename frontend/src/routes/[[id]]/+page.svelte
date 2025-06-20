@@ -34,6 +34,7 @@
 	import { getUserId } from '$lib/authentication/userId';
 	import CreateSpectrumModal from '$lib/components/CreateSpectrumModal.svelte';
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
+	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
 	import {
 		ENABLE_AUDIO,
 		HEADER_TITLE,
@@ -1027,6 +1028,19 @@
 		showCreateModal = !showCreateModal;
 	}
 
+	let showConnectLiveModal = $state(false);
+	function toggleConnectLiveModal() {
+		console.log('COUCOU');
+		showConnectLiveModal = !showConnectLiveModal;
+	}
+
+	let liveChannel: string | undefined = $state();
+	function onConnectLive(channel: string, liveId: string, secret: string) {
+		rpc('listen', channel, liveId, secret);
+		liveChannel = channel;
+		toggleConnectLiveModal();
+	}
+
 	function leaveSpectrum() {
 		listenning = false;
 		rpc('leavespectrum');
@@ -1082,6 +1096,7 @@
 
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
+<ConnectLiveModal bind:toggle={showConnectLiveModal} onSubmit={onConnectLive} />
 <EmojiBurst {emoji} {trigger} {handAnimation} {handUsername} />
 
 {#if !streamerMode}
@@ -1210,13 +1225,26 @@
 							Clôturer le Spectrum</span
 						></button
 					>
-					<button
-						class="btn btn-error rounded-lg px-4 py-2 font-mono"
-						onclick={() => rpc('listen', 'youtube', 'Mosr0aY4vEk')}
-						><Fa icon={faYoutube} /><span class="hidden lg:!inline-block">
-							Listen to Youtube</span
-						></button
-					>
+					{#if liveChannel}
+						<button
+							class="btn btn-error rounded-lg px-4 py-2 font-mono"
+							onclick={() => {
+								rpc('disconnect');
+								liveChannel = undefined;
+							}}
+							><Fa icon={faYoutube} /><span class="hidden lg:!inline-block">
+								Se déconnecter du live</span
+							></button
+						>
+					{:else}
+						<button
+							class="btn btn-error rounded-lg px-4 py-2 font-mono"
+							onclick={toggleConnectLiveModal}
+							><Fa icon={faYoutube} /><span class="hidden lg:!inline-block">
+								Connecter un Live</span
+							></button
+						>
+					{/if}
 				{/if}
 
 				{#if spectrumId}

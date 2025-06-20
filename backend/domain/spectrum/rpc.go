@@ -10,13 +10,12 @@ import (
 
 	"Opinions-sur-Rue/spectrum/domain/social"
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
-
 	log "github.com/sirupsen/logrus"
 )
 
 var (
 	newPositions   = []string{"569,514", "509,521", "426,521", "514,566", "424,569", "382,523"}
-	procedureRegex = regexp.MustCompile(`^(listen|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick)$`)
+	procedureRegex = regexp.MustCompile(`^(listen|disconnect|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick)$`)
 	//hexadecimalRegex = regexp.MustCompile(`^([0-9a-f-]*)$`)
 	//emojiRegex       = regexp.MustCompile(`^([\x{1F600}-\x{1F6FF}|[\x{2600}-\x{26FF}]|[\x{1FAE3}]|[\x{1F92F}]|[\x{1F91A}]|[\x{1F914}]||[\x{1F99D}]|[\x{1FAE1}]|[\x{1F6DF}])$`)
 	//coordsRegex      = regexp.MustCompile(`^([0-9]+,[0-9]+)$`)
@@ -272,6 +271,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 					log.Error(err.Error())
 					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
 					c.send <- reply.Export()
+					break
 				}
 
 				user.SetSocialListener(listener)
@@ -285,6 +285,23 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 						user.SetSocialListener(nil)
 					}
 				}()
+			}
+		}
+	case "disconnect":
+		if user.IsInRoom() {
+			roomID := user.Room()
+			if c.hub.rooms[roomID].IsAdmin(c.UserID()) {
+				if user.SocialListener() != nil {
+					err := user.SocialListener().Disconnect()
+					if err != nil {
+						log.Error(err.Error())
+						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
+						c.send <- reply.Export()
+						break
+					}
+					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK)
+					c.send <- reply.Export()
+				}
 			}
 		}
 	default:

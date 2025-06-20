@@ -8,16 +8,16 @@ import (
 	"time"
 
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
-
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
 )
 
 type YoutubeListener struct {
-	service       *youtube.Service
-	messageFilter *regexp.Regexp
-	secret        string
+	service          *youtube.Service
+	messageFilter    *regexp.Regexp
+	secret           string
+	cancelConnection context.CancelFunc
 }
 
 func (l *YoutubeListener) SetMessageFilter(regex string) {
@@ -28,11 +28,20 @@ func (l *YoutubeListener) SetSecret(secret string) {
 	l.secret = secret
 }
 
+func (l *YoutubeListener) Disconnect() error {
+	if l.cancelConnection != nil {
+		l.cancelConnection()
+	}
+	return nil
+}
+
 func (l *YoutubeListener) Connect(ctx context.Context, liveID string, messageChannel chan []byte) error {
 	var err error
+	var newCtx context.Context
+	newCtx, l.cancelConnection = context.WithCancel(ctx)
 
 	if l.service == nil {
-		l.service, err = youtube.NewService(ctx, option.WithAPIKey(l.secret))
+		l.service, err = youtube.NewService(newCtx, option.WithAPIKey(l.secret))
 		if err != nil {
 			return errors.Join(errors.New("error while creating YouTube service"), err)
 		}
@@ -59,8 +68,9 @@ func (l *YoutubeListener) Connect(ctx context.Context, liveID string, messageCha
 	var delay time.Duration = 0
 	for {
 		select {
-		case <-ctx.Done():
+		case <-newCtx.Done():
 			log.Info("Hub runner terminated...")
+			l.cancelConnection = nil
 			return nil
 		case <-time.After(delay * time.Millisecond):
 			chatCall := l.service.LiveChatMessages.List(liveChatID, []string{"snippet", "authorDetails"})
