@@ -28,6 +28,8 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
+
+	context context.Context
 }
 
 var (
@@ -133,7 +135,7 @@ func (h *Hub) JoinRoom(roomID string, userID string) (string, error) {
 		userNickname = userID
 	}
 
-	reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_JOINED, userNickname)
+	reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_JOINED, color, userNickname)
 	h.MessageRoom(roomID, reply)
 
 	return color, nil
@@ -164,6 +166,7 @@ func (h *Hub) MessageRoom(roomID string, content *valueobjects.MessageContent) {
 }
 
 func (h *Hub) Run(ctx context.Context) {
+	h.context = ctx
 	go h.Routine(ctx)
 
 	log.Debug("Hub runner starting...")

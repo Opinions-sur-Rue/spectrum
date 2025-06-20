@@ -45,6 +45,7 @@ func NewMessageContentWithArgs(procedure string, args ...string) *MessageContent
 
 func ParseMessageContent(jsonBytes []byte) (*MessageContent, error) {
 	var content MessageContent
+	log.Debug(string(jsonBytes))
 	err := json.Unmarshal(jsonBytes, &content)
 	if err != nil {
 		log.Errorf("Failed to unmarshal message content: %v", err)

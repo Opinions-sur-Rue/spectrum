@@ -2,6 +2,7 @@ package social
 
 import (
 	"context"
+	"regexp"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/steampoweredtaco/gotiktoklive"
@@ -9,9 +10,14 @@ import (
 
 type TiktokListener struct {
 	tiktokService *gotiktoklive.TikTok
+	messageFilter *regexp.Regexp
 }
 
-func (l *TiktokListener) connect(ctx context.Context, liveID string, message chan []byte) error {
+func (l *TiktokListener) SetMessageFilter(regex string) {
+	l.messageFilter = regexp.MustCompile(regex)
+}
+
+func (l *TiktokListener) Connect(ctx context.Context, liveID string, message chan []byte) error {
 	var err error
 	l.tiktokService, err = gotiktoklive.NewTikTok()
 	if err != nil {

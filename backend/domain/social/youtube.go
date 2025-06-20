@@ -3,22 +3,30 @@ package social
 import (
 	"context"
 	"errors"
+	"regexp"
+	"strings"
 	"time"
 
+	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
 )
 
 type YoutubeListener struct {
-	service *youtube.Service
+	service       *youtube.Service
+	messageFilter *regexp.Regexp
 }
 
-func (l *YoutubeListener) connect(ctx context.Context, liveID string, message chan []byte) error {
+func (l *YoutubeListener) SetMessageFilter(regex string) {
+	l.messageFilter = regexp.MustCompile(regex)
+}
+
+func (l *YoutubeListener) Connect(ctx context.Context, liveID string, messageChannel chan []byte) error {
 	var err error
 
 	if l.service == nil {
-		l.service, err = youtube.NewService(ctx, option.WithAPIKey("AIzaSyA8HLfFVlV1bTVZgqtdl3BMrettSqROlK8"))
+		l.service, err = youtube.NewService(ctx, option.WithAPIKey("AIzaSyASxjTTpMVkok53HWkfwX3SC55HSA7T2ps"))
 		if err != nil {
 			return errors.Join(errors.New("error while creating YouTube service"), err)
 		}
@@ -67,6 +75,13 @@ func (l *YoutubeListener) connect(ctx context.Context, liveID string, message ch
 				author := item.AuthorDetails.DisplayName
 				message := item.Snippet.DisplayMessage
 				log.Infof("[%s] %s\n", author, message)
+
+				if !l.messageFilter.Match([]byte(strings.ToLower(message))) {
+					continue
+				}
+
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LIVEUSERMESSAGE, item.AuthorDetails.ChannelId, author, item.AuthorDetails.ProfileImageUrl, message)
+				messageChannel <- reply.Export()
 			}
 
 			nextPageToken = chatResponse.NextPageToken

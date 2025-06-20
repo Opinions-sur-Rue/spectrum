@@ -28,6 +28,7 @@
 		faVolumeHigh,
 		faVolumeMute
 	} from '@fortawesome/free-solid-svg-icons';
+	import { faYoutube } from '@fortawesome/free-brands-svg-icons';
 	import Fa from 'svelte-fa';
 	import { page } from '$app/state';
 	import { getUserId } from '$lib/authentication/userId';
@@ -167,13 +168,15 @@
 	});
 
 	$effect(() => {
-		if (ENABLE_AUDIO && peerId) {
+		if (ENABLE_AUDIO && peerId && spectrumId) {
 			if (microphone) {
 				localStream?.getTracks().forEach((track) => (track.enabled = true));
-				websocket?.send(`microphoneunmute ${userId} ${peerId}`);
+				rpc('unmutedmymicrophone');
+				//websocket?.send(`microphoneunmute ${userId} ${peerId}`);
 			} else {
 				localStream?.getTracks().forEach((track) => (track.enabled = false));
-				websocket?.send(`microphonemute ${userId} ${peerId}`);
+				//websocket?.send(`microphonemute ${userId} ${peerId}`);
+				rpc('mutedmymicrophone');
 			}
 		}
 	});
@@ -181,8 +184,7 @@
 	$effect(() => {
 		if (ENABLE_AUDIO) {
 			if (spectrumId && peerId && userId && localStream) {
-				rpc('myvoicechatid');
-
+				rpc('myvoicechatid', peerId);
 				rpc('mutedmymicrophone');
 			}
 		}
@@ -569,6 +571,7 @@
 	 */
 	function initOtherPellet(userId: string, nickname: string) {
 		console.log('Initalizing Other Pellet: ' + userId);
+		log(`${nickname} a rejoint le spectrum`);
 		const options = {
 			top: 0,
 			left: 0,
@@ -623,6 +626,7 @@
 		});
 
 		myCanvas.add(g);
+
 		return g;
 	}
 
@@ -633,7 +637,6 @@
 	) {
 		// New user
 		if (!others[otherUserId]) {
-			log(`${otherNickname} a rejoint le spectrum`);
 			others[otherUserId] = {
 				pellet:
 					coords && !isNaN(coords.x) && !isNaN(coords.y)
@@ -696,7 +699,7 @@
 	function rpc(procedure: string, ...args: string[]) {
 		const json = JSON.stringify({
 			procedure: procedure,
-			args: args
+			arguments: args
 		});
 
 		websocket.send(json);
@@ -725,7 +728,11 @@
 
 	function updateMyPellet(force = false) {
 		if (moving || force)
-			rpc('myposition', `${Math.round(myPellet.left / scale)},${Math.round(myPellet.top / scale)}`);
+			rpc(
+				'myposition',
+				`${Math.round(myPellet.left / scale)},${Math.round(myPellet.top / scale)}`,
+				nickname ?? ''
+			);
 	}
 
 	function drawCanvas(id: string) {
@@ -759,7 +766,7 @@
 
 	let claimFocus = false;
 
-	function parseCoords(coords: string) : { x: number; y: number } | null {
+	function parseCoords(coords: string): { x: number; y: number } | null {
 		if (!coords) return null;
 		const parts = coords.split(',');
 		if (parts.length !== 2) return null;
@@ -767,6 +774,38 @@
 		const y = parseInt(parts[1]);
 		if (isNaN(x) || isNaN(y)) return null;
 		return { x, y };
+	}
+
+	let liveVotes = new Map<string, number>();
+
+	function parseLiveSpectrum(liveUserId: string, liveSpectrum: string): { x: number; y: number } {
+		const parts = liveSpectrum.split(' ');
+		const vote = parseInt(parts[1]);
+
+		liveVotes.set(liveUserId, vote);
+		const sum = Array.from(liveVotes.values()).reduce((acc, val) => acc + val, 0);
+		const average = sum / liveVotes.size;
+
+		const averageVote = Math.round(average);
+
+		switch (averageVote) {
+			case -3:
+				return { x: 98, y: 399 };
+			case -2:
+				return { x: 157, y: 251 };
+			case -1:
+				return { x: 292, y: 127 };
+			case 0:
+				return { x: 475, y: 78 };
+			case 1:
+				return { x: 659, y: 123 };
+			case 2:
+				return { x: 771, y: 250 };
+			case 3:
+				return { x: 832, y: 408 };
+		}
+
+		return { x: 467, y: 424 };
 	}
 
 	function parseCommand(line: string) {
@@ -779,7 +818,7 @@
 		const rpc = JSON.parse(line) as { procedure: string; arguments: string[] };
 
 		if (rpc.procedure) {
-			const command = rpc.procedure
+			const command = rpc.procedure;
 
 			if (command == 'ack') {
 				if (!initialized) initialized = true;
@@ -789,8 +828,13 @@
 			} else if (command == 'update') {
 				const otherUserId = rpc.arguments[0];
 				const coords = parseCoords(rpc.arguments[1]);
-				if (otherUserId != userId) updatePellet(otherUserId, coords);
-			} else if (command == 'userleft') {
+				const otherNickname = rpc.arguments[2];
+				if (otherUserId != userId) updatePellet(otherUserId, coords, otherNickname);
+			} /*else if (command == 'joined') {
+				const otherUserId = rpc.arguments[0];
+				const otherNickname = rpc.arguments[1];
+				if (otherUserId != userId) initOtherPellet(otherUserId, otherNickname);
+			} */ else if (command == 'userleft') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					log(`${others[otherUserId].nickname} a quitté le spectrum`);
@@ -803,10 +847,7 @@
 			} else if (command == 'receive') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
-					notifier.info(
-						others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1],
-						5000
-					);
+					notifier.info(others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1], 5000);
 					log(`${others[otherUserId].nickname} a envoyé : ${rpc.arguments[1]}`);
 				} else {
 					log(`Vous avez envoyé : ${rpc.arguments[1]}`);
@@ -876,12 +917,12 @@
 							}
 						});
 				}
-			} else if (command == 'microphonemute') {
+			} else if (command == 'microphonemuted') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					others[otherUserId].microphone = false;
 				}
-			} else if (command == 'microphoneunmute') {
+			} else if (command == 'microphoneunmuted') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					others[otherUserId].microphone = true;
@@ -889,13 +930,18 @@
 			} else if (command == 'spectrum') {
 				showJoinModal = false;
 				userId = rpc.arguments[0];
-				nickname = rpc.arguments[1];
-				if (rpc.arguments[2] == 'true') {
+				nickname = rpc.arguments[2];
+				if (rpc.arguments[3] == 'true') {
 					adminModeOn = true;
 				}
-				joinedSpectrum(userId);
+				joinedSpectrum(rpc.arguments[1]);
 
 				log('Vous venez de rejoindre le spectrum.');
+			} else if (command == 'liveusermessage') {
+				const otherUserId = 'ff0000';
+				const coords = parseLiveSpectrum(rpc.arguments[0], rpc.arguments[3]);
+				const otherNickname = 'YouTube';
+				if (otherUserId != userId) updatePellet(otherUserId, coords, otherNickname);
 			}
 		}
 	}
@@ -1099,7 +1145,7 @@
 		{/if}
 	</div>
 {:else}
-	<div class="z-1000 fixed right-5 top-5">
+	<div class="fixed top-5 right-5 z-1000">
 		<div class="tooltip tooltip-left" data-tip="Quitter mode streamer">
 			<button onclick={() => (streamerMode = false)} class="btn btn-info btn-circle"
 				><Fa icon={faSatelliteDish} /></button
@@ -1164,6 +1210,13 @@
 							Clôturer le Spectrum</span
 						></button
 					>
+					<button
+						class="btn btn-error rounded-lg px-4 py-2 font-mono"
+						onclick={() => rpc('listen', 'youtube', 'Mosr0aY4vEk')}
+						><Fa icon={faYoutube} /><span class="hidden lg:!inline-block">
+							Listen to Youtube</span
+						></button
+					>
 				{/if}
 
 				{#if spectrumId}
@@ -1199,7 +1252,7 @@
 	<div class="w-full md:w-1/4 lg:w-1/3">
 		{#if !streamerMode}
 			<div
-				class="card bg-base-100 card-border border-base-300 from-base-content/5 bg-linear-to-bl mb-4 to-50% font-mono"
+				class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 bg-linear-to-bl to-50% font-mono"
 			>
 				<table class="table">
 					<colgroup>
@@ -1425,7 +1478,7 @@
 					</tr>
 				</thead>
 				<tbody
-					class="max-h-300 block overflow-y-auto"
+					class="block max-h-300 overflow-y-auto"
 					bind:this={tbodyRef}
 					onmouseenter={() => (isHoveringHistory = true)}
 					onmouseleave={() => (isHoveringHistory = false)}

@@ -8,13 +8,14 @@ import (
 	"regexp"
 	"slices"
 
+	"Opinions-sur-Rue/spectrum/domain/social"
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
 	newPositions   = []string{"569,514", "509,521", "426,521", "514,566", "424,569", "382,523"}
-	procedureRegex = regexp.MustCompile(`^(emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick)$`)
+	procedureRegex = regexp.MustCompile(`^(listen|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick)$`)
 	//hexadecimalRegex = regexp.MustCompile(`^([0-9a-f-]*)$`)
 	//emojiRegex       = regexp.MustCompile(`^([\x{1F600}-\x{1F6FF}|[\x{2600}-\x{26FF}]|[\x{1FAE3}]|[\x{1F92F}]|[\x{1F91A}]|[\x{1F914}]||[\x{1F99D}]|[\x{1FAE1}]|[\x{1F6DF}])$`)
 	//coordsRegex      = regexp.MustCompile(`^([0-9]+,[0-9]+)$`)
@@ -38,6 +39,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 	}
 
 	log.Debug("RPC " + rpc.Procedure)
+	log.Debug(rpc.Arguments)
 
 	user := c.hub.users[c.userID]
 
@@ -52,7 +54,9 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		c.hub.LinkUserWithClient(c.UserID(), c)
 		c.send <- valueobjects.NewMessageContent(valueobjects.RPC_ACK).Export()
 
-		if user.IsInRoom() {
+		user = c.hub.users[c.userID]
+
+		if user != nil && user.IsInRoom() {
 			user.beginningGracePeriod = math.MaxInt64 - 100
 
 			roomID := user.currentRoomID
@@ -70,8 +74,10 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 				c.send <- reply.Export()
 			}
 
-			reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, user.LastPosition())
-			c.hub.MessageUser(c.UserID(), c.UserID(), reply)
+			if user.LastPosition() != "N,A" {
+				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, user.LastPosition())
+				c.hub.MessageUser(c.UserID(), c.UserID(), reply)
+			}
 
 			reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, c.hub.rooms[roomID].Topic())
 			c.hub.MessageUser(c.UserID(), c.UserID(), reply)
@@ -157,7 +163,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 	case "myposition":
 		if user.IsInRoom() {
 			user.SetLastPosition(rpc.Arguments[0])
-			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, user.Color, rpc.Arguments[0])
+			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, user.Color, rpc.Arguments[0], rpc.Arguments[1])
 			c.hub.MessageRoom(user.Room(), reply)
 		}
 	case "makeadmin":
@@ -217,8 +223,9 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		if user.IsInRoom() {
 			user.SetLastVoiceId(rpc.Arguments[0])
 			roomID := user.Room()
-
+			log.Debug("Cpicpi")
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_VOICECHAT, user.Color, rpc.Arguments[0])
+			log.Debug("Cpicpi")
 			c.hub.MessageRoom(roomID, reply)
 
 			for _, participant := range c.hub.rooms[roomID].participants {
@@ -248,6 +255,36 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			roomID := user.Room()
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MICROPHONEMUTED, user.Color)
 			c.hub.MessageRoom(roomID, reply)
+		}
+	case "listen":
+		if user.IsInRoom() {
+			roomID := user.Room()
+			if c.hub.rooms[roomID].IsAdmin(c.UserID()) {
+				if user.SocialListener() != nil {
+					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, "already connected")
+					c.send <- reply.Export()
+					break
+				}
+
+				listener, err := social.CreateListener(rpc.Arguments[0], "^\\s*spectrum\\s+-?[0-3i]\\s*$")
+				if err != nil {
+					log.Error(err.Error())
+					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
+					c.send <- reply.Export()
+				}
+
+				user.SetSocialListener(listener)
+
+				go func() {
+					err := listener.Connect(c.hub.context, rpc.Arguments[1], c.send)
+					if err != nil {
+						log.Error(err.Error())
+						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
+						c.send <- reply.Export()
+						user.SetSocialListener(nil)
+					}
+				}()
+			}
 		}
 	default:
 		return ErrCommandNotRecognized
