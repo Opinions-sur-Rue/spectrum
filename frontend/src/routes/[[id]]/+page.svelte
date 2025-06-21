@@ -7,6 +7,8 @@
 	import { notifier } from '$lib/notifications';
 	import {
 		faCirclePlus,
+		faClock,
+		faComments,
 		faCopy,
 		faExclamation,
 		faEye,
@@ -17,6 +19,7 @@
 		faMicrophoneSlash,
 		faNewspaper,
 		faPalette,
+		faPaperPlane,
 		faPerson,
 		faPersonWalkingArrowRight,
 		faPlayCircle,
@@ -950,6 +953,11 @@
 				const coords = parseLiveSpectrum(rpc.arguments[0], rpc.arguments[3]);
 				const otherNickname = 'YouTube';
 				if (otherUserId != userId) updatePellet(otherUserId, coords, otherNickname);
+			} else if (command == 'chatmessage') {
+				const otherUserId = rpc.arguments[0];
+				const message = rpc.arguments[1];
+				if (otherUserId != userId) log(`${others[otherUserId].nickname}: ${message}`);
+				else log(`${nickname}: ${message}`);
 			}
 		}
 	}
@@ -1025,6 +1033,11 @@
 	let showSpectrumId = $state(false);
 
 	let showJoinModal = $state(false);
+	let chatMessage = $state('');
+	function sendChatMessage() {
+		rpc('sendchatmessage', chatMessage);
+		chatMessage = '';
+	}
 
 	function toggleJoinModal() {
 		showJoinModal = !showJoinModal;
@@ -1177,7 +1190,7 @@
 {/if}
 
 <div class="relative mt-8 flex flex-wrap">
-	<div class="mb-4 w-full md:w-3/4 md:pr-2 lg:w-2/3 lg:pr-4">
+	<div class="mb-4 w-full flex-none md:w-3/4 md:pr-2 lg:w-2/3 lg:pr-4">
 		<div class="card bg-base-100 w-full shadow-sm" bind:clientWidth={canvasWidth}>
 			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
@@ -1199,6 +1212,8 @@
 								rpc('claim', claim);
 							}
 						}}
+						minFontSize={12}
+						maxFontSize={24}
 					/>
 					<span class="font-bold"><Fa icon={faMapPin} /> Claim</span>
 				</label>
@@ -1282,10 +1297,10 @@
 		</div>
 	</div>
 
-	<div class="w-full md:w-1/4 lg:w-1/3">
+	<div class="mb-4 flex w-full flex-1 flex-col md:w-1/4 lg:w-1/3">
 		{#if !streamerMode}
 			<div
-				class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 bg-linear-to-bl to-50% font-mono"
+				class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 bg-linear-to-bl to-50% font-mono shadow-sm"
 			>
 				<table class="table">
 					<colgroup>
@@ -1502,33 +1517,53 @@
 		{/if}
 		<div
 			id="history"
-			class="card bg-base-100 card-border border-base-300 from-base-content/5 bg-linear-to-bl to-50% font-mono"
+			class="card bg-base-100 card-border border-base-300 from-base-content/5 flex-1 flex-col bg-linear-to-bl to-50% font-mono shadow-sm"
 		>
-			<table class="table">
+			<table class="table h-full w-full flex-1">
 				<thead>
 					<tr>
-						<th><Fa icon={faNewspaper} /> Historique</th>
+						<th class="text-black"><Fa icon={faComments} /> Chat</th>
 					</tr>
 				</thead>
 				<tbody
-					class="block max-h-300 overflow-y-auto"
+					class="block !max-h-117 w-full overflow-y-scroll"
 					bind:this={tbodyRef}
 					onmouseenter={() => (isHoveringHistory = true)}
 					onmouseleave={() => (isHoveringHistory = false)}
 				>
 					{#each logs as log}
+						{@const regex = /^\[([^\]]+)\]\s*(.*)$/}
+						{@const match = log.match(regex)}
 						<tr class="odd:bg-white even:bg-gray-50">
-							<td>
+							<td class="w-full">
+								<span class="tooltip tooltip-right" data-tip={match?.[1]}
+									><Fa icon={faClock} /></span
+								>
 								{#if log.includes('Claim: ')}
-									<span class="text-sm"><b>{log}</b></span>
+									<span class="text-sm"><b>{match?.[2]}</b></span>
 								{:else}
-									<span class="text-sm">{log}</span>
+									<span class="text-sm">{match?.[2]}</span>
 								{/if}
 							</td>
 						</tr>
 					{/each}
 				</tbody>
+				<tfoot> </tfoot>
 			</table>
+			<div class="join flex-none">
+				<InputFlex
+					placeholder="Envoyer un message au chat"
+					bind:value={chatMessage}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') sendChatMessage();
+					}}
+					minFontSize={8}
+					maxFontSize={12}
+				/>
+				<button class="btn btn-xl join-item" onclick={sendChatMessage}
+					><Fa icon={faPaperPlane} /></button
+				>
+			</div>
 		</div>
 	</div>
 </div>

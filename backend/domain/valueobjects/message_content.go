@@ -27,6 +27,7 @@ const (
 	RPC_LIVEUSERMESSAGE   = "liveusermessage"
 	RPC_SPECTRUM          = "spectrum"
 	RPC_NEWPOSITION       = "newposition"
+	RPC_CHATMESSAGE       = "chatmessage"
 )
 
 func NewMessageContent(procedure string) *MessageContent {

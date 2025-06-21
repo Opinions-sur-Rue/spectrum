@@ -1,12 +1,17 @@
 <script lang="ts">
+	import type { KeyboardEventHandler } from 'svelte/elements';
+
 	interface Props {
-		name: string;
+		name?: string;
 		value: string;
-		placeholder: string;
-		readonly: boolean;
-		onfocusin: VoidFunction;
-		onfocusout: VoidFunction;
-		oninput: VoidFunction;
+		placeholder?: string;
+		readonly?: boolean;
+		onfocusin?: VoidFunction;
+		onfocusout?: VoidFunction;
+		oninput?: VoidFunction;
+		onkeydown?: KeyboardEventHandler<HTMLInputElement>;
+		minFontSize: number;
+		maxFontSize: number;
 	}
 
 	let {
@@ -16,13 +21,13 @@
 		readonly,
 		onfocusin,
 		onfocusout,
-		oninput
+		oninput,
+		onkeydown,
+		minFontSize,
+		maxFontSize
 	}: Props = $props();
 	let inputEl: HTMLInputElement;
 	let mirrorEl: HTMLSpanElement;
-
-	const minFontSize = 12;
-	const maxFontSize = 24;
 
 	// Fonction de mise à jour de la taille de police
 	function updateFontSize() {
@@ -55,13 +60,14 @@
 		bind:this={inputEl}
 		bind:value
 		type="text"
-		class="input input-xl"
+		class="input input-xl join-item"
 		{name}
 		{readonly}
 		{placeholder}
 		{onfocusin}
 		{onfocusout}
 		{oninput}
+		{onkeydown}
 	/>
 	<span class="mirror" bind:this={mirrorEl}></span>
 </div>
@@ -74,10 +80,7 @@
 
 	input {
 		width: 100%;
-		box-sizing: border-box;
 		padding: 8px;
-		font-size: 24px;
-		font-family: sans-serif;
 	}
 
 	.mirror {
@@ -87,7 +90,6 @@
 		visibility: hidden;
 		white-space: pre;
 		padding: 8px;
-		font-family: sans-serif;
 		font-weight: normal;
 	}
 </style>
