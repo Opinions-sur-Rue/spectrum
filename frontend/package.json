@@ -26,7 +26,7 @@
 		"@sveltejs/vite-plugin-svelte": "^5.1.0",
 		"@tailwindcss/forms": "^0.5.9",
 		"@tailwindcss/typography": "^0.5.15",
-		"@tailwindcss/vite": "^4.1.6",
+		"@tailwindcss/vite": "^4.1.10",
 		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/svelte": "^5.2.8",
 		"daisyui": "^5.0.35",
