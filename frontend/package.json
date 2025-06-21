@@ -18,7 +18,7 @@
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.9",
-		"@eslint/js": "^9.28.0",
+		"@eslint/js": "^9.29.0",
 		"@fortawesome/free-solid-svg-icons": "^6.7.2",
 		"@playwright/test": "^1.52.0",
 		"@sveltejs/adapter-node": "^5.2.12",
