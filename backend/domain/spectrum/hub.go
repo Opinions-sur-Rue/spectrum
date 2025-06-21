@@ -28,6 +28,8 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
+
+	context context.Context
 }
 
 var (
@@ -133,7 +135,8 @@ func (h *Hub) JoinRoom(roomID string, userID string) (string, error) {
 		userNickname = userID
 	}
 
-	h.MessageRoom(roomID, "joined "+userNickname)
+	reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_JOINED, color, userNickname)
+	h.MessageRoom(roomID, reply)
 
 	return color, nil
 }
@@ -148,21 +151,22 @@ func (h *Hub) JoinPrivateRoom(roomID string, userID string, password string) (st
 	return h.JoinRoom(roomID, userID)
 }
 
-func (h *Hub) Broadcast(senderID string, content string) {
-	h.messages <- valueobjects.NewBroadcastMessage(senderID, []byte(content))
+func (h *Hub) Broadcast(senderID string, content *valueobjects.MessageContent) {
+	h.messages <- valueobjects.NewBroadcastMessage(senderID, content.Export())
 }
 
-func (h *Hub) MessageUser(senderID string, recipentID string, content string) {
-	h.messages <- valueobjects.NewMessage(senderID, recipentID, []byte(content))
+func (h *Hub) MessageUser(senderID string, recipentID string, content *valueobjects.MessageContent) {
+	h.messages <- valueobjects.NewMessage(senderID, recipentID, content.Export())
 }
 
-func (h *Hub) MessageRoom(roomID string, content string) {
+func (h *Hub) MessageRoom(roomID string, content *valueobjects.MessageContent) {
 	for _, user := range h.rooms[roomID].participants {
-		h.messages <- valueobjects.NewServiceMessage(user.UserID, []byte(content))
+		h.messages <- valueobjects.NewServiceMessage(user.UserID, content.Export())
 	}
 }
 
 func (h *Hub) Run(ctx context.Context) {
+	h.context = ctx
 	go h.Routine(ctx)
 
 	log.Debug("Hub runner starting...")
@@ -247,7 +251,8 @@ func (h *Hub) Routine(ctx context.Context) {
 				}
 				for _, participantToNotify := range participantsToNotify {
 					for _, participantDeleted := range participantsDeleted {
-						h.MessageUser(participantToNotify, participantToNotify, userleft+participantDeleted)
+						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_USERLEFT, participantDeleted)
+						h.MessageUser(participantToNotify, participantToNotify, reply)
 					}
 				}
 			}

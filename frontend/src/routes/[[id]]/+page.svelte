@@ -28,11 +28,13 @@
 		faVolumeHigh,
 		faVolumeMute
 	} from '@fortawesome/free-solid-svg-icons';
+	import { faYoutube } from '@fortawesome/free-brands-svg-icons';
 	import Fa from 'svelte-fa';
 	import { page } from '$app/state';
 	import { getUserId } from '$lib/authentication/userId';
 	import CreateSpectrumModal from '$lib/components/CreateSpectrumModal.svelte';
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
+	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
 	import {
 		ENABLE_AUDIO,
 		HEADER_TITLE,
@@ -167,13 +169,15 @@
 	});
 
 	$effect(() => {
-		if (ENABLE_AUDIO && peerId) {
+		if (ENABLE_AUDIO && peerId && spectrumId) {
 			if (microphone) {
 				localStream?.getTracks().forEach((track) => (track.enabled = true));
-				websocket?.send(`microphoneunmute ${userId} ${peerId}`);
+				rpc('unmutedmymicrophone');
+				//websocket?.send(`microphoneunmute ${userId} ${peerId}`);
 			} else {
 				localStream?.getTracks().forEach((track) => (track.enabled = false));
-				websocket?.send(`microphonemute ${userId} ${peerId}`);
+				//websocket?.send(`microphonemute ${userId} ${peerId}`);
+				rpc('mutedmymicrophone');
 			}
 		}
 	});
@@ -181,8 +185,8 @@
 	$effect(() => {
 		if (ENABLE_AUDIO) {
 			if (spectrumId && peerId && userId && localStream) {
-				websocket.send(`voicechat ${userId} ${peerId}`);
-				websocket.send(`microphonemute ${userId} ${peerId}`);
+				rpc('myvoicechatid', peerId);
+				rpc('mutedmymicrophone');
 			}
 		}
 	});
@@ -367,16 +371,22 @@
 		});
 
 		peer.on('call', (call) => {
-			console.log('ANSWERING CALL with ', localStream ? 'Micrphone' : 'No micrphone');
+			console.log('ANSWERING CALL with ', localStream ? 'Microphone' : 'No microphone');
 			call.answer(localStream);
 
 			console.log('RECEIVED CALL from', call.peer);
 			call.on('stream', (remoteStream) => {
 				playAudio(call.peer, remoteStream);
 
-				if (connections.has(call.peer) == false) {
-					connections.set(call.peer, remoteStream);
+				if (connections.has(call.peer)) {
+					// kill previous connection
+					connections
+						.get(call.peer)
+						?.getTracks()
+						.forEach((element) => element.stop());
 				}
+
+				connections.set(call.peer, remoteStream);
 			});
 		});
 	}
@@ -393,12 +403,9 @@
 
 		myCanvas.on({
 			'object:moving': function () {
-				// /** @type {{ target: { width?: any; angle: any; left?: any; top?: any; }; }} */ e
 				moving = true;
-				//websocket.send(`update ${userId} ${e.target.left},${e.target.top}`);
 			},
 			'object:modified': function () {
-				// /** @type {{ target: { left?: any; width?: any; top?: any; setCoords?: any; angle?: number; }; }} */ e
 				moving = false;
 
 				if (currentOpinion != 'notReplied' && currentOpinion != previousOpinion) {
@@ -571,6 +578,7 @@
 	 */
 	function initOtherPellet(userId: string, nickname: string) {
 		console.log('Initalizing Other Pellet: ' + userId);
+		log(`${nickname} a rejoint le spectrum`);
 		const options = {
 			top: 0,
 			left: 0,
@@ -625,6 +633,7 @@
 		});
 
 		myCanvas.add(g);
+
 		return g;
 	}
 
@@ -635,7 +644,6 @@
 	) {
 		// New user
 		if (!others[otherUserId]) {
-			log(`${otherNickname} a rejoint le spectrum`);
 			others[otherUserId] = {
 				pellet:
 					coords && !isNaN(coords.x) && !isNaN(coords.y)
@@ -688,11 +696,20 @@
 
 	function sendEmoji(emojiIndex: number) {
 		const emojis = ['😜', '🤔', '😵', '🤯', '🫣', '🛟', '🦝'];
-		websocket.send('emoji ' + emojis[emojiIndex]);
+		rpc('emoji', emojis[emojiIndex]);
 	}
 
 	function raiseHand() {
-		websocket.send('emoji 🤚');
+		rpc('emoji', '🤚');
+	}
+
+	function rpc(procedure: string, ...args: string[]) {
+		const json = JSON.stringify({
+			procedure: procedure,
+			arguments: args
+		});
+
+		websocket.send(json);
 	}
 
 	function animatePellets() {
@@ -718,8 +735,10 @@
 
 	function updateMyPellet(force = false) {
 		if (moving || force)
-			websocket.send(
-				`update ${userId} ${Math.round(myPellet.left / scale)},${Math.round(myPellet.top / scale)} ${nickname}`
+			rpc(
+				'myposition',
+				`${Math.round(myPellet.left / scale)},${Math.round(myPellet.top / scale)}`,
+				nickname ?? ''
 			);
 	}
 
@@ -739,8 +758,7 @@
 	}
 
 	function signIn() {
-		websocket.send('signin ' + getUserId());
-		//connected = true;
+		rpc('signin', getUserId());
 	}
 
 	let isHoveringHistory = false;
@@ -755,32 +773,76 @@
 
 	let claimFocus = false;
 
+	function parseCoords(coords: string): { x: number; y: number } | null {
+		if (!coords) return null;
+		const parts = coords.split(',');
+		if (parts.length !== 2) return null;
+		const x = parseInt(parts[0]);
+		const y = parseInt(parts[1]);
+		if (isNaN(x) || isNaN(y)) return null;
+		return { x, y };
+	}
+
+	let liveVotes = new Map<string, number>();
+
+	function parseLiveSpectrum(liveUserId: string, liveSpectrum: string): { x: number; y: number } {
+		const parts = liveSpectrum.split(' ');
+		const vote = parseInt(parts[1]);
+
+		liveVotes.set(liveUserId, vote);
+		const sum = Array.from(liveVotes.values()).reduce((acc, val) => acc + val, 0);
+		const average = sum / liveVotes.size;
+
+		const averageVote = Math.round(average);
+
+		switch (averageVote) {
+			case -3:
+				return { x: 98, y: 399 };
+			case -2:
+				return { x: 157, y: 251 };
+			case -1:
+				return { x: 292, y: 127 };
+			case 0:
+				return { x: 475, y: 78 };
+			case 1:
+				return { x: 659, y: 123 };
+			case 2:
+				return { x: 771, y: 250 };
+			case 3:
+				return { x: 832, y: 408 };
+		}
+
+		return { x: 467, y: 424 };
+	}
+
 	function parseCommand(line: string) {
 		if (!listenning) return;
 
-		const re = new RegExp(
+		/*const re = new RegExp(
 			/^(ack|nack|update|claim|spectrum|newposition|userleft|madeadmin|receive|voicechat|microphonemute|microphoneunmute)(\s+([0-9a-f]*))?(\s+([0-9N-]+,[0-9A-]+))?(\s+(.+))?$/gu
 		);
-		const matches = [...line.matchAll(re)][0];
+		const matches = [...line.matchAll(re)][0];*/
+		const rpc = JSON.parse(line) as { procedure: string; arguments: string[] };
 
-		if (matches) {
-			const command = matches[1].toString();
-			const otherUserId = matches[3];
-			let coords = null;
-
-			if (matches[5]) {
-				const s = matches[5].toString().split(',');
-				coords = { x: parseInt(s[0]), y: parseInt(s[1]) };
-			}
+		if (rpc.procedure) {
+			const command = rpc.procedure;
 
 			if (command == 'ack') {
 				if (!initialized) initialized = true;
 				else initPellet();
 			} else if (command == 'nack') {
-				notifier.danger('Désolé, erreur reçue: ' + matches[7]);
+				notifier.danger('Désolé, erreur reçue: ' + rpc.arguments[0]);
 			} else if (command == 'update') {
-				if (otherUserId != userId) updatePellet(otherUserId, coords, matches[7]);
-			} else if (command == 'userleft') {
+				const otherUserId = rpc.arguments[0];
+				const coords = parseCoords(rpc.arguments[1]);
+				const otherNickname = rpc.arguments[2];
+				if (otherUserId != userId) updatePellet(otherUserId, coords, otherNickname);
+			} /*else if (command == 'joined') {
+				const otherUserId = rpc.arguments[0];
+				const otherNickname = rpc.arguments[1];
+				if (otherUserId != userId) initOtherPellet(otherUserId, otherNickname);
+			} */ else if (command == 'userleft') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					log(`${others[otherUserId].nickname} a quitté le spectrum`);
 					deletePellet(otherUserId);
@@ -790,19 +852,17 @@
 					leaveSpectrum();
 				}
 			} else if (command == 'receive') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
-					notifier.info(
-						others[otherUserId].nickname + ' a envoyé : ' + matches[7].toString(),
-						5000
-					);
-					log(`${others[otherUserId].nickname} a envoyé : ${matches[7]}`);
+					notifier.info(others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1], 5000);
+					log(`${others[otherUserId].nickname} a envoyé : ${rpc.arguments[1]}`);
 				} else {
-					log(`Vous avez envoyé : ${matches[7]}`);
+					log(`Vous avez envoyé : ${rpc.arguments[1]}`);
 				}
 				trigger = false;
 				handAnimation = false;
 				handUsername = '';
-				emoji = matches[7];
+				emoji = rpc.arguments[1];
 
 				if (emoji === '🤚') {
 					handAnimation = true;
@@ -811,6 +871,7 @@
 
 				requestAnimationFrame(() => (trigger = true)); // retrigger animation
 			} else if (command == 'madeadmin') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					deletePellet(otherUserId, true);
 					log(`${others[otherUserId].nickname} a été élu admin`);
@@ -826,6 +887,8 @@
 					initPellet();
 				}
 
+				const coords = parseCoords(rpc.arguments[0]);
+
 				if (myPellet && coords) {
 					myPellet.left = coords.x * scale;
 					myPellet.top = coords.y * scale;
@@ -836,7 +899,7 @@
 				moving = false;
 			} else if (command == 'claim') {
 				if (!adminModeOn || (adminModeOn && !claimFocus)) {
-					receivedClaim(matches[7]);
+					receivedClaim(rpc.arguments[0]);
 
 					clearTimeout(updateClaimLog);
 					updateClaimLog = setTimeout(() => {
@@ -844,8 +907,9 @@
 					}, 3000);
 				}
 			} else if (command == 'voicechat') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
-					const voiceId = matches[7].toString();
+					const voiceId = rpc.arguments[1].toString();
 					others[otherUserId].voiceId = voiceId;
 					if (localStream && peerId) attemptCallWithLimit(peer, voiceId, localStream, 10);
 				} else {
@@ -860,25 +924,31 @@
 							}
 						});
 				}
-			} else if (command == 'microphonemute') {
+			} else if (command == 'microphonemuted') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					others[otherUserId].microphone = false;
 				}
-			} else if (command == 'microphoneunmute') {
+			} else if (command == 'microphoneunmuted') {
+				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					others[otherUserId].microphone = true;
 				}
 			} else if (command == 'spectrum') {
 				showJoinModal = false;
-				userId = matches[3];
-				const s = matches[7].toString().split(' ');
-				nickname = s[1];
-				if (s[2] == 'true') {
+				userId = rpc.arguments[0];
+				nickname = rpc.arguments[2];
+				if (rpc.arguments[3] == 'true') {
 					adminModeOn = true;
 				}
-				joinedSpectrum(s[0]);
+				joinedSpectrum(rpc.arguments[1]);
 
 				log('Vous venez de rejoindre le spectrum.');
+			} else if (command == 'liveusermessage') {
+				const otherUserId = 'ff0000';
+				const coords = parseLiveSpectrum(rpc.arguments[0], rpc.arguments[3]);
+				const otherNickname = 'YouTube';
+				if (otherUserId != userId) updatePellet(otherUserId, coords, otherNickname);
 			}
 		}
 	}
@@ -910,21 +980,21 @@
 	}
 
 	function resetPositions() {
-		websocket.send('resetpositions');
+		rpc('resetpositions');
 	}
 
 	function onCreateSpectrum(nickname: string, initialClaim: string) {
 		listenning = true;
 		claim = initialClaim;
-		websocket.send(`startspectrum ${nickname}`);
+		rpc('startspectrum', nickname);
 		showCreateModal = false;
 		adminModeOn = true;
-		websocket.send(`claim ${claim}`);
+		rpc('claim', claim);
 	}
 
 	function onJoinSpectrum(spectrumId: string, nickname: string) {
 		listenning = true;
-		websocket.send(`joinspectrum ${spectrumId} ${nickname}`);
+		rpc('joinspectrum', spectrumId, nickname);
 	}
 
 	let adminModeOn: boolean = $state(false);
@@ -942,13 +1012,13 @@
 	function makeAdmin(id: string) {
 		if (!adminModeOn) return;
 
-		websocket.send(`makeadmin ${id}`);
+		rpc('makeadmin', id);
 	}
 
 	function kick(id: string) {
 		if (!adminModeOn) return;
 
-		websocket.send(`kick ${id}`);
+		rpc('kick', id);
 	}
 
 	let showSpectrumId = $state(false);
@@ -964,9 +1034,22 @@
 		showCreateModal = !showCreateModal;
 	}
 
+	let showConnectLiveModal = $state(false);
+	function toggleConnectLiveModal() {
+		console.log('COUCOU');
+		showConnectLiveModal = !showConnectLiveModal;
+	}
+
+	let liveChannel: string | undefined = $state();
+	function onConnectLive(channel: string, liveId: string, secret: string) {
+		rpc('listen', channel, liveId, secret);
+		liveChannel = channel;
+		toggleConnectLiveModal();
+	}
+
 	function leaveSpectrum() {
 		listenning = false;
-		websocket.send(`leavespectrum ${spectrumId}`);
+		rpc('leavespectrum');
 		spectrumId = undefined;
 		adminModeOn = false;
 		myCanvas.remove(myPellet);
@@ -1019,6 +1102,7 @@
 
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
+<ConnectLiveModal bind:toggle={showConnectLiveModal} onSubmit={onConnectLive} />
 <EmojiBurst {emoji} {trigger} {handAnimation} {handUsername} />
 
 {#if !streamerMode}
@@ -1112,8 +1196,8 @@
 							if (claim != previousClaim) log(`Claim: ${claim}`);
 						}}
 						oninput={() => {
-							if (adminModeOn) {
-								websocket.send('claim ||' + claim + '||');
+							if (adminModeOn && claim) {
+								rpc('claim', claim);
 							}
 						}}
 					/>
@@ -1147,6 +1231,26 @@
 							Clôturer le Spectrum</span
 						></button
 					>
+					{#if liveChannel}
+						<button
+							class="btn btn-error rounded-lg px-4 py-2 font-mono"
+							onclick={() => {
+								rpc('disconnect');
+								liveChannel = undefined;
+							}}
+							><Fa icon={faYoutube} /><span class="hidden lg:!inline-block">
+								Se déconnecter du live</span
+							></button
+						>
+					{:else}
+						<button
+							class="btn btn-error rounded-lg px-4 py-2 font-mono"
+							onclick={toggleConnectLiveModal}
+							><Fa icon={faYoutube} /><span class="hidden lg:!inline-block">
+								Connecter un Live</span
+							></button
+						>
+					{/if}
 				{/if}
 
 				{#if spectrumId}

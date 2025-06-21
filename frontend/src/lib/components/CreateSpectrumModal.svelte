@@ -50,6 +50,10 @@
 				bind:value={initialClaim}
 				required
 			/>
+			<div><strong>Audio:</strong></div>
+			<label class="mb-2">
+				<input type="checkbox" checked class="toggle" />
+			</label>
 			<div>
 				<button class="btn btn-success float-left" type="submit">Créer un Spectrum</button>
 				<button class="btn btn-warning float-right" type="button" onclick={() => (toggle = false)}

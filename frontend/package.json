@@ -10,8 +10,8 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"format": "prettier --write .",
-		"lint": "prettier --check . && eslint src",
+		"format": "prettier --write src e2e",
+		"lint": "prettier --check src e2e && eslint src",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
 		"test:e2e": "playwright test"
@@ -50,6 +50,7 @@
 		"vitest": "^3.2.3"
 	},
 	"dependencies": {
+		"@fortawesome/free-brands-svg-icons": "^6.7.2",
 		"@inlang/paraglide-js": "^2.0.13",
 		"fabric": "^6.6.5",
 		"peerjs": "^1.5.5"

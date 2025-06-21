@@ -85,7 +85,7 @@ func (r *Room) AddUser(user *User) (string, error) {
 		colorIndices[i] = i
 	}
 
-	var color string = ""
+	var color string
 
 	for len(colorIndices) != 0 {
 		x := rand.Intn(len(colorIndices))
