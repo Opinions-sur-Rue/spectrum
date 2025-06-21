@@ -1,7 +1,7 @@
 <script lang="ts">
 	interface ModalProps {
 		toggle: boolean;
-		onSubmit: (nickname: string, initialClaim: string) => void;
+		onSubmit: (nickname: string, initialClaim?: string) => void;
 	}
 
 	let { toggle = $bindable(false), onSubmit }: ModalProps = $props();
@@ -31,7 +31,7 @@
 				onclick={() => (toggle = false)}>✕</button
 			>
 		</form>
-		<form class="p-4" onsubmit={() => nickname && initialClaim && onSubmit(nickname, initialClaim)}>
+		<form class="p-4" onsubmit={() => nickname && onSubmit(nickname, initialClaim)}>
 			<label class="label font-bold text-gray-900" for="nickname2">Pseudo</label>
 			<input
 				class="input mb-4 block w-full"
@@ -45,15 +45,10 @@
 			<input
 				class="input mb-4 block w-full"
 				type="text"
-				placeholder="Veuillez entrer le claim"
+				placeholder="Optionnellement entrer un claim initial"
 				id="claim"
 				bind:value={initialClaim}
-				required
 			/>
-			<div><strong>Audio:</strong></div>
-			<label class="mb-2">
-				<input type="checkbox" checked class="toggle" />
-			</label>
 			<div>
 				<button class="btn btn-success float-left" type="submit">Créer un Spectrum</button>
 				<button class="btn btn-warning float-right" type="button" onclick={() => (toggle = false)}

@@ -24,11 +24,11 @@
 		faRotateLeft,
 		faSatelliteDish,
 		faStop,
+		faTowerBroadcast,
 		faUserSlash,
 		faVolumeHigh,
 		faVolumeMute
 	} from '@fortawesome/free-solid-svg-icons';
-	import { faYoutube } from '@fortawesome/free-brands-svg-icons';
 	import Fa from 'svelte-fa';
 	import { page } from '$app/state';
 	import { getUserId } from '$lib/authentication/userId';
@@ -51,6 +51,7 @@
 	import Peer from 'peerjs';
 	import * as pkg from 'peerjs';
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
+	import InputFlex from '$lib/components/InputFlex.svelte';
 
 	const opinions = {
 		stronglyAgree: "Complètement d'accord",
@@ -93,7 +94,7 @@
 	const cellsPoints: any[] = [];
 	const others: any = $state({});
 
-	let claim: string | undefined = $state();
+	let claim: string = $state('');
 	let scale: number;
 
 	let tbodyRef: any; // Reference to tbody
@@ -983,9 +984,9 @@
 		rpc('resetpositions');
 	}
 
-	function onCreateSpectrum(nickname: string, initialClaim: string) {
+	function onCreateSpectrum(nickname: string, initialClaim?: string) {
 		listenning = true;
-		claim = initialClaim;
+		claim = initialClaim ?? '';
 		rpc('startspectrum', nickname);
 		showCreateModal = false;
 		adminModeOn = true;
@@ -1180,10 +1181,8 @@
 		<div class="card bg-base-100 w-full shadow-sm" bind:clientWidth={canvasWidth}>
 			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
-					<input
+					<InputFlex
 						name="claim"
-						class="input {!streamerMode ? 'input-lg' : 'input-xl'} !w-full"
-						type="text"
 						placeholder="Claim"
 						readonly={!adminModeOn}
 						bind:value={claim}
@@ -1196,7 +1195,7 @@
 							if (claim != previousClaim) log(`Claim: ${claim}`);
 						}}
 						oninput={() => {
-							if (adminModeOn && claim) {
+							if (adminModeOn) {
 								rpc('claim', claim);
 							}
 						}}
@@ -1238,7 +1237,7 @@
 								rpc('disconnect');
 								liveChannel = undefined;
 							}}
-							><Fa icon={faYoutube} /><span class="hidden lg:!inline-block">
+							><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
 								Se déconnecter du live</span
 							></button
 						>
@@ -1246,7 +1245,7 @@
 						<button
 							class="btn btn-error rounded-lg px-4 py-2 font-mono"
 							onclick={toggleConnectLiveModal}
-							><Fa icon={faYoutube} /><span class="hidden lg:!inline-block">
+							><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
 								Connecter un Live</span
 							></button
 						>
