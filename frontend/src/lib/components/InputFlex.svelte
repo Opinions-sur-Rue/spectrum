@@ -12,6 +12,7 @@
 		onkeydown?: KeyboardEventHandler<HTMLInputElement>;
 		minFontSize: number;
 		maxFontSize: number;
+		nofocus?: boolean;
 	}
 
 	let {
@@ -24,7 +25,8 @@
 		oninput,
 		onkeydown,
 		minFontSize,
-		maxFontSize
+		maxFontSize,
+		nofocus
 	}: Props = $props();
 	let inputEl: HTMLInputElement;
 	let mirrorEl: HTMLSpanElement;
@@ -61,6 +63,9 @@
 		bind:value
 		type="text"
 		class="input input-xl join-item"
+		class:focus:outline-none={nofocus}
+		class:focus:ring-0={nofocus}
+		class:focus:ring-offset-0={nofocus}
 		{name}
 		{readonly}
 		{placeholder}

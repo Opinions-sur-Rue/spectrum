@@ -17,7 +17,6 @@
 		faMapPin,
 		faMicrophone,
 		faMicrophoneSlash,
-		faNewspaper,
 		faPalette,
 		faPaperPlane,
 		faPerson,
@@ -89,7 +88,12 @@
 	let initialized = false;
 	let listenning = true;
 
-	let logs: string[] = $state([]);
+	interface Log {
+		type: string;
+		message: string;
+	}
+
+	let logs: Log[] = $state([]);
 
 	let myPellet: any = $state();
 	let moving = false;
@@ -118,7 +122,7 @@
 
 			if (pointInPolygon(cellsPoints[i], [target.left, target.top])) {
 				if (cell.id != 'notReplied') {
-					log(`${others[otherUserId].nickname} est "${opinions[cell.id as OpinionKey]}"`);
+					log(`${others[otherUserId].nickname} est "${opinions[cell.id as OpinionKey]}"`, 'event');
 				}
 			}
 		}
@@ -413,7 +417,7 @@
 				moving = false;
 
 				if (currentOpinion != 'notReplied' && currentOpinion != previousOpinion) {
-					log(`Vous êtes "${opinions[currentOpinion as OpinionKey]}"`);
+					log(`Vous êtes "${opinions[currentOpinion as OpinionKey]}"`, 'event');
 					previousOpinion = currentOpinion;
 				}
 			}
@@ -582,7 +586,7 @@
 	 */
 	function initOtherPellet(userId: string, nickname: string) {
 		console.log('Initalizing Other Pellet: ' + userId);
-		log(`${nickname} a rejoint le spectrum`);
+		log(`${nickname} a rejoint le spectrum`, 'join');
 		const options = {
 			top: 0,
 			left: 0,
@@ -767,10 +771,10 @@
 
 	let isHoveringHistory = false;
 
-	function log(message: string) {
+	function log(message: string, type?: string) {
 		const now = new Date();
 		const formattedDate = now.toLocaleString('fr-FR');
-		logs.push(`[${formattedDate}] ${message}`);
+		logs.push({ message: `[${formattedDate}] ${message}`, type: type ?? 'message' });
 		logs = logs;
 		scrollToBottom();
 	}
@@ -848,10 +852,10 @@
 			} */ else if (command == 'userleft') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
-					log(`${others[otherUserId].nickname} a quitté le spectrum`);
+					log(`${others[otherUserId].nickname} a quitté le spectrum`, 'leave');
 					deletePellet(otherUserId);
 				} else {
-					log(`Vous avez quitté le spectrum`);
+					log(`Vous avez quitté le spectrum`, 'leave');
 					notifier.danger('Vous avez quitté le spectrum');
 					leaveSpectrum();
 				}
@@ -859,9 +863,9 @@
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					notifier.info(others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1], 5000);
-					log(`${others[otherUserId].nickname} a envoyé : ${rpc.arguments[1]}`);
+					log(`${others[otherUserId].nickname} a envoyé : ${rpc.arguments[1]}`, 'event');
 				} else {
-					log(`Vous avez envoyé : ${rpc.arguments[1]}`);
+					log(`Vous avez envoyé : ${rpc.arguments[1]}`, 'event');
 				}
 				trigger = false;
 				handAnimation = false;
@@ -878,13 +882,13 @@
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					deletePellet(otherUserId, true);
-					log(`${others[otherUserId].nickname} a été élu admin`);
+					log(`${others[otherUserId].nickname} a été élu admin`, 'event');
 				} else {
 					adminModeOn = true;
 					myCanvas.remove(myPellet);
 					myCanvas.renderAll();
 					myPellet = null;
-					log('Vous avez été élu admin');
+					log('Vous avez été élu admin', 'event');
 				}
 			} else if (command == 'newposition') {
 				if (!myPellet) {
@@ -907,7 +911,7 @@
 
 					clearTimeout(updateClaimLog);
 					updateClaimLog = setTimeout(() => {
-						log(`Claim: ${claim}`);
+						log(`Le claim est "${claim}"`, 'claim');
 					}, 3000);
 				}
 			} else if (command == 'voicechat') {
@@ -947,7 +951,7 @@
 				}
 				joinedSpectrum(rpc.arguments[1]);
 
-				log('Vous venez de rejoindre le spectrum.');
+				log('Vous venez de rejoindre le spectrum.', 'join');
 			} else if (command == 'liveusermessage') {
 				const otherUserId = 'ff0000';
 				const coords = parseLiveSpectrum(rpc.arguments[0], rpc.arguments[3]);
@@ -1050,7 +1054,6 @@
 
 	let showConnectLiveModal = $state(false);
 	function toggleConnectLiveModal() {
-		console.log('COUCOU');
 		showConnectLiveModal = !showConnectLiveModal;
 	}
 
@@ -1189,9 +1192,11 @@
 	</div>
 {/if}
 
-<div class="relative mt-8 flex flex-wrap">
-	<div class="mb-4 w-full flex-none md:w-3/4 md:pr-2 lg:w-2/3 lg:pr-4">
-		<div class="card bg-base-100 w-full shadow-sm" bind:clientWidth={canvasWidth}>
+<div
+	class="relative mt-8 grid h-full grid-cols-1 justify-items-start gap-4 md:h-[50vh] md:grid-cols-[2fr_1fr]"
+>
+	<div class="flex h-max w-full">
+		<div class="card bg-base-100 h-max w-full shadow-sm" bind:clientWidth={canvasWidth}>
 			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
 					<InputFlex
@@ -1205,7 +1210,7 @@
 						}}
 						onfocusout={() => {
 							claimFocus = false;
-							if (claim != previousClaim) log(`Claim: ${claim}`);
+							if (claim != previousClaim) log(`Le claim est "${claim}"`, 'claim');
 						}}
 						oninput={() => {
 							if (adminModeOn) {
@@ -1297,10 +1302,10 @@
 		</div>
 	</div>
 
-	<div class="mb-4 flex w-full flex-1 flex-col md:w-1/4 lg:w-1/3">
+	<div class="flex min-h-0 flex-col overflow-hidden">
 		{#if !streamerMode}
 			<div
-				class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 bg-linear-to-bl to-50% font-mono shadow-sm"
+				class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 flex-none bg-linear-to-bl to-50% font-mono shadow-sm"
 			>
 				<table class="table">
 					<colgroup>
@@ -1517,39 +1522,39 @@
 		{/if}
 		<div
 			id="history"
-			class="card bg-base-100 card-border border-base-300 from-base-content/5 flex-1 flex-col bg-linear-to-bl to-50% font-mono shadow-sm"
+			class="card bg-base-100 card-border border-base-300 from-base-content/5 min-h-0 flex-1 overflow-y-auto bg-linear-to-bl to-50% font-mono !shadow-sm"
 		>
-			<table class="table h-full w-full flex-1">
-				<thead>
-					<tr>
-						<th class="text-black"><Fa icon={faComments} /> Chat</th>
-					</tr>
-				</thead>
-				<tbody
-					class="block !max-h-117 w-full overflow-y-scroll"
+			<div class="card-title p-4"><Fa icon={faComments} /> Chat</div>
+			<div class="flex h-full flex-col overflow-hidden">
+				<div
+					class="max-h-[50vh] min-h-0 w-full flex-1 overflow-y-auto md:max-h-full"
+					role="listbox"
+					tabindex="0"
 					bind:this={tbodyRef}
 					onmouseenter={() => (isHoveringHistory = true)}
 					onmouseleave={() => (isHoveringHistory = false)}
 				>
-					{#each logs as log}
+					{#each logs as log, i}
 						{@const regex = /^\[([^\]]+)\]\s*(.*)$/}
-						{@const match = log.match(regex)}
-						<tr class="odd:bg-white even:bg-gray-50">
-							<td class="w-full">
+						{@const match = log.message.match(regex)}
+						<div class="px-4 py-1 odd:bg-white even:bg-gray-50">
+							<div class="w-full">
 								<span class="tooltip tooltip-right" data-tip={match?.[1]}
 									><Fa icon={faClock} /></span
 								>
-								{#if log.includes('Claim: ')}
-									<span class="text-sm"><b>{match?.[2]}</b></span>
-								{:else}
-									<span class="text-sm">{match?.[2]}</span>
-								{/if}
-							</td>
-						</tr>
+								<span
+									class="text-sm"
+									class:text-gray-800={log.type === 'message'}
+									class:text-green-800={log.type === 'join'}
+									class:text-red-800={log.type === 'leave'}
+									class:text-blue-800={log.type === 'event'}
+									class:text-orange-800={log.type === 'claim'}>{match?.[2]}</span
+								>
+							</div>
+						</div>
 					{/each}
-				</tbody>
-				<tfoot> </tfoot>
-			</table>
+				</div>
+			</div>
 			<div class="join flex-none">
 				<InputFlex
 					placeholder="Envoyer un message au chat"
@@ -1559,6 +1564,7 @@
 					}}
 					minFontSize={8}
 					maxFontSize={12}
+					nofocus
 				/>
 				<button class="btn btn-xl join-item" onclick={sendChatMessage}
 					><Fa icon={faPaperPlane} /></button
