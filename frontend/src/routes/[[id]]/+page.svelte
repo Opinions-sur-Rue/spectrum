@@ -54,6 +54,8 @@
 	import * as pkg from 'peerjs';
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
+	import { m } from '$lib/paraglide/messages.js';
+	import { setLocale } from '$lib/paraglide/runtime';
 
 	const opinions = {
 		stronglyAgree: "Complètement d'accord",
@@ -379,7 +381,6 @@
 		});
 
 		peer.on('call', (call) => {
-			console.log('ANSWERING CALL with ', localStream ? 'Microphone' : 'No microphone');
 			call.answer(localStream);
 
 			console.log('RECEIVED CALL from', call.peer);
@@ -400,6 +401,7 @@
 	}
 
 	onMount(() => {
+		setLocale('en');
 		connectToPeer();
 		currentOpinion = 'notReplied';
 
@@ -1124,7 +1126,7 @@
 
 {#if !streamerMode}
 	<Header
-		subtitle="Plate-forme de spectrum en ligne de 2 à 6 participants"
+		subtitle={m.subtitle()}
 		logo={LOGO_URL}
 		logoWidth={LOGO_WIDTH}
 		offsetSubtitle={OFFSET_SUBSTITLE}
@@ -1151,7 +1153,7 @@
 					</div>
 				</span>
 			{:else}
-				Pas de Spectrum en cours
+				{m.no_spectrum()}
 			{/if}
 		</span>
 
