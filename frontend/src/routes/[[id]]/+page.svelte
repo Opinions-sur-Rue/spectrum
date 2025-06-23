@@ -55,7 +55,6 @@
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
-	import { getLocale, setLocale } from '$lib/paraglide/runtime';
 
 	const opinions = {
 		stronglyAgree: "Complètement d'accord",
@@ -124,7 +123,13 @@
 
 			if (pointInPolygon(cellsPoints[i], [target.left, target.top])) {
 				if (cell.id != 'notReplied') {
-					log(`${others[otherUserId].nickname} est "${opinions[cell.id as OpinionKey]}"`, 'event');
+					log(
+						m.log_opinion({
+							name: others[otherUserId].nickname,
+							opinion: opinions[cell.id as OpinionKey]
+						}),
+						'event'
+					);
 				}
 			}
 		}
@@ -183,10 +188,8 @@
 			if (microphone) {
 				localStream?.getTracks().forEach((track) => (track.enabled = true));
 				rpc('unmutedmymicrophone');
-				//websocket?.send(`microphoneunmute ${userId} ${peerId}`);
 			} else {
 				localStream?.getTracks().forEach((track) => (track.enabled = false));
-				//websocket?.send(`microphonemute ${userId} ${peerId}`);
 				rpc('mutedmymicrophone');
 			}
 		}
@@ -383,7 +386,7 @@
 		peer.on('call', (call) => {
 			call.answer(localStream);
 
-			console.log('RECEIVED CALL from', call.peer);
+			console.log('RECEIVED CALL FROM', call.peer);
 			call.on('stream', (remoteStream) => {
 				playAudio(call.peer, remoteStream);
 
@@ -418,7 +421,7 @@
 				moving = false;
 
 				if (currentOpinion != 'notReplied' && currentOpinion != previousOpinion) {
-					log(`Vous êtes "${opinions[currentOpinion as OpinionKey]}"`, 'event');
+					log(m.log_your_opinion({ opinion: opinions[currentOpinion as OpinionKey] }), 'event');
 					previousOpinion = currentOpinion;
 				}
 			}
@@ -587,7 +590,7 @@
 	 */
 	function initOtherPellet(userId: string, nickname: string) {
 		console.log('Initalizing Other Pellet: ' + userId);
-		log(`${nickname} a rejoint le spectrum`, 'join');
+		log(m.log_joined_spectrum({ name: nickname }), 'join');
 		const options = {
 			top: 0,
 			left: 0,
@@ -829,8 +832,7 @@
 
 		/*const re = new RegExp(
 			/^(ack|nack|update|claim|spectrum|newposition|userleft|madeadmin|receive|voicechat|microphonemute|microphoneunmute)(\s+([0-9a-f]*))?(\s+([0-9N-]+,[0-9A-]+))?(\s+(.+))?$/gu
-		);
-		const matches = [...line.matchAll(re)][0];*/
+		);*/
 		const rpc = JSON.parse(line) as { procedure: string; arguments: string[] };
 
 		if (rpc.procedure) {
@@ -853,20 +855,23 @@
 			} */ else if (command == 'userleft') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
-					log(`${others[otherUserId].nickname} a quitté le spectrum`, 'leave');
+					log(m.log_left_spectrum({ name: others[otherUserId].nickname }), 'leave');
 					deletePellet(otherUserId);
 				} else {
-					log(`Vous avez quitté le spectrum`, 'leave');
-					notifier.danger('Vous avez quitté le spectrum');
+					log(m.log_you_left_spectrum(), 'leave');
+					notifier.danger(m.log_you_left_spectrum());
 					leaveSpectrum();
 				}
 			} else if (command == 'receive') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					notifier.info(others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1], 5000);
-					log(`${others[otherUserId].nickname} a envoyé : ${rpc.arguments[1]}`, 'event');
+					log(
+						m.log_emoji_received({ name: others[otherUserId].nickname, emoji: rpc.arguments[1] }),
+						'event'
+					);
 				} else {
-					log(`Vous avez envoyé : ${rpc.arguments[1]}`, 'event');
+					log(m.log_emoji_sent({ emoji: rpc.arguments[1] }), 'event');
 				}
 				trigger = false;
 				handAnimation = false;
@@ -883,13 +888,13 @@
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
 					deletePellet(otherUserId, true);
-					log(`${others[otherUserId].nickname} a été élu admin`, 'event');
+					log(m.log_made_admin({ name: others[otherUserId].nickname }), 'event');
 				} else {
 					adminModeOn = true;
 					myCanvas.remove(myPellet);
 					myCanvas.renderAll();
 					myPellet = null;
-					log('Vous avez été élu admin', 'event');
+					log(m.log_you_been_made_admin(), 'event');
 				}
 			} else if (command == 'newposition') {
 				if (!myPellet) {
@@ -912,7 +917,7 @@
 
 					clearTimeout(updateClaimLog);
 					updateClaimLog = setTimeout(() => {
-						log(`Le claim est "${claim}"`, 'claim');
+						log(m.log_claim({ claim }), 'claim');
 					}, 3000);
 				}
 			} else if (command == 'voicechat') {
@@ -952,7 +957,7 @@
 				}
 				joinedSpectrum(rpc.arguments[1]);
 
-				log('Vous venez de rejoindre le spectrum.', 'join');
+				log(m.log_you_joined_spectrum(), 'join');
 			} else if (command == 'liveusermessage') {
 				const otherUserId = 'ff0000';
 				const coords = parseLiveSpectrum(rpc.arguments[0], rpc.arguments[3]);
@@ -990,7 +995,7 @@
 	let previousClaim: string | undefined;
 
 	function connectionLost() {
-		notifier.danger('Impossible de se connecter au serveur de spectrum');
+		notifier.danger(m.cannot_connect());
 	}
 
 	function resetPositions() {
@@ -1081,7 +1086,7 @@
 	}
 
 	const copied = () => {
-		notifier.success('Lien du Spectrum copié!');
+		notifier.success(m.notify_link_copied());
 	};
 
 	let streamerMode = $state(false);
@@ -1132,57 +1137,6 @@
 		title={HEADER_TITLE}
 	/>
 
-	<div class="dropdown dropdown-end float-right">
-		<div
-			tabindex="0"
-			role="button"
-			class="btn btn-sm btn-ghost gap-1 px-1.5 text-[.5625rem] font-bold"
-			aria-label="Language"
-			title="Change Language"
-		>
-			<svg
-				class="text-base-content/70 size-4"
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 24 24"
-				><path
-					stroke-linejoin="round"
-					stroke-linecap="round"
-					stroke-width="2"
-					fill="none"
-					stroke="currentColor"
-					d="M12 21a9 9 0 1 0 0-18m0 18a9 9 0 1 1 0-18m0 18c2.761 0 3.941-5.163 3.941-9S14.761 3 12 3m0 18c-2.761 0-3.941-5.163-3.941-9S9.239 3 12 3M3.5 9h17m-17 6h17"
-				></path></svg
-			>
-			<svg
-				class="mt-px hidden size-2 fill-current opacity-60 sm:inline-block"
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 2048 2048"
-				><path d="M1799 349l242 241-1017 1017L7 590l242-241 775 775 775-775z"></path></svg
-			>
-		</div>
-		<div
-			tabindex="0"
-			class="dropdown-content bg-base-200 text-base-content rounded-box top-px mt-8 h-[15rem] max-h-[calc(100vh-8.6rem)] w-56 overflow-y-auto border border-white/5 shadow-2xl outline-1 outline-black/5"
-		>
-			<ul class="menu menu-sm w-full">
-				<li>
-					<button class:menu-active={getLocale() === 'en'} onclick={() => setLocale('en')}
-						><span class="pe-4 font-mono text-[.5625rem] font-bold tracking-[0.09375rem] opacity-40"
-							>EN</span
-						> <span class="font-[sans-serif]">English</span></button
-					>
-				</li>
-				<li>
-					<button class:menu-active={getLocale() === 'fr'} onclick={() => setLocale('fr')}
-						><span class="pe-4 font-mono text-[.5625rem] font-bold tracking-[0.09375rem] opacity-40"
-							>FR</span
-						> <span class="font-[sans-serif]">Français</span></button
-					>
-				</li>
-			</ul>
-		</div>
-	</div>
-
 	<div class="m-4 mt-8 flex flex-wrap items-center justify-center gap-4 font-mono">
 		<span class="px-4 py-2">
 			<div class="inline-grid *:[grid-area:1/1]">
@@ -1190,10 +1144,12 @@
 			</div>
 			{#if spectrumId}
 				<span class="inline-flex items-center">
-					Spectrum en cours &mdash; Identifiant=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b>
+					{m.spectrum_in_progress()} &mdash; {m.id()}=<b
+						>{showSpectrumId ? spectrumId : 'OSR-****'}</b
+					>
 					<div
 						class="tooltip inline-block align-baseline"
-						data-tip={showSpectrumId ? "Cacher l'identifiant" : "Montrer l'identifiant"}
+						data-tip={showSpectrumId ? m.hide_id() : m.show_id()}
 					>
 						<label class="swap">
 							<input type="checkbox" class="hidden" bind:checked={showSpectrumId} />
@@ -1217,25 +1173,26 @@
 					}
 				}}
 			>
-				<Fa icon={faCopy} /> Copier le lien
+				<Fa icon={faCopy} />
+				{m.copy_link()}
 			</button>
 			<button onclick={() => (streamerMode = true)} class="btn btn-info rounded-lg px-4 py-2"
-				><Fa icon={faSatelliteDish} />Streamer Mode</button
+				><Fa icon={faSatelliteDish} /> {m.streamer_mode()}</button
 			>
 			<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
-				><Fa icon={faPersonWalkingArrowRight} /> Quitter le Spectrum</button
+				><Fa icon={faPersonWalkingArrowRight} /> {m.leave_spectrum()}</button
 			>
 		{:else}
 			<button onclick={toggleCreateModal} class="btn btn-warning rounded-lg px-4 py-2"
-				><Fa icon={faPlayCircle} />Démarrer un Spectrum</button
+				><Fa icon={faPlayCircle} /> {m.start_spectrum()}</button
 			>
 			<button onclick={toggleJoinModal} class="btn btn-success rounded-lg px-4 py-2"
-				><Fa icon={faRightFromBracket} />Rejoindre un Spectrum</button
+				><Fa icon={faRightFromBracket} /> {m.join_spectrum()}</button
 			>
 		{/if}
 	</div>
 {:else}
-	<div class="fixed top-5 right-5 z-1000">
+	<div class="fixed top-5 right-[2rem] z-1000">
 		<div class="tooltip tooltip-left" data-tip="Quitter mode streamer">
 			<button onclick={() => (streamerMode = false)} class="btn btn-info btn-circle"
 				><Fa icon={faSatelliteDish} /></button
@@ -1253,7 +1210,7 @@
 				<label class="floating-label">
 					<InputFlex
 						name="claim"
-						placeholder="Claim"
+						placeholder={m.claim()}
 						readonly={!adminModeOn}
 						bind:value={claim}
 						onfocusin={() => {
@@ -1262,7 +1219,7 @@
 						}}
 						onfocusout={() => {
 							claimFocus = false;
-							if (claim != previousClaim) log(`Le claim est "${claim}"`, 'claim');
+							if (claim != previousClaim) log(m.log_claim({ claim }), 'claim');
 						}}
 						oninput={() => {
 							if (adminModeOn) {
@@ -1272,7 +1229,7 @@
 						minFontSize={12}
 						maxFontSize={24}
 					/>
-					<span class="font-bold"><Fa icon={faMapPin} /> Claim</span>
+					<span class="font-bold"><Fa icon={faMapPin} /> {m.claim()}</span>
 				</label>
 			</header>
 
@@ -1284,7 +1241,7 @@
 				{#if adminModeOn}
 					<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={resetPositions}>
 						<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
-							Reset les Positions</span
+							{m.reset_positions()}</span
 						></button
 					>
 
@@ -1293,13 +1250,13 @@
 						class:btn-disabled={myPellet}
 						onclick={initPellet}
 						><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
-							Créer mon Palet</span
+							{m.create_pellet()}</span
 						></button
 					>
 
 					<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
 						><Fa icon={faStop} /><span class="hidden lg:!inline-block">
-							Clôturer le Spectrum</span
+							{m.stop_spectrum()}</span
 						></button
 					>
 					{#if liveChannel}
@@ -1310,7 +1267,7 @@
 								liveChannel = undefined;
 							}}
 							><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
-								Se déconnecter du live</span
+								{m.disconnect_live()}</span
 							></button
 						>
 					{:else}
@@ -1318,7 +1275,7 @@
 							class="btn btn-error rounded-lg px-4 py-2 font-mono"
 							onclick={toggleConnectLiveModal}
 							><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
-								Connecter un Live</span
+								{m.connect_live()}</span
 							></button
 						>
 					{/if}
@@ -1330,7 +1287,7 @@
 						style="font-style: normal; font-family: 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Emoji', sans-serif;"
 					>
 						<div tabindex="0" role="button" class="btn btn-warning rounded-lg font-mono">
-							😀 Emoji
+							😀 {m.emoji()}
 						</div>
 						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 						<ul
@@ -1347,7 +1304,7 @@
 						</ul>
 					</div>
 					<button class="btn btn-info rounded-lg px-4 py-2 font-mono" onclick={() => raiseHand()}
-						>🤚<span class="hidden lg:!inline-block"> Lever la main</span></button
+						>🤚<span class="hidden lg:!inline-block"> {m.raise_hand()}</span></button
 					>
 				{/if}
 			</footer>
@@ -1368,8 +1325,8 @@
 					<tbody class="overflow-y-auto">
 						<tr>
 							<th class="text-center"><Fa icon={faPalette} /></th>
-							<th><Fa icon={faPerson} /> Participants</th>
-							<th><Fa icon={faExclamation} /> Actions</th>
+							<th><Fa icon={faPerson} /> {m.participants()}</th>
+							<th><Fa icon={faExclamation} /> {m.actions()}</th>
 						</tr>
 						{#if spectrumId}
 							<tr>
@@ -1387,13 +1344,15 @@
 									</div>
 								</td>
 								<td>
-									<span class="text-sm"><b>{nickname}{adminModeOn ? '*' : ''}</b> (Vous-même)</span>
+									<span class="text-sm"
+										><b>{nickname}{adminModeOn ? '*' : ''}</b> ({m.yourself()})</span
+									>
 								</td>
 								<td>
 									{#if ENABLE_AUDIO}
 										<div
 											class="tooltip"
-											data-tip={microphone ? 'Éteindre le micro' : 'Allumer le micro'}
+											data-tip={microphone ? m.mute_microphone() : m.unmute_microphone()}
 										>
 											<!-- svelte-ignore a11y_click_events_have_key_events -->
 											<label
@@ -1452,7 +1411,7 @@
 									<span class="text-sm"><b>{(other as any).nickname}</b></span>
 								</td>
 								<td>
-									<div class="tooltip" data-tip="Rendre muet">
+									<div class="tooltip" data-tip={m.mute()}>
 										<button
 											class="btn btn-square rounded-xl border-0 bg-yellow-500/20 text-yellow-500"
 											onclick={() => {
@@ -1467,7 +1426,7 @@
 										>
 									</div>
 									{#if adminModeOn}
-										<div class="tooltip" data-tip="Retirer du spectrum">
+										<div class="tooltip" data-tip={m.kick_participant()}>
 											<button
 												class="btn btn-square rounded-xl border-0 bg-orange-500/20 text-orange-500"
 												onclick={() => {
@@ -1475,7 +1434,7 @@
 												}}><Fa icon={faUserSlash} /></button
 											>
 										</div>
-										<div class="tooltip" data-tip="Rendre admin">
+										<div class="tooltip" data-tip={m.make_admin()}>
 											<button
 												class="btn btn-square rounded-xl border-0 bg-amber-500/20 text-amber-500"
 												onclick={() => {
@@ -1576,7 +1535,7 @@
 			id="history"
 			class="card bg-base-100 card-border border-base-300 from-base-content/5 min-h-0 flex-1 overflow-y-auto bg-linear-to-bl to-50% font-mono !shadow-sm"
 		>
-			<div class="card-title p-4"><Fa icon={faComments} /> Chat</div>
+			<div class="card-title p-4"><Fa icon={faComments} /> {m.chat()}</div>
 			<div class="flex h-full flex-col overflow-hidden">
 				<div
 					class="max-h-[50vh] min-h-0 w-full flex-1 overflow-y-auto md:max-h-full"
@@ -1609,7 +1568,7 @@
 			</div>
 			<div class="join flex-none">
 				<InputFlex
-					placeholder="Envoyer un message au chat"
+					placeholder={m.send_chat()}
 					bind:value={chatMessage}
 					onkeydown={(e) => {
 						if (e.key === 'Enter') sendChatMessage();
