@@ -5,13 +5,12 @@
 
 	import { NotificationDisplay } from '$lib/notifications';
 	import { getLocale, setLocale } from '$lib/paraglide/runtime';
-
-	let description = 'Welcome to Spectrum.';
+	import { m } from '$lib/paraglide/messages.js';
 </script>
 
 <svelte:head>
-	<title>Opinions sur Rue — Spectrum</title>
-	<meta name="description" content={description} />
+	<title>Spectrum by Opinions sur Rue</title>
+	<meta name="description" content={m.subtitle()} />
 </svelte:head>
 
 <section>
