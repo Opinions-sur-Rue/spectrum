@@ -57,15 +57,15 @@
 	import { m } from '$lib/paraglide/messages.js';
 
 	const opinions = {
-		stronglyAgree: "Complètement d'accord",
-		agree: "D'accord",
-		slightlyAgree: "Un peu d'accord",
-		neutral: 'Neutre',
-		slightlyDisagree: 'Un peu en désaccord',
-		disagree: 'En désaccord',
-		stronglyDisagree: 'Complètement en désaccord',
-		indifferent: 'Indifférent ou sans avis',
-		notReplied: 'Pas répondu encore'
+		stronglyAgree: m.opinion_strongly_agree(),
+		agree: m.opinion_agree(),
+		slightlyAgree: m.opinion_slightly_agree(),
+		neutral: m.opinion_neutral(),
+		slightlyDisagree: m.opinion_slightly_disagree(),
+		disagree: m.opinion_disagree(),
+		stronglyDisagree: m.opinion_strongly_disagree(),
+		indifferent: m.opinion_indifferent(),
+		notReplied: m.opinion_not_replied()
 	};
 	type OpinionKey = keyof typeof opinions;
 	let currentOpinion: string = 'notReplied';
