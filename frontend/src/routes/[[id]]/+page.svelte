@@ -428,7 +428,7 @@
 		});
 
 		// @ts-ignore
-		loadSVGFromURL('/spectrum.svg').then(({ objects, options }) => {
+		loadSVGFromURL(m.file_spectrum()).then(({ objects, options }) => {
 			// @ts-ignore
 			svg = util.groupSVGElements(objects, options);
 

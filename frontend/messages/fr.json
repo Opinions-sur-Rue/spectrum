@@ -10,6 +10,7 @@
 	"disconnect_live": "Se déconnecter du live",
 	"emoji": "Emoji",
 	"error_no_websocket_connection": "Impossible de se connecter au serveur de spectrum", 
+	"file_spectrum": "/spectrum.svg",
 	"hide_id": "Cacher l'identifiant",
 	"id": "Identifiant",
 	"join_spectrum": "Rejoindre un Spectrum",
