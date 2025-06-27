@@ -32,7 +32,10 @@
 			>
 		</form>
 		<form class="p-4" onsubmit={() => nickname && onSubmit(nickname, initialClaim)}>
-			<label class="label font-bold text-gray-900" for="nickname2">Pseudo</label>
+			<label
+				class="label font-bold text-gray-900 after:ml-0.5 after:text-red-500 after:content-['*']"
+				for="nickname2">Pseudo</label
+			>
 			<input
 				class="input mb-4 block w-full"
 				type="text"

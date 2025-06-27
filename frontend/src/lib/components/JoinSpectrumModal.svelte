@@ -32,7 +32,10 @@
 			>
 		</form>
 		<form class="p-4" onsubmit={() => spectrumId && nickname && onSubmit(spectrumId, nickname)}>
-			<label class="label font-bold text-gray-900" for="spectrumId">Identifiant du Spectrum</label>
+			<label
+				class="label font-bold text-gray-900 after:ml-0.5 after:text-red-500 after:content-['*']"
+				for="spectrumId">Identifiant du Spectrum</label
+			>
 			<input
 				class="input mb-4 block w-full"
 				type="text"
@@ -41,7 +44,10 @@
 				bind:value={spectrumId}
 				required
 			/>
-			<label class="label font-bold text-gray-900" for="nickname1">Pseudo</label>
+			<label
+				class="label font-bold text-gray-900 after:ml-0.5 after:text-red-500 after:content-['*']"
+				for="nickname1">Pseudo</label
+			>
 			<input
 				class="input mb-4 block w-full"
 				type="text"

@@ -37,14 +37,7 @@
 	import CreateSpectrumModal from '$lib/components/CreateSpectrumModal.svelte';
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
 	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
-	import {
-		ENABLE_AUDIO,
-		HEADER_TITLE,
-		LOGO_URL,
-		LOGO_WIDTH,
-		OFFSET_SUBSTITLE,
-		PUBLIC_URL
-	} from '$lib/env';
+	import { ENABLE_AUDIO, HEADER_TITLE, LOGO_URL, LOGO_WIDTH, PUBLIC_URL } from '$lib/env';
 	import { startWebsocket } from '$lib/spectrum/websocket';
 	import { Canvas, Circle, FabricText, Group, loadSVGFromURL, Rect, util } from 'fabric';
 	import { onMount, tick } from 'svelte';
@@ -1129,68 +1122,62 @@
 <EmojiBurst {emoji} {trigger} {handAnimation} {handUsername} />
 
 {#if !streamerMode}
-	<Header
-		subtitle={m.subtitle()}
-		logo={LOGO_URL}
-		logoWidth={LOGO_WIDTH}
-		offsetSubtitle={OFFSET_SUBSTITLE}
-		title={HEADER_TITLE}
-	/>
+	<Header subtitle={m.subtitle()} logo={LOGO_URL} logoWidth={LOGO_WIDTH} title={HEADER_TITLE}>
+		<div class="items-left justify-left mt-8 ml-0 flex flex-wrap gap-4 font-mono">
+			<span class="px-4 py-2">
+				<div class="inline-grid *:[grid-area:1/1]">
+					<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>
+				</div>
+				{#if spectrumId}
+					<span class="inline-flex items-center">
+						{m.spectrum_in_progress()} &mdash; {m.id()}=<b
+							>{showSpectrumId ? spectrumId : 'OSR-****'}</b
+						>
+						<div
+							class="tooltip inline-block align-baseline"
+							data-tip={showSpectrumId ? m.hide_id() : m.show_id()}
+						>
+							<label class="swap">
+								<input type="checkbox" class="hidden" bind:checked={showSpectrumId} />
+								<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faEye} /></div>
+								<div class="swap-off btn btn-ghost btn-circle"><Fa icon={faEyeSlash} /></div>
+							</label>
+						</div>
+					</span>
+				{:else}
+					{m.no_spectrum()}
+				{/if}
+			</span>
 
-	<div class="m-4 mt-8 flex flex-wrap items-center justify-center gap-4 font-mono">
-		<span class="px-4 py-2">
-			<div class="inline-grid *:[grid-area:1/1]">
-				<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>
-			</div>
 			{#if spectrumId}
-				<span class="inline-flex items-center">
-					{m.spectrum_in_progress()} &mdash; {m.id()}=<b
-						>{showSpectrumId ? spectrumId : 'OSR-****'}</b
-					>
-					<div
-						class="tooltip inline-block align-baseline"
-						data-tip={showSpectrumId ? m.hide_id() : m.show_id()}
-					>
-						<label class="swap">
-							<input type="checkbox" class="hidden" bind:checked={showSpectrumId} />
-							<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faEye} /></div>
-							<div class="swap-off btn btn-ghost btn-circle"><Fa icon={faEyeSlash} /></div>
-						</label>
-					</div>
-				</span>
+				<button
+					class="btn btn-success rounded-lg px-4 py-2"
+					use:copy={{
+						text: PUBLIC_URL + '/' + spectrumId,
+						onCopy() {
+							copied();
+						}
+					}}
+				>
+					<Fa icon={faCopy} />
+					{m.copy_link()}
+				</button>
+				<button onclick={() => (streamerMode = true)} class="btn btn-info rounded-lg px-4 py-2"
+					><Fa icon={faSatelliteDish} /> {m.streamer_mode()}</button
+				>
+				<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
+					><Fa icon={faPersonWalkingArrowRight} /> {m.leave_spectrum()}</button
+				>
 			{:else}
-				{m.no_spectrum()}
+				<button onclick={toggleCreateModal} class="btn btn-warning rounded-lg px-4 py-2"
+					><Fa icon={faPlayCircle} /> {m.start_spectrum()}</button
+				>
+				<button onclick={toggleJoinModal} class="btn btn-success rounded-lg px-4 py-2"
+					><Fa icon={faRightFromBracket} /> {m.join_spectrum()}</button
+				>
 			{/if}
-		</span>
-
-		{#if spectrumId}
-			<button
-				class="btn btn-success rounded-lg px-4 py-2"
-				use:copy={{
-					text: PUBLIC_URL + '/' + spectrumId,
-					onCopy() {
-						copied();
-					}
-				}}
-			>
-				<Fa icon={faCopy} />
-				{m.copy_link()}
-			</button>
-			<button onclick={() => (streamerMode = true)} class="btn btn-info rounded-lg px-4 py-2"
-				><Fa icon={faSatelliteDish} /> {m.streamer_mode()}</button
-			>
-			<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
-				><Fa icon={faPersonWalkingArrowRight} /> {m.leave_spectrum()}</button
-			>
-		{:else}
-			<button onclick={toggleCreateModal} class="btn btn-warning rounded-lg px-4 py-2"
-				><Fa icon={faPlayCircle} /> {m.start_spectrum()}</button
-			>
-			<button onclick={toggleJoinModal} class="btn btn-success rounded-lg px-4 py-2"
-				><Fa icon={faRightFromBracket} /> {m.join_spectrum()}</button
-			>
-		{/if}
-	</div>
+		</div>
+	</Header>
 {:else}
 	<div class="fixed top-5 right-[2rem] z-1000">
 		<div class="tooltip tooltip-left" data-tip="Quitter mode streamer">
