@@ -1,7 +1,7 @@
 <script lang="ts">
 	interface ModalProps {
 		toggle: boolean;
-		onSubmit: (channel: 'youtube' | 'tiktok', liveId: string, secret: string) => void;
+		onSubmit: (channel: 'youtube' | 'tiktok' | 'twitch', liveId: string, secret: string) => void;
 	}
 
 	let { toggle = $bindable(false), onSubmit }: ModalProps = $props();
@@ -20,7 +20,7 @@
 		}
 	});
 
-	let channel: 'youtube' | 'tiktok' | undefined = $state();
+	let channel: 'youtube' | 'tiktok' | 'twitch' | undefined = $state();
 	let liveId: string | undefined = $state();
 	let secret: string | undefined = $state();
 </script>
@@ -42,6 +42,7 @@
 				<option disabled selected>Choisissez une Plate-forme</option>
 				<option value="youtube">YouTube</option>
 				<option value="tiktok">TikTok</option>
+				<option value="twitch">Twitch</option>
 			</select>
 			<label class="label font-bold text-gray-900" for="claim">ID du live</label>
 			<input

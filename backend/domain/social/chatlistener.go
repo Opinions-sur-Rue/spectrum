@@ -23,6 +23,8 @@ func CreateListener(serviceType string, regexMessageFilter string, secret string
 		listener = &YoutubeListener{}
 	case "tiktok":
 		listener = &TiktokListener{}
+	case "twitch":
+		listener = &TwitchListener{}
 	default:
 		return nil, ErrUnknownServiceType
 	}
