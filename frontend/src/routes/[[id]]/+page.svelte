@@ -42,7 +42,7 @@
 	import { Canvas, Circle, FabricText, Group, loadSVGFromURL, Rect, util } from 'fabric';
 	import { onMount, tick } from 'svelte';
 	import { copy } from 'svelte-copy';
-	import { lerp, pointInPolygon } from '$lib/utils';
+	import { capitalize, lerp, pointInPolygon } from '$lib/utils';
 	import Peer from 'peerjs';
 	import * as pkg from 'peerjs';
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
@@ -801,19 +801,19 @@
 		const averageVote = Math.round(average);
 
 		switch (averageVote) {
-			case -3:
+			case 3:
 				return { x: 98, y: 399 };
-			case -2:
+			case 2:
 				return { x: 157, y: 251 };
-			case -1:
+			case 1:
 				return { x: 292, y: 127 };
 			case 0:
 				return { x: 475, y: 78 };
-			case 1:
+			case -1:
 				return { x: 659, y: 123 };
-			case 2:
+			case -2:
 				return { x: 771, y: 250 };
-			case 3:
+			case -3:
 				return { x: 832, y: 408 };
 		}
 
@@ -952,9 +952,23 @@
 
 				log(m.log_you_joined_spectrum(), 'join');
 			} else if (command == 'liveusermessage') {
-				const otherUserId = 'ff0000';
+				let otherUserId;
+				switch (liveChannel) {
+					case 'youtube':
+						otherUserId = 'ff0000';
+						break;
+					case 'tiktok':
+						otherUserId = '000000';
+						break;
+					case 'twitch':
+						otherUserId = '9146ff';
+						break;
+					default:
+						console.error('missing liveChannel');
+						return;
+				}
 				const coords = parseLiveSpectrum(rpc.arguments[0], rpc.arguments[3]);
-				const otherNickname = 'YouTube';
+				const otherNickname = capitalize(liveChannel ?? '');
 				if (otherUserId != userId) updatePellet(otherUserId, coords, otherNickname);
 			} else if (command == 'chatmessage') {
 				const otherUserId = rpc.arguments[0];
@@ -1057,6 +1071,7 @@
 	}
 
 	let liveChannel: string | undefined = $state();
+
 	function onConnectLive(channel: string, liveId: string, secret: string) {
 		rpc('listen', channel, liveId, secret);
 		liveChannel = channel;

@@ -108,3 +108,8 @@ export const pointInPolygon = function (polygon: [number, number][], point: [num
 export function lerp(a: number, b: number, t: number) {
 	return a + (b - a) * t;
 }
+
+export function capitalize(str: string): string {
+	if (!str) return '';
+	return str.charAt(0).toUpperCase() + str.slice(1);
+}
