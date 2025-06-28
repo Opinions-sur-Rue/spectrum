@@ -832,8 +832,9 @@
 			const command = rpc.procedure;
 
 			if (command == 'ack') {
-				if (!initialized) initialized = true;
-				else initPellet();
+				if (rpc.arguments[0] == 'signin') {
+					if (!initialized) initialized = true;
+				}
 			} else if (command == 'nack') {
 				notifier.danger('Désolé, erreur reçue: ' + rpc.arguments[0]);
 			} else if (command == 'update') {

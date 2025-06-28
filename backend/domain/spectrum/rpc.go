@@ -52,7 +52,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 	case "signin":
 		c.SetUserID(rpc.Arguments[0])
 		c.hub.LinkUserWithClient(c.UserID(), c)
-		c.send <- valueobjects.NewMessageContent(valueobjects.RPC_ACK).Export()
+		c.send <- valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK, "signin").Export()
 
 		user = c.hub.users[c.userID]
 
@@ -83,7 +83,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			c.hub.MessageUser(c.UserID(), c.UserID(), reply)
 		}
 	case "nickname":
-		c.send <- valueobjects.NewMessageContent(valueobjects.RPC_ACK).Export()
+		c.send <- valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK, "nickname").Export()
 		user.SetNickname(rpc.Arguments[0])
 	case "startspectrum":
 		if user.IsInRoom() {
@@ -154,7 +154,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			c.send <- reply.Export()
 			break
 		}
-		c.send <- valueobjects.NewMessageContent(valueobjects.RPC_ACK).Export()
+		c.send <- valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK, "leavespectrum").Export()
 
 		reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_USERLEFT, user.Color)
 		c.hub.MessageRoom(roomID, reply)
@@ -305,7 +305,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 						c.send <- reply.Export()
 						break
 					}
-					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK)
+					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK, "disconnect")
 					c.send <- reply.Export()
 				}
 			}
