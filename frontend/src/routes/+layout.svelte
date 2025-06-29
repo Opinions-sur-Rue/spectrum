@@ -1,6 +1,5 @@
 <script lang="ts">
 	// @ts-nocheck
-
 	import '../app.css';
 
 	import { NotificationDisplay } from '$lib/notifications';
@@ -13,6 +12,18 @@
 		faGlobe,
 		faSignal
 	} from '@fortawesome/free-solid-svg-icons';
+	import { setContext } from 'svelte';
+
+	let streamerMode: boolean = $state(false);
+
+	setContext('streamerMode', {
+		activateStreamerMode() {
+			streamerMode = true;
+		},
+		deactivateStreamerMode() {
+			streamerMode = false;
+		}
+	});
 </script>
 
 <svelte:head>
@@ -21,7 +32,10 @@
 </svelte:head>
 
 <section>
-	<ul class="menu menu-horizontal bg-base-100 rounded-box float-right mt-6">
+	<ul
+		class="menu menu-horizontal bg-base-100 rounded-box float-right mt-6"
+		class:hidden={streamerMode}
+	>
 		<li class="dropdown dropdown-end tooltip hidden" data-tip="Signal">
 			<div
 				tabindex="0"

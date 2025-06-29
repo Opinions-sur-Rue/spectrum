@@ -10,6 +10,7 @@ type ChatListener interface {
 	Disconnect() error
 	SetMessageFilter(regex string)
 	SetSecret(secret string)
+	GetType() string
 }
 
 var (

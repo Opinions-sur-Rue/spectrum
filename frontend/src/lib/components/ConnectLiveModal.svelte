@@ -12,7 +12,6 @@
 		const el = document.getElementById(modalId);
 		if (el instanceof HTMLDialogElement) {
 			if (toggle) {
-				console.log('COUCOU');
 				el.show();
 			} else {
 				el.close();

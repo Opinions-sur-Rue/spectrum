@@ -23,6 +23,7 @@ const (
 	RPC_MICROPHONEUNMUTED = "microphoneunmuted"
 	RPC_UPDATE            = "update"
 	RPC_CLAIM             = "claim"
+	RPC_LISTENNING        = "listenning"
 	RPC_LIVEUSERCONNECTED = "liveuserconnected"
 	RPC_LIVEUSERMESSAGE   = "liveusermessage"
 	RPC_SPECTRUM          = "spectrum"

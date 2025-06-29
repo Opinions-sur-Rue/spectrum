@@ -16,6 +16,10 @@ type TwitchListener struct {
 	cancelConnection context.CancelFunc
 }
 
+func (l *TwitchListener) GetType() string {
+	return "twitch"
+}
+
 func (l *TwitchListener) SetMessageFilter(regex string) {
 	l.messageFilter = regexp.MustCompile(regex)
 }
@@ -39,7 +43,7 @@ func (l *TwitchListener) Connect(ctx context.Context, liveID string, messageChan
 	l.service = twitch.NewAnonymousClient()
 
 	l.service.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		log.Printf("[%s] %s", message.User.DisplayName, message.Message)
+		log.Debugf("[%s] %s", message.User.DisplayName, message.Message)
 
 		reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LIVEUSERMESSAGE, message.User.ID, message.User.DisplayName, "", message.Message)
 		messageChannel <- reply.Export()
@@ -55,7 +59,7 @@ func (l *TwitchListener) Connect(ctx context.Context, liveID string, messageChan
 	log.Infof("Live Chat ID: %s\n", liveID)
 
 	<-newCtx.Done()
-	log.Info("Hub runner terminated...")
+	log.Info("Twitch listener terminated...")
 	err = l.service.Disconnect()
 	if err != nil {
 		log.Error(err)

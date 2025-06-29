@@ -81,6 +81,11 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 
 			reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, c.hub.rooms[roomID].Topic())
 			c.hub.MessageUser(c.UserID(), c.UserID(), reply)
+
+			if c.hub.rooms[roomID].SocialListener() != nil {
+				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LISTENNING, c.hub.rooms[roomID].SocialListener().GetType())
+				c.hub.MessageUser(c.UserID(), c.UserID(), reply)
+			}
 		}
 	case "nickname":
 		c.send <- valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK, "nickname").Export()
@@ -260,7 +265,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		if user.IsInRoom() {
 			roomID := user.Room()
 			if c.hub.rooms[roomID].IsAdmin(c.UserID()) {
-				if user.SocialListener() != nil {
+				if c.hub.rooms[roomID].SocialListener() != nil {
 					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, "already connected")
 					c.send <- reply.Export()
 					break
@@ -274,7 +279,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 					break
 				}
 
-				user.SetSocialListener(listener)
+				c.hub.rooms[roomID].SetSocialListener(listener)
 
 				go func() {
 					err := listener.Connect(c.hub.context, rpc.Arguments[1], c.send)
@@ -282,9 +287,12 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 						log.Error(err.Error())
 						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
 						c.send <- reply.Export()
-						user.SetSocialListener(nil)
+						c.hub.rooms[roomID].SetSocialListener(nil)
 					}
 				}()
+
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LISTENNING, rpc.Arguments[0])
+				c.hub.MessageRoom(roomID, reply)
 			}
 		}
 	case "sendchatmessage":
@@ -297,8 +305,8 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		if user.IsInRoom() {
 			roomID := user.Room()
 			if c.hub.rooms[roomID].IsAdmin(c.UserID()) {
-				if user.SocialListener() != nil {
-					err := user.SocialListener().Disconnect()
+				if c.hub.rooms[roomID].SocialListener() != nil {
+					err := c.hub.rooms[roomID].SocialListener().Disconnect()
 					if err != nil {
 						log.Error(err.Error())
 						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())

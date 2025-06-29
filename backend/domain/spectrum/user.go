@@ -2,8 +2,6 @@ package spectrum
 
 import (
 	"math"
-
-	"Opinions-sur-Rue/spectrum/domain/social"
 )
 
 type User struct {
@@ -15,7 +13,6 @@ type User struct {
 	lastVoiceId          string
 	microphoneEnabled    bool
 	beginningGracePeriod int64
-	socialListener       social.ChatListener
 }
 
 func NewUser(userID string) *User {
@@ -77,12 +74,4 @@ func (u *User) SetColor(color string) {
 
 func (u *User) IsInRoom() bool {
 	return u.currentRoomID != ""
-}
-
-func (u *User) SocialListener() social.ChatListener {
-	return u.socialListener
-}
-
-func (u *User) SetSocialListener(listener social.ChatListener) {
-	u.socialListener = listener
 }

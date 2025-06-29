@@ -20,6 +20,10 @@ type YoutubeListener struct {
 	cancelConnection context.CancelFunc
 }
 
+func (l *YoutubeListener) GetType() string {
+	return "youtube"
+}
+
 func (l *YoutubeListener) SetMessageFilter(regex string) {
 	l.messageFilter = regexp.MustCompile(regex)
 }
@@ -69,7 +73,7 @@ func (l *YoutubeListener) Connect(ctx context.Context, liveID string, messageCha
 	for {
 		select {
 		case <-newCtx.Done():
-			log.Info("Hub runner terminated...")
+			log.Info("YouTube listener terminated...")
 			l.cancelConnection = nil
 			return nil
 		case <-time.After(delay * time.Millisecond):
@@ -88,7 +92,7 @@ func (l *YoutubeListener) Connect(ctx context.Context, liveID string, messageCha
 			for _, item := range chatResponse.Items {
 				author := item.AuthorDetails.DisplayName
 				message := item.Snippet.DisplayMessage
-				log.Infof("[%s] %s\n", author, message)
+				log.Debugf("[%s] %s\n", author, message)
 
 				if !l.messageFilter.Match([]byte(strings.ToLower(message))) {
 					continue

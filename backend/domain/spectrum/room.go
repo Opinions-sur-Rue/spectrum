@@ -4,6 +4,9 @@ import (
 	"errors"
 	"math/rand"
 	"slices"
+
+	"Opinions-sur-Rue/spectrum/domain/social"
+	log "github.com/sirupsen/logrus"
 )
 
 var generalColors = []string{
@@ -18,12 +21,13 @@ var generalColors = []string{
 }
 
 type Room struct {
-	id           string
-	topic        string
-	password     string
-	closed       bool
-	admins       []string
-	participants map[string]*User
+	id             string
+	topic          string
+	password       string
+	closed         bool
+	admins         []string
+	participants   map[string]*User
+	socialListener social.ChatListener
 }
 
 func (r *Room) Join(newUser *User) error {
@@ -140,10 +144,28 @@ func (r *Room) Close() error {
 	if r.closed {
 		return errors.New("room closed")
 	}
+
 	r.closed = true
+
+	if r.SocialListener() != nil {
+		err := r.SocialListener().Disconnect()
+		if err != nil {
+			log.Error("could not disconnect room social listener")
+		}
+		r.socialListener = nil
+	}
+
 	return nil
 }
 
 func (r *Room) IsClosed() bool {
 	return r.closed
+}
+
+func (r *Room) SocialListener() social.ChatListener {
+	return r.socialListener
+}
+
+func (r *Room) SetSocialListener(listener social.ChatListener) {
+	r.socialListener = listener
 }

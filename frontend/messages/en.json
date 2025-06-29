@@ -5,6 +5,7 @@
 	"chat": "Chat",
 	"claim": "Claim",
 	"connect_live": "Connect Live",
+	"connecting_live": "Connecting to Live",
 	"copy_link": "Copy Link",
 	"create_pellet": "Create my Pellet",
 	"disconnect_live": "Disconnect live",

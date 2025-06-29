@@ -48,6 +48,11 @@
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
+	import { getContext } from 'svelte';
+
+	let { id: spectrumId }: { id: string | undefined } = $props();
+
+	let streamerModeLayout = getContext<any>('streamerMode');
 
 	const opinions = {
 		stronglyAgree: m.opinion_strongly_agree(),
@@ -63,8 +68,6 @@
 	type OpinionKey = keyof typeof opinions;
 	let currentOpinion: string = 'notReplied';
 	let previousOpinion: string = 'notReplied';
-
-	let { id: spectrumId }: { id: string | undefined } = $props();
 
 	const originalWidth = 980;
 	const originalHeight = 735;
@@ -937,6 +940,10 @@
 				if (otherUserId != userId) {
 					others[otherUserId].microphone = false;
 				}
+			} else if (command == 'listenning') {
+				liveListenning = true;
+				liveChannel = rpc.arguments[0];
+				log(`Le spectrum est maintenant connecté avec : "${liveChannel}"`)
 			} else if (command == 'microphoneunmuted') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
@@ -1072,9 +1079,11 @@
 	}
 
 	let liveChannel: string | undefined = $state();
+	let liveListenning: boolean = $state(false);
 
 	function onConnectLive(channel: string, liveId: string, secret: string) {
 		rpc('listen', channel, liveId, secret);
+		liveListenning = false;
 		liveChannel = channel;
 		toggleConnectLiveModal();
 	}
@@ -1178,7 +1187,12 @@
 					<Fa icon={faCopy} />
 					{m.copy_link()}
 				</button>
-				<button onclick={() => (streamerMode = true)} class="btn btn-info rounded-lg px-4 py-2"
+				<button
+					onclick={() => {
+						streamerMode = true;
+						streamerModeLayout.activateStreamerMode();
+					}}
+					class="btn btn-info rounded-lg px-4 py-2"
 					><Fa icon={faSatelliteDish} /> {m.streamer_mode()}</button
 				>
 				<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
@@ -1197,8 +1211,12 @@
 {:else}
 	<div class="fixed top-5 right-[2rem] z-1000">
 		<div class="tooltip tooltip-left" data-tip="Quitter mode streamer">
-			<button onclick={() => (streamerMode = false)} class="btn btn-info btn-circle"
-				><Fa icon={faSatelliteDish} /></button
+			<button
+				onclick={() => {
+					streamerMode = false;
+					streamerModeLayout.deactivateStreamerMode();
+				}}
+				class="btn btn-info btn-circle"><Fa icon={faSatelliteDish} /></button
 			>
 		</div>
 	</div>
@@ -1262,7 +1280,7 @@
 							{m.stop_spectrum()}</span
 						></button
 					>
-					{#if liveChannel}
+					{#if liveChannel && liveListenning}
 						<button
 							class="btn btn-error rounded-lg px-4 py-2 font-mono"
 							onclick={() => {
@@ -1271,6 +1289,14 @@
 							}}
 							><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
 								{m.disconnect_live()}</span
+							></button
+						>
+					{:else if liveChannel}
+						<button class="btn btn-error rounded-lg px-4 py-2 font-mono"
+							><span class="loading loading-spinner loading-xs"></span><span
+								class="hidden lg:!inline-block"
+							>
+								{m.connecting_live()}</span
 							></button
 						>
 					{:else}

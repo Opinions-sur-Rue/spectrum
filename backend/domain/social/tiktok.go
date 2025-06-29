@@ -20,6 +20,10 @@ type TiktokListener struct {
 	cancelConnection context.CancelFunc
 }
 
+func (l *TiktokListener) GetType() string {
+	return "tiktok"
+}
+
 func (l *TiktokListener) SetMessageFilter(regex string) {
 	l.messageFilter = regexp.MustCompile(regex)
 }
@@ -77,7 +81,7 @@ func (l *TiktokListener) Connect(ctx context.Context, liveID string, messageChan
 				//log.Infof("%T : %d\n", e, e.Viewers)
 
 				case gotiktoklive.ChatEvent:
-					log.Infof("gotiktoklive.UserEvent : %v\n", e)
+					log.Debugf("gotiktoklive.UserEvent : %v\n", e)
 
 					if !l.messageFilter.Match([]byte(strings.ToLower(e.Comment))) {
 						continue
