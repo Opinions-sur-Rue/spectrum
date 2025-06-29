@@ -313,6 +313,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 						c.send <- reply.Export()
 						break
 					}
+					c.hub.rooms[roomID].SetSocialListener(nil)
 					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK, "disconnect")
 					c.send <- reply.Export()
 				}
