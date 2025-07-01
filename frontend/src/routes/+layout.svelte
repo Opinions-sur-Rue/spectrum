@@ -1,5 +1,6 @@
 <script lang="ts">
 	// @ts-nocheck
+	/* eslint svelte/no-at-html-tags: "off" */
 	import '../app.css';
 
 	import { NotificationDisplay } from '$lib/notifications';
@@ -67,14 +68,13 @@
 				class="card card-sm dropdown-content bg-base-100 rounded-box z-1 w-max shadow-sm"
 			>
 				<div tabindex="0" class="card-body">
-					<h2 class="card-title">Vous avez un peu de temps?</h2>
+					<h2 class="card-title">{m.info_do_you_have_a_moment()}</h2>
 					<p>
-						Aidez-nous à améliorer la plateforme en faisant vos retours sur le formulaire suivant : <a
+						{m.info_help_us_form()}<a
 							class="link link-info"
 							target="_blank"
 							rel="noopener"
-							href="https://docs.google.com/forms/d/e/1FAIpQLSd53Jkrxa0l1Vcp4rTtrRlSJ8d7Vxx42EiMz0esjAvVSmvLNg/viewform?usp=header"
-							>Google Form</a
+							href={m.link_feedback_form()}>Google Form</a
 						>
 					</p>
 				</div>
@@ -87,36 +87,21 @@
 			<ul class="list dropdown-content bg-base-100 rounded-box z-1 w-3xl max-w-screen shadow-sm">
 				<li class="list-row">
 					<div>
-						<div class="font-bold">C'est quoi un Spectrum ?</div>
-						<div class="badge badge-info text-xs">Définition</div>
+						<div class="font-bold">{m.info_what_is_spectrum()}</div>
+						<div class="badge badge-info text-xs">{m.info_definition()}</div>
 					</div>
 					<p class="list-col-wrap text-xs">
-						Spectrum est un outil visuel et interactif conçu pour faciliter les discussions
-						constructives entre plusieurs personnes autour de croyances ou d'opinions. <br />
-						Inspiré de la méthode de l'entretien épistémique (EE), il permet à chacun de positionner
-						son niveau de confiance sur une échelle allant du doute au fort assentiment, tout en expliquant
-						les raisons qui motivent cette position. <br />
-						L'objectif n'est pas de débattre pour convaincre, mais d'encourager la réflexion critique,
-						la clarification des idées et la compréhension mutuelle. En rendant visibles les divergences
-						et les convergences, le Spectrum favorise un dialogue respectueux et introspectif, que ce
-						soit en présentiel ou en ligne.
+						{@html m.info_what_is_spectrum_answer()}
 					</p>
 				</li>
 
 				<li class="list-row">
 					<div>
-						<div class="font-bold">Qu'est-ce qu'un Homme de fer ?</div>
-						<div class="badge badge-info text-xs">Définition</div>
+						<div class="font-bold">{m.info_what_is_steelman()}</div>
+						<div class="badge badge-info text-xs">{m.info_definition()}</div>
 					</div>
 					<p class="list-col-wrap text-xs">
-						Un homme de fer est une technique de débat qui consiste à reformuler l'argument de son
-						interlocuteur de la manière la plus forte, claire et juste possible, parfois même mieux
-						que lui ne l'aurait exprimé lui-même. <br />
-						Cela permet de montrer qu'on a bien compris sa position et d'engager un dialogue respectueux
-						et constructif, loin des caricatures ou des attaques simplistes. C'est pourquoi il est couramment
-						utilisé lors de Spectrum. <br />
-						C'est l'opposé de l'homme de paille, qui déforme un argument pour mieux le réfuter. L'homme
-						de fer vise au contraire la compréhension mutuelle.
+						{@html m.info_what_is_steelman_answer()}
 					</p>
 				</li>
 			</ul>

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { m } from '$lib/paraglide/messages.js';
+
 	interface ModalProps {
 		toggle: boolean;
 		spectrumId: string | undefined;
@@ -34,32 +36,32 @@
 		<form class="p-4" onsubmit={() => spectrumId && nickname && onSubmit(spectrumId, nickname)}>
 			<label
 				class="label font-bold text-gray-900 after:ml-0.5 after:text-red-500 after:content-['*']"
-				for="spectrumId">Identifiant du Spectrum</label
+				for="spectrumId">{m.spectrum_id()}</label
 			>
 			<input
 				class="input mb-4 block w-full"
 				type="text"
-				placeholder="Veuillez entrer l'identifiant du spectrum que vous voulez rejoindre"
+				placeholder={m.placeholder_spectrum_id()}
 				id="spectrumId"
 				bind:value={spectrumId}
 				required
 			/>
 			<label
 				class="label font-bold text-gray-900 after:ml-0.5 after:text-red-500 after:content-['*']"
-				for="nickname1">Pseudo</label
+				for="nickname1">{m.nickname()}</label
 			>
 			<input
 				class="input mb-4 block w-full"
 				type="text"
-				placeholder="Veuillez entrer un pseudo (n'utilisez pas votre nom réel)"
+				placeholder={m.placeholder_nickname()}
 				bind:value={nickname}
 				id="nickname1"
 				required
 			/>
 			<div>
-				<button class="btn btn-success float-left" type="submit">Rejoindre le Spectrum</button>
+				<button class="btn btn-success float-left" type="submit">{m.join()}</button>
 				<button class="btn btn-warning float-right" onclick={() => (toggle = false)} type="button"
-					>Annuler</button
+					>{m.cancel()}</button
 				>
 			</div>
 		</form>

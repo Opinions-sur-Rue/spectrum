@@ -943,7 +943,7 @@
 			} else if (command == 'listenning') {
 				liveListenning = true;
 				liveChannel = rpc.arguments[0];
-				log(`Le spectrum est maintenant connecté avec : "${liveChannel}"`)
+				log(m.log_spectrum_connected(liveChannel));
 			} else if (command == 'microphoneunmuted') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {

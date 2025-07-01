@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { m } from '$lib/paraglide/messages.js';
+
 	interface ModalProps {
 		toggle: boolean;
 		onSubmit: (channel: 'youtube' | 'tiktok' | 'twitch', liveId: string, secret: string) => void;
@@ -38,33 +40,33 @@
 		>
 			<label class="label block font-bold text-gray-900" for="nickname2">Plate-forme</label>
 			<select class="select mb-6 block" bind:value={channel}>
-				<option disabled selected>Choisissez une Plate-forme</option>
+				<option disabled selected>{m.pick_platform()}</option>
 				<option value="youtube">YouTube</option>
 				<option value="tiktok">TikTok</option>
 				<option value="twitch">Twitch</option>
 			</select>
-			<label class="label font-bold text-gray-900" for="claim">ID du live</label>
+			<label class="label font-bold text-gray-900" for="claim">{m.live_id()}</label>
 			<input
 				class="input mb-4 block w-full"
 				type="text"
-				placeholder="Veuillez entrer l'ID du live auquel vous voulez vous connecter"
+				placeholder={m.placeholder_live_id()}
 				id="claim"
 				bind:value={liveId}
 				required
 			/>
-			<label class="label font-bold text-gray-900" for="claim">Secret</label>
+			<label class="label font-bold text-gray-900" for="claim">{m.secret()}</label>
 			<input
 				class="input mb-4 block w-full"
 				type="text"
-				placeholder="Veuillez entrer le secret pour se connecter au service de la plate-forme"
+				placeholder={m.placeholder_secret()}
 				id="claim"
 				bind:value={secret}
 				required
 			/>
 			<div>
-				<button class="btn btn-success float-left" type="submit">Démarrer la connection</button>
+				<button class="btn btn-success float-left" type="submit">{m.start_connection()}</button>
 				<button class="btn btn-warning float-right" type="button" onclick={() => (toggle = false)}
-					>Annuler</button
+					>{m.cancel()}</button
 				>
 			</div>
 		</form>

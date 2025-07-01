@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { m } from '$lib/paraglide/messages.js';
+
 	interface ModalProps {
 		toggle: boolean;
 		onSubmit: (nickname: string, initialClaim?: string) => void;
@@ -34,28 +36,28 @@
 		<form class="p-4" onsubmit={() => nickname && onSubmit(nickname, initialClaim)}>
 			<label
 				class="label font-bold text-gray-900 after:ml-0.5 after:text-red-500 after:content-['*']"
-				for="nickname2">Pseudo</label
+				for="nickname2">{m.nickname()}</label
 			>
 			<input
 				class="input mb-4 block w-full"
 				type="text"
-				placeholder="Veuillez entrer un pseudo (n'utilisez pas votre nom réel)"
+				placeholder={m.placeholder_nickname()}
 				bind:value={nickname}
 				id="nickname2"
 				required
 			/>
-			<label class="label font-bold text-gray-900" for="claim">Claim initial</label>
+			<label class="label font-bold text-gray-900" for="claim">{m.initial_claim()}</label>
 			<input
 				class="input mb-4 block w-full"
 				type="text"
-				placeholder="Optionnellement entrer un claim initial"
+				placeholder={m.placeholder_initial_claim()}
 				id="claim"
 				bind:value={initialClaim}
 			/>
 			<div>
-				<button class="btn btn-success float-left" type="submit">Créer un Spectrum</button>
+				<button class="btn btn-success float-left" type="submit">{m.start_spectrum()}</button>
 				<button class="btn btn-warning float-right" type="button" onclick={() => (toggle = false)}
-					>Annuler</button
+					>{m.cancel()}</button
 				>
 			</div>
 		</form>
