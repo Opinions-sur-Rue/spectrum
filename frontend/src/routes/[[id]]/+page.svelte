@@ -4,7 +4,6 @@
 	/* eslint svelte/no-at-html-tags: "off" */
 
 	import Header from '$lib/components/Header.svelte';
-	import { notifier } from '$lib/notifications';
 	import {
 		faCirclePlus,
 		faClock,
@@ -49,6 +48,7 @@
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getContext } from 'svelte';
+	import { notify } from '$lib/utils/notify';
 
 	let { id: spectrumId }: { id: string | undefined } = $props();
 
@@ -839,7 +839,8 @@
 					if (!initialized) initialized = true;
 				}
 			} else if (command == 'nack') {
-				notifier.danger('Désolé, erreur reçue: ' + rpc.arguments[0]);
+				// TODO: translate
+				notify.error('Désolé, erreur reçue: ' + rpc.arguments[0]);
 			} else if (command == 'update') {
 				const otherUserId = rpc.arguments[0];
 				const coords = parseCoords(rpc.arguments[1]);
@@ -856,13 +857,13 @@
 					deletePellet(otherUserId);
 				} else {
 					log(m.log_you_left_spectrum(), 'leave');
-					notifier.danger(m.log_you_left_spectrum());
+					notify.error(m.log_you_left_spectrum());
 					leaveSpectrum();
 				}
 			} else if (command == 'receive') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {
-					notifier.info(others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1], 5000);
+					notify.info(others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1], 5000);
 					log(
 						m.log_emoji_received({ name: others[otherUserId].nickname, emoji: rpc.arguments[1] }),
 						'event'
@@ -1010,7 +1011,7 @@
 	let previousClaim: string | undefined;
 
 	function connectionLost() {
-		notifier.danger(m.cannot_connect());
+		notify.error(m.cannot_connect());
 	}
 
 	function resetPositions() {
@@ -1104,7 +1105,7 @@
 	}
 
 	const copied = () => {
-		notifier.success(m.notify_link_copied());
+		notify.success(m.notify_link_copied());
 	};
 
 	let streamerMode = $state(false);
@@ -1260,81 +1261,85 @@
 
 			<footer class="flex flex-wrap items-center justify-center gap-4" class:p-4={spectrumId}>
 				{#if adminModeOn}
-					<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={resetPositions}>
-						<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
-							{m.reset_positions()}</span
-						></button
-					>
-
-					<button
-						class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
-						class:btn-disabled={myPellet}
-						onclick={initPellet}
-						><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
-							{m.create_pellet()}</span
-						></button
-					>
-
-					<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
-						><Fa icon={faStop} /><span class="hidden lg:!inline-block">
-							{m.stop_spectrum()}</span
-						></button
-					>
-					{#if liveChannel && liveListenning}
-						<button
-							class="btn btn-error rounded-lg px-4 py-2 font-mono"
-							onclick={() => {
-								rpc('disconnect');
-								liveChannel = undefined;
-							}}
-							><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
-								{m.disconnect_live()}</span
+					<div>
+						<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={resetPositions}>
+							<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
+								{m.reset_positions()}</span
 							></button
 						>
-					{:else if liveChannel}
-						<button class="btn btn-error rounded-lg px-4 py-2 font-mono"
-							><span class="loading loading-spinner loading-xs"></span><span
-								class="hidden lg:!inline-block"
+
+						<button
+							class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+							class:btn-disabled={myPellet}
+							onclick={initPellet}
+							><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
+								{m.create_pellet()}</span
+							></button
+						>
+
+						<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
+							><Fa icon={faStop} /><span class="hidden lg:!inline-block">
+								{m.stop_spectrum()}</span
+							></button
+						>
+						{#if liveChannel && liveListenning}
+							<button
+								class="btn btn-error rounded-lg px-4 py-2 font-mono"
+								onclick={() => {
+									rpc('disconnect');
+									liveChannel = undefined;
+								}}
+								><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
+									{m.disconnect_live()}</span
+								></button
 							>
-								{m.connecting_live()}</span
-							></button
-						>
-					{:else}
-						<button
-							class="btn btn-error rounded-lg px-4 py-2 font-mono"
-							onclick={toggleConnectLiveModal}
-							><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
-								{m.connect_live()}</span
-							></button
-						>
-					{/if}
+						{:else if liveChannel}
+							<button class="btn btn-error rounded-lg px-4 py-2 font-mono"
+								><span class="loading loading-spinner loading-xs"></span><span
+									class="hidden lg:!inline-block"
+								>
+									{m.connecting_live()}</span
+								></button
+							>
+						{:else}
+							<button
+								class="btn btn-error rounded-lg px-4 py-2 font-mono"
+								onclick={toggleConnectLiveModal}
+								><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
+									{m.connect_live()}</span
+								></button
+							>
+						{/if}
+					</div>
 				{/if}
 
 				{#if spectrumId}
-					<div
-						class="dropdown dropdown-top dropdown-center"
-						style="font-style: normal; font-family: 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Emoji', sans-serif;"
-					>
-						<div tabindex="0" role="button" class="btn btn-warning rounded-lg font-mono">
-							😀 {m.emoji()}
-						</div>
-						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-						<ul
-							tabindex="0"
-							class="dropdown-content menu bg-base-100 rounded-box z-1 w-12 p-2 shadow-sm"
+					<div>
+						<div
+							class="dropdown dropdown-top dropdown-center"
+							style="font-style: normal; font-family: 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Emoji', sans-serif;"
 						>
-							<li><button onclick={() => sendEmoji(0)}>😜</button></li>
-							<li><button onclick={() => sendEmoji(1)}>🤔</button></li>
-							<li><button onclick={() => sendEmoji(2)}>😵</button></li>
-							<li><button onclick={() => sendEmoji(3)}>🤯</button></li>
-							<li><button onclick={() => sendEmoji(4)}>🫣</button></li>
-							<li><button onclick={() => sendEmoji(5)}>🛟</button></li>
-							<li><button onclick={() => sendEmoji(6)}>🦝</button></li>
-						</ul>
+							<div tabindex="0" role="button" class="btn btn-warning rounded-lg font-mono">
+								😀 {m.emoji()}
+							</div>
+							<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+							<ul
+								tabindex="0"
+								class="dropdown-content menu bg-base-100 rounded-box z-1 w-12 p-2 shadow-sm"
+							>
+								<li><button onclick={() => sendEmoji(0)}>😜</button></li>
+								<li><button onclick={() => sendEmoji(1)}>🤔</button></li>
+								<li><button onclick={() => sendEmoji(2)}>😵</button></li>
+								<li><button onclick={() => sendEmoji(3)}>🤯</button></li>
+								<li><button onclick={() => sendEmoji(4)}>🫣</button></li>
+								<li><button onclick={() => sendEmoji(5)}>🛟</button></li>
+								<li><button onclick={() => sendEmoji(6)}>🦝</button></li>
+							</ul>
+						</div>
+						<button class="btn btn-info rounded-lg px-4 py-2 font-mono" onclick={() => raiseHand()}
+							>🤚<span class="hidden lg:!inline-block"> {m.raise_hand()}</span></button
+						>
 					</div>
-					<button class="btn btn-info rounded-lg px-4 py-2 font-mono" onclick={() => raiseHand()}
-						>🤚<span class="hidden lg:!inline-block"> {m.raise_hand()}</span></button
-					>
 				{/if}
 			</footer>
 		</div>
@@ -1584,10 +1589,9 @@
 								>
 								<span
 									class="text-sm"
-									class:text-gray-800={log.type === 'message'}
+									class:text-black-800={log.type === 'message' || log.type === 'event'}
 									class:text-green-800={log.type === 'join'}
 									class:text-red-800={log.type === 'leave'}
-									class:text-blue-800={log.type === 'event'}
 									class:text-orange-800={log.type === 'claim'}>{match?.[2]}</span
 								>
 							</div>
