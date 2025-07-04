@@ -6,6 +6,7 @@
 		faCircleInfo,
 		faFileCircleQuestion,
 		faGlobe,
+		faPalette,
 		faSignal
 	} from '@fortawesome/free-solid-svg-icons';
 	import Fa from 'svelte-fa';
@@ -109,6 +110,41 @@
 					<p class="list-col-wrap text-xs">
 						{@html m.info_what_is_steelman_answer()}
 					</p>
+				</li>
+			</ul>
+		</li>
+		<li class="dropdown dropdown-end tooltip" data-tip={m.theme()}>
+			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
+				<Fa icon={faPalette} class="text-lg" />
+			</div>
+			<ul tabindex="0" class="dropdown-content bg-base-300 rounded-box z-1 w-52 p-2 shadow-2xl">
+				<li>
+					<input
+						type="radio"
+						name="theme-dropdown"
+						class="theme-controller btn btn-sm btn-block btn-ghost w-full justify-start"
+						aria-label={m.theme_default()}
+						value="lofi"
+					/>
+				</li>
+				<li>
+					<input
+						type="radio"
+						name="theme-dropdown"
+						class="theme-controller btn btn-sm btn-block btn-ghost w-full justify-start"
+						aria-label={m.theme_light()}
+						value="light"
+					/>
+				</li>
+
+				<li>
+					<input
+						type="radio"
+						name="theme-dropdown"
+						class="theme-controller btn btn-sm btn-block btn-ghost w-full justify-start"
+						aria-label={m.theme_dark()}
+						value="dark"
+					/>
 				</li>
 			</ul>
 		</li>

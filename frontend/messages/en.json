@@ -76,6 +76,10 @@
 	"stop_spectrum": "End Spectrum",
 	"streamer_mode": "Streamer Mode",
 	"subtitle": "Online Spectrum platform for 2 to 6 participants",
+	"theme": "Theme",
+	"theme_default": "Default (Lofi)",
+	"theme_light": "Light",
+	"theme_dark": "Dark",	
 	"unmute_microphone": "Unmute Microphone",
 	"yourself": "Yourself"
 }
