@@ -16,13 +16,17 @@
 	export let logo: string | undefined = undefined;
 	export let logoWidth: number = 64;
 	export let streamerMode: boolean = false;
+
+	let theme: 'light' | 'dark' = 'light';
 </script>
 
 <div class="header flex">
 	<h1 class="flex-none font-mono text-4xl">
-		{#if logo}<img src={logo} alt="Spectrum" width={logoWidth} style="display: inline;" />{/if}<span
-			class="ml-1">{title}</span
-		>
+		{#if logo}
+			<img src={logo} alt="Spectrum" width={logoWidth} style="display: inline;" />
+		{:else}
+			<img src={`./logo-${theme}.png`} alt="Spectrum" width={logoWidth} style="display: inline;" />
+		{/if}<span class="ml-1">{title}</span>
 	</h1>
 
 	<div class="flex-1 p-4">
@@ -124,6 +128,7 @@
 						name="theme-dropdown"
 						class="theme-controller btn btn-sm btn-block btn-ghost w-full justify-start"
 						aria-label={m.theme_default()}
+						onclick={() => (theme = 'light')}
 						value="lofi"
 					/>
 				</li>
@@ -133,6 +138,7 @@
 						name="theme-dropdown"
 						class="theme-controller btn btn-sm btn-block btn-ghost w-full justify-start"
 						aria-label={m.theme_light()}
+						onclick={() => (theme = 'light')}
 						value="light"
 					/>
 				</li>
@@ -143,6 +149,7 @@
 						name="theme-dropdown"
 						class="theme-controller btn btn-sm btn-block btn-ghost w-full justify-start"
 						aria-label={m.theme_dark()}
+						onclick={() => (theme = 'dark')}
 						value="dark"
 					/>
 				</li>
