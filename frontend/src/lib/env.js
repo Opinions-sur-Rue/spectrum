@@ -7,7 +7,7 @@ export const API_URL = import.meta.env.VITE_API_URL ?? 'https://api.spectrum.opi
 export const PUBLIC_URL = import.meta.env.VITE_PUBLIC_URL ?? 'https://spectrum.opinions-sur-rue.fr';
 
 // Theme
-export const LOGO_URL = import.meta.env.VITE_LOGO_URL ?? `/logo-white.png`;
+export const LOGO_URL = import.meta.env.VITE_LOGO_URL;
 export const LOGO_WIDTH = import.meta.env.VITE_LOGO_WIDTH ?? 128;
 export const HEADER_TITLE = import.meta.env.VITE_HEADER_TITLE;
 
