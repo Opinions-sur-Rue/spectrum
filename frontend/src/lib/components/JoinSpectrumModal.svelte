@@ -35,7 +35,7 @@
 		</form>
 		<form class="p-4" onsubmit={() => spectrumId && nickname && onSubmit(spectrumId, nickname)}>
 			<label
-				class="label font-bold text-gray-900 after:ml-0.5 after:text-red-500 after:content-['*']"
+				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
 				for="spectrumId">{m.spectrum_id()}</label
 			>
 			<input
@@ -47,7 +47,7 @@
 				required
 			/>
 			<label
-				class="label font-bold text-gray-900 after:ml-0.5 after:text-red-500 after:content-['*']"
+				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
 				for="nickname1">{m.nickname()}</label
 			>
 			<input

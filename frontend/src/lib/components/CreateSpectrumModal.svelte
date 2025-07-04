@@ -35,7 +35,7 @@
 		</form>
 		<form class="p-4" onsubmit={() => nickname && onSubmit(nickname, initialClaim)}>
 			<label
-				class="label font-bold text-gray-900 after:ml-0.5 after:text-red-500 after:content-['*']"
+				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
 				for="nickname2">{m.nickname()}</label
 			>
 			<input
@@ -46,7 +46,7 @@
 				id="nickname2"
 				required
 			/>
-			<label class="label font-bold text-gray-900" for="claim">{m.initial_claim()}</label>
+			<label class="label text-base-content font-bold" for="claim">{m.initial_claim()}</label>
 			<input
 				class="input mb-4 block w-full"
 				type="text"

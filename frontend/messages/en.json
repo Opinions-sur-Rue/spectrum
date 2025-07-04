@@ -30,6 +30,7 @@
 	"leave_streamer": "Quit Streamer Mode",
 	"link_feedback_form": "https://docs.google.com/forms/d/e/1FAIpQLSd8shcmOiQ-asItxqCfYUpi5-XFmK07DKo2y9t3hvy_hNG7Wg/viewform?usp=header",
 	"live_id": "Live ID",
+	"loading": "Loading...",
 	"log_claim": "The claim is \"{claim}\"",
 	"log_emoji_received": "{name} sent: {emoji}",
 	"log_emoji_sent": "You sent: {emoji}",
