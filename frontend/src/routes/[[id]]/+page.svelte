@@ -82,7 +82,7 @@
 
 	let userId: string | undefined = $state();
 	let nickname: string | undefined = $state();
-	let initialized = false;
+	let initialized: boolean = $state(false);
 	let listenning = true;
 
 	interface Log {
@@ -1151,31 +1151,35 @@
 	<Header subtitle={m.subtitle()} logo={LOGO_URL} logoWidth={LOGO_WIDTH} title={HEADER_TITLE}>
 		<div class="items-left justify-left mt-8 ml-0 flex flex-wrap gap-4 font-mono">
 			<span class="px-4 py-2">
-				<div class="inline-grid *:[grid-area:1/1]">
-					<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>
-				</div>
-				{#if spectrumId}
-					<span class="inline-flex items-center">
-						{m.spectrum_in_progress()} &mdash; {m.id()}=<b
-							>{showSpectrumId ? spectrumId : 'OSR-****'}</b
-						>
-						<div
-							class="tooltip inline-block align-baseline"
-							data-tip={showSpectrumId ? m.hide_id() : m.show_id()}
-						>
-							<label class="swap">
-								<input type="checkbox" class="hidden" bind:checked={showSpectrumId} />
-								<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faEye} /></div>
-								<div class="swap-off btn btn-ghost btn-circle"><Fa icon={faEyeSlash} /></div>
-							</label>
-						</div>
-					</span>
+				{#if !initialized}
+					<span class="loading loading-spinner loading-md text-success"></span> Loading...
 				{:else}
-					{m.no_spectrum()}
+					<div class="inline-grid *:[grid-area:1/1]">
+						<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>
+					</div>
+					{#if spectrumId}
+						<span class="inline-flex items-center">
+							{m.spectrum_in_progress()} &mdash; {m.id()}=<b
+								>{showSpectrumId ? spectrumId : 'OSR-****'}</b
+							>
+							<div
+								class="tooltip inline-block align-baseline"
+								data-tip={showSpectrumId ? m.hide_id() : m.show_id()}
+							>
+								<label class="swap">
+									<input type="checkbox" class="hidden" bind:checked={showSpectrumId} />
+									<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faEye} /></div>
+									<div class="swap-off btn btn-ghost btn-circle"><Fa icon={faEyeSlash} /></div>
+								</label>
+							</div>
+						</span>
+					{:else}
+						{m.no_spectrum()}
+					{/if}
 				{/if}
 			</span>
 
-			{#if spectrumId}
+			{#if initialized && spectrumId}
 				<button
 					class="btn btn-success rounded-lg px-4 py-2"
 					use:copy={{
@@ -1199,7 +1203,7 @@
 				<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
 					><Fa icon={faPersonWalkingArrowRight} /> {m.leave_spectrum()}</button
 				>
-			{:else}
+			{:else if initialized && !spectrumId}
 				<button onclick={toggleCreateModal} class="btn btn-warning rounded-lg px-4 py-2"
 					><Fa icon={faPlayCircle} /> {m.start_spectrum()}</button
 				>
