@@ -1412,7 +1412,7 @@
 							</tr>
 						{/if}
 						{#each Object.entries(others) as [colorHex, other]}
-							<tr class="odd:bg-white even:bg-gray-50">
+							<tr class="even:bg-base-100">
 								<td>
 									<div class="inline-grid *:[grid-area:1/1]">
 										<div
@@ -1569,7 +1569,10 @@
 			id="history"
 			class="card bg-base-100 card-border border-base-300 from-base-content/5 min-h-0 flex-1 overflow-y-auto bg-linear-to-bl to-50% font-mono !shadow-sm"
 		>
-			<div class="card-title p-4"><Fa icon={faComments} /> {m.chat()}</div>
+			<div class="card-title p-4" style="border-bottom: 1px solid var(--color-base-300)">
+				<Fa icon={faComments} />
+				{m.chat()}
+			</div>
 			<div class="flex h-full flex-col overflow-hidden">
 				<div
 					class="max-h-[50vh] min-h-0 w-full flex-1 overflow-y-auto md:max-h-full"
@@ -1582,7 +1585,7 @@
 					{#each logs as log, i}
 						{@const regex = /^\[([^\]]+)\]\s*(.*)$/}
 						{@const match = log.message.match(regex)}
-						<div class="px-4 py-1 odd:bg-white even:bg-gray-50">
+						<div class="even:bg-base-100 px-4 py-1">
 							<div class="w-full">
 								<span class="tooltip tooltip-right" data-tip={match?.[1]}
 									><Fa icon={faClock} /></span

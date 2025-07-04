@@ -7,7 +7,7 @@
 	"claim": "Claim",
 	"connect_live": "Connecter un Live",
 	"connecting_live": "En cours de connexion",	
-	"copy_link": "Copier le lien",
+	"copy_link": "Copier lien",
 	"create_pellet": "Créer mon Palet",
 	"disconnect_live": "Se déconnecter du live",
 	"emoji": "Emoji",
@@ -26,7 +26,7 @@
 	"join": "Rejoindre",
 	"join_spectrum": "Rejoindre un Spectrum",
 	"kick_participant": "Retirer du spectrum",
-	"leave_spectrum": "Quitter le Spectrum",
+	"leave_spectrum": "Quitter Spectrum",
 	"leave_streamer": "Quitter mode streamer",
 	"link_feedback_form": "https://docs.google.com/forms/d/e/1FAIpQLSd53Jkrxa0l1Vcp4rTtrRlSJ8d7Vxx42EiMz0esjAvVSmvLNg/viewform?usp=header",
 	"live_id": "ID du live",
@@ -76,6 +76,10 @@
 	"stop_spectrum": "Clôturer le Spectrum",
 	"streamer_mode": "Streamer Mode",
 	"subtitle": "Plate-forme de spectrum en ligne de 2 à 6 participants",
+	"theme": "Thème",
+	"theme_default": "Par défaut (Lofi)",
+	"theme_light": "Clair",
+	"theme_dark": "Sombre",
 	"unmute_microphone": "Allumer le micro",
 	"yourself": "Vous-même"
 }
