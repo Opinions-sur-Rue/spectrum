@@ -944,7 +944,7 @@
 			} else if (command == 'listenning') {
 				liveListenning = true;
 				liveChannel = rpc.arguments[0];
-				log(m.log_spectrum_connected(liveChannel));
+				log(m.log_spectrum_connected({ liveChannel: capitalize(liveChannel) }));
 			} else if (command == 'microphoneunmuted') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != userId) {

@@ -35,7 +35,7 @@ func (l *TwitchListener) Disconnect() error {
 	return nil
 }
 
-func (l *TwitchListener) Connect(ctx context.Context, liveID string, messageChannel chan []byte) error {
+func (l *TwitchListener) Connect(ctx context.Context, liveID string, onEvent OnEvent) error {
 	var err error
 	var newCtx context.Context
 	newCtx, l.cancelConnection = context.WithCancel(ctx)
@@ -46,7 +46,7 @@ func (l *TwitchListener) Connect(ctx context.Context, liveID string, messageChan
 		log.Debugf("[%s] %s", message.User.DisplayName, message.Message)
 
 		reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LIVEUSERMESSAGE, message.User.ID, message.User.DisplayName, "", message.Message)
-		messageChannel <- reply.Export()
+		onEvent(reply)
 	})
 
 	l.service.Join(liveID)

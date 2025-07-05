@@ -282,7 +282,10 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 				c.hub.rooms[roomID].SetSocialListener(listener)
 
 				go func() {
-					err := listener.Connect(c.hub.context, rpc.Arguments[1], c.send)
+					messageRoom := func(reply *valueobjects.MessageContent) {
+						c.hub.MessageRoom((roomID), reply)
+					}
+					err := listener.Connect(c.hub.context, rpc.Arguments[1], messageRoom)
 					if err != nil {
 						log.Error(err.Error())
 						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
