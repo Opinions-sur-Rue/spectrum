@@ -39,7 +39,7 @@ func (l *TiktokListener) Disconnect() error {
 	return nil
 }
 
-func (l *TiktokListener) Connect(ctx context.Context, liveID string, messageChannel chan []byte) error {
+func (l *TiktokListener) Connect(ctx context.Context, liveID string, onEvent OnEvent) error {
 	var newCtx context.Context
 	newCtx, l.cancelConnection = context.WithCancel(ctx)
 
@@ -74,21 +74,19 @@ func (l *TiktokListener) Connect(ctx context.Context, liveID string, messageChan
 				switch e := event.(type) {
 				// You can specify what to do for specific events. All events are listed below.
 				case gotiktoklive.UserEvent:
-					log.Infof("%T : %s %s\n", e, e.Event, e.User.Username)
-
-				// List viewer count
-				//case gotiktoklive.ViewersEvent:
-				//log.Infof("%T : %d\n", e, e.Viewers)
+					log.Infof("%T : %s %s", e, e.Event, e.User.Nickname)
+					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LIVEUSERCONNECTED, strconv.FormatInt(e.User.ID, 10), e.User.Nickname)
+					onEvent(reply)
 
 				case gotiktoklive.ChatEvent:
-					log.Debugf("gotiktoklive.UserEvent : %v\n", e)
+					log.Debugf("gotiktoklive.ChatEvent : %v\n", e)
 
 					if !l.messageFilter.Match([]byte(strings.ToLower(e.Comment))) {
 						continue
 					}
 
 					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LIVEUSERMESSAGE, strconv.FormatInt(e.User.ID, 10), e.User.Nickname, e.User.ProfilePicture.Urls[0], e.Comment)
-					messageChannel <- reply.Export()
+					onEvent(reply)
 				}
 			}
 		}

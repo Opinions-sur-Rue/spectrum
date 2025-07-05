@@ -3,10 +3,14 @@ package social
 import (
 	"context"
 	"errors"
+
+	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 )
 
+type OnEvent func(reply *valueobjects.MessageContent)
+
 type ChatListener interface {
-	Connect(ctx context.Context, liveID string, messageChannel chan []byte) error
+	Connect(ctx context.Context, liveID string, onEvent OnEvent) error
 	Disconnect() error
 	SetMessageFilter(regex string)
 	SetSecret(secret string)

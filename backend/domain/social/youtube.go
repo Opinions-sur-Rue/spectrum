@@ -39,7 +39,7 @@ func (l *YoutubeListener) Disconnect() error {
 	return nil
 }
 
-func (l *YoutubeListener) Connect(ctx context.Context, liveID string, messageChannel chan []byte) error {
+func (l *YoutubeListener) Connect(ctx context.Context, liveID string, onEvent OnEvent) error {
 	var err error
 	var newCtx context.Context
 	newCtx, l.cancelConnection = context.WithCancel(ctx)
@@ -99,7 +99,7 @@ func (l *YoutubeListener) Connect(ctx context.Context, liveID string, messageCha
 				}
 
 				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LIVEUSERMESSAGE, item.AuthorDetails.ChannelId, author, item.AuthorDetails.ProfileImageUrl, message)
-				messageChannel <- reply.Export()
+				onEvent(reply)
 			}
 
 			nextPageToken = chatResponse.NextPageToken
