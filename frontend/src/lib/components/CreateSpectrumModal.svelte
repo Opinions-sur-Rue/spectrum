@@ -43,6 +43,7 @@
 				type="text"
 				placeholder={m.placeholder_nickname()}
 				bind:value={nickname}
+				maxlength="16"
 				id="nickname2"
 				required
 			/>
