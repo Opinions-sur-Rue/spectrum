@@ -19,6 +19,7 @@
 		faPalette,
 		faPaperPlane,
 		faPerson,
+		faPersonArrowUpFromLine,
 		faPersonWalkingArrowRight,
 		faPlayCircle,
 		faRightFromBracket,
@@ -38,21 +39,21 @@
 	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
 	import { ENABLE_AUDIO, HEADER_TITLE, LOGO_URL, LOGO_WIDTH, PUBLIC_URL } from '$lib/env';
 	import { startWebsocket } from '$lib/spectrum/websocket';
-	import { Canvas, Circle, FabricText, Group, loadSVGFromURL, Rect, util } from 'fabric';
+	import { Canvas, loadSVGFromURL, util } from 'fabric';
 	import { onMount, tick } from 'svelte';
 	import { copy } from 'svelte-copy';
-	import { capitalize, lerp, pointInPolygon } from '$lib/utils';
+	import { capitalize, lerp, pointInPolygon, stringToColorHex } from '$lib/utils';
 	import Peer from 'peerjs';
 	import * as pkg from 'peerjs';
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
-	import { getContext } from 'svelte';
 	import { notify } from '$lib/utils/notify';
+	import AddLiveUserParticipantModal from '$lib/components/AddLiveUserParticipantModal.svelte';
+	import { newPellet } from '$lib/canvas/pellet';
+	import type { LiveUser } from '$lib/social';
 
 	let { id: spectrumId }: { id: string | undefined } = $props();
-
-	let streamerModeLayout = getContext<any>('streamerMode');
 
 	const opinions = {
 		stronglyAgree: m.opinion_strongly_agree(),
@@ -484,74 +485,20 @@
 	function initPellet() {
 		console.log('Initalizing Your Pellet');
 		if (!userId) return false;
-
-		const options = {
-			top: 0,
-			left: 0,
-			radius: 12
-		};
-
 		if (!nickname) nickname = 'Participant ' + (Math.floor(Math.random() * 100) + 1);
 
-		let circle = new Circle({
-			...options,
-			fill: `#${userId}`,
-			stroke: '#f9f9f9',
-			strokeWidth: 3,
-			strokeUniform: true,
-			hasBorders: false,
-			hasContext: false
-		});
+		const pellet = newPellet(userId, nickname);
 
-		let text = new FabricText(nickname, {
-			fontFamily: 'monospace',
-			left: circle.left + circle.radius + 20,
-			top: circle.top - circle.radius - 11,
-			fontSize: 14,
-			fill: '#ffffff',
-			hasBorders: false,
-			hasContext: false,
-			opacity: 0.5
-		});
-
-		let rect = new Rect({
-			left: circle.left + circle.radius + 13,
-			top: circle.top - circle.radius - 18,
-			width: text.width + 10,
-			height: text.height + 10,
-			fill: `#${userId}`,
-			stroke: '#e0e0e0',
-			strokeWidth: 3,
-			strokeUniform: true,
-			hasBorders: false,
-			hasContext: false,
-			opacity: 0.5
-		});
-
-		let g = new Group([circle, rect, text], {
+		pellet.set({
 			top: (canvasWidth * originalHeight) / originalWidth / 2,
 			left: canvasWidth / 2,
 			scaleX: scale,
 			scaleY: scale,
-			hasBorders: false,
-			hasControls: false
+			evented: true
 		});
 
-		g.on({
-			mouseover: () => {
-				rect.set({ opacity: 1 });
-				text.set({ opacity: 1 });
-				myCanvas.renderAll();
-			},
-			mouseout: () => {
-				rect.set({ opacity: 0.5 });
-				text.set({ opacity: 0.5 });
-				myCanvas.renderAll();
-			}
-		});
-
-		myCanvas.add(g);
-		myPellet = g;
+		myCanvas.add(pellet);
+		myPellet = pellet;
 
 		myCanvas.on({
 			'object:moving': function ({ target }) {
@@ -572,7 +519,6 @@
 						} else {
 							cell.set({ fill: '#000002' });
 						}
-						console.log([myPellet.left, myPellet.top]);
 					}
 				}
 			}
@@ -581,68 +527,20 @@
 		setInterval(updateMyPellet, updateTick);
 	}
 
-	/**
-	 * @param {string} userId
-	 */
-	function initOtherPellet(userId: string, nickname: string) {
+	function initOtherPellet(userId: string, nickname: string, pictureUrl?: string) {
 		console.log('Initalizing Other Pellet: ' + userId);
 		log(m.log_joined_spectrum({ name: nickname }), 'join');
-		const options = {
-			top: 0,
-			left: 0,
-			radius: 12
-		};
 
-		let circle = new Circle({
-			...options,
-			fill: `#${userId}`,
-			stroke: '#f9f9f9',
-			strokeWidth: 3,
-			strokeUniform: true,
-			selectable: false,
-			evented: false,
-			hasControls: false,
-			hasBorders: false
-		});
+		const pellet = newPellet(userId, nickname, pictureUrl);
 
-		let text = new FabricText(nickname, {
-			fontFamily: 'monospace',
-			left: circle.left + circle.radius + 20,
-			top: circle.top - circle.radius - 11,
-			fontSize: 14,
-			fill: '#ffffff',
-			evented: false,
-			hasBorders: false,
-			hasContext: false
-		});
-
-		let rect = new Rect({
-			left: circle.left + circle.radius + 13,
-			top: circle.top - circle.radius - 18,
-			width: text.width + 10,
-			height: text.height + 10,
-			fill: `#${userId}`,
-			stroke: '#e0e0e0',
-			strokeWidth: 3,
-			strokeUniform: true,
-			evented: false,
-			hasBorders: false,
-			hasContext: false
-		});
-
-		let g = new Group([circle, rect, text], {
+		pellet.set({
 			top: (canvasWidth * originalHeight) / originalWidth / 2,
-			left: canvasWidth / 2,
-			scaleX: scale,
-			scaleY: scale,
-			evented: false,
-			hasBorders: false,
-			hasControls: false
+			left: canvasWidth / 2
 		});
 
-		myCanvas.add(g);
+		myCanvas.add(pellet);
 
-		return g;
+		return pellet;
 	}
 
 	function updatePellet(
@@ -693,7 +591,6 @@
 	}
 
 	function receivedClaim(c: string) {
-		console.log(c.replace(/^(\|\|)+|(\|\|)+$/g, ''));
 		claim = c.replace(/^(\|\|)+|(\|\|)+$/g, '');
 	}
 
@@ -792,6 +689,21 @@
 	}
 
 	let liveVotes = new Map<string, number>();
+	let liveUsers = new Map<string, LiveUser>();
+
+	function saveLiveUser(
+		liveUserId: string,
+		liveUserNickname: string,
+		liveUserProfilePictureUrl: string
+	) {
+		if (liveUsers.has(liveUserId)) return;
+
+		liveUsers.set(liveUserId, {
+			userId: liveUserId,
+			nickname: liveUserNickname,
+			profilePictureUrl: liveUserProfilePictureUrl
+		});
+	}
 
 	function parseLiveSpectrum(liveUserId: string, liveSpectrum: string): { x: number; y: number } {
 		const parts = liveSpectrum.split(' ');
@@ -976,6 +888,7 @@
 						console.error('missing liveChannel');
 						return;
 				}
+				saveLiveUser(rpc.arguments[0], rpc.arguments[1], rpc.arguments[2]);
 				const coords = parseLiveSpectrum(rpc.arguments[0], rpc.arguments[3]);
 				const otherNickname = capitalize(liveChannel ?? '');
 				if (otherUserId != userId) updatePellet(otherUserId, coords, otherNickname);
@@ -1035,7 +948,6 @@
 	let adminModeOn: boolean = $state(false);
 	function joinedSpectrum(id: string) {
 		spectrumId = id;
-		console.log(`spectrumId = ${id}`);
 
 		if (!adminModeOn) {
 			initPellet();
@@ -1079,6 +991,11 @@
 		showConnectLiveModal = !showConnectLiveModal;
 	}
 
+	let showAddLiveUserParticipantModal = $state(false);
+	function toggleAddLiveUserParticipantModal() {
+		showAddLiveUserParticipantModal = !showAddLiveUserParticipantModal;
+	}
+
 	let liveChannel: string | undefined = $state();
 	let liveListenning: boolean = $state(false);
 
@@ -1087,6 +1004,22 @@
 		liveListenning = false;
 		liveChannel = channel;
 		toggleConnectLiveModal();
+	}
+
+	function onAddLiveUserParticipant(
+		liveUserId: string,
+		liveUserNickname: string,
+		liveUserPictureUrl?: string
+	) {
+		const userIdColor = stringToColorHex(liveUserId);
+
+		others[userIdColor] = {
+			pellet: initOtherPellet(userIdColor, liveUserNickname, liveUserPictureUrl),
+			target: undefined,
+			nickname: liveUserNickname,
+			microphone: false,
+			muted: false
+		};
 	}
 
 	function leaveSpectrum() {
@@ -1145,6 +1078,11 @@
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
 <ConnectLiveModal bind:toggle={showConnectLiveModal} onSubmit={onConnectLive} />
+<AddLiveUserParticipantModal
+	bind:toggle={showAddLiveUserParticipantModal}
+	bind:liveUsers
+	onSubmit={onAddLiveUserParticipant}
+/>
 <EmojiBurst {emoji} {trigger} {handAnimation} {handUsername} />
 
 {#if !streamerMode}
@@ -1195,7 +1133,6 @@
 				<button
 					onclick={() => {
 						streamerMode = true;
-						streamerModeLayout.activateStreamerMode();
 					}}
 					class="btn btn-info rounded-lg px-4 py-2"
 					><Fa icon={faSatelliteDish} /> {m.streamer_mode()}</button
@@ -1219,7 +1156,6 @@
 			<button
 				onclick={() => {
 					streamerMode = false;
-					streamerModeLayout.deactivateStreamerMode();
 				}}
 				class="btn btn-info btn-circle"><Fa icon={faSatelliteDish} /></button
 			>
@@ -1484,6 +1420,20 @@
 								</td>
 							</tr>
 						{/each}
+						{#if true}
+							<tr>
+								<td colspan="3" class="text-center">
+									<button
+										class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+										onclick={() =>
+											(showAddLiveUserParticipantModal = !showAddLiveUserParticipantModal)}
+										><Fa icon={faPersonArrowUpFromLine} /><span class="hidden lg:!inline-block">
+											{m.add_live_user()}</span
+										></button
+									>
+								</td>
+							</tr>
+						{/if}
 					</tbody>
 				</table>
 			</div>
@@ -1628,6 +1578,7 @@
 <p>&nbsp;</p>
 <p>&nbsp;</p>
 <p>&nbsp;</p>
+<img src="https://fabricjs.github.io/assets/pug.jpg" id="pug" alt="pug" style="display: none;" />
 
 <style>
 	table {

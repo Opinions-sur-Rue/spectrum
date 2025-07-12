@@ -54,6 +54,7 @@
 				class="input mb-4 block w-full"
 				type="text"
 				placeholder={m.placeholder_nickname()}
+				maxlength="16"
 				bind:value={nickname}
 				id="nickname1"
 				required
