@@ -38,14 +38,20 @@
 			class="p-4"
 			onsubmit={() => channel && liveId && secret && onSubmit(channel, liveId, secret)}
 		>
-			<label class="label text-base-content block font-bold" for="nickname2">Plate-forme</label>
-			<select class="select mb-6 block" bind:value={channel}>
+			<label
+				class="label text-base-content block font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
+				for="platform">Plate-forme</label
+			>
+			<select class="select mb-6 block" id="platform" bind:value={channel}>
 				<option disabled selected>{m.pick_platform()}</option>
 				<option value="youtube">YouTube</option>
 				<option value="tiktok">TikTok</option>
 				<option value="twitch">Twitch</option>
 			</select>
-			<label class="label text-base-content font-bold" for="claim">{m.live_id()}</label>
+			<label
+				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
+				for="claim">{m.live_id()}</label
+			>
 			<input
 				class="input mb-4 block w-full"
 				type="text"
@@ -54,12 +60,15 @@
 				bind:value={liveId}
 				required
 			/>
-			<label class="label text-base-content font-bold" for="claim">{m.secret()}</label>
+			<label
+				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
+				for="secret">{m.secret()}</label
+			>
 			<input
 				class="input mb-4 block w-full"
 				type="text"
 				placeholder={m.placeholder_secret()}
-				id="claim"
+				id="secret"
 				bind:value={secret}
 				required
 			/>

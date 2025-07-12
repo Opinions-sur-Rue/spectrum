@@ -1,6 +1,7 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"actions": "Actions",
+	"add_live_user": "Add a live user",
 	"cancel": "Cancel",
 	"cannot_connect": "We cannot connect to spectrum servers",
 	"chat": "Chat",

@@ -19,6 +19,7 @@
 		faPalette,
 		faPaperPlane,
 		faPerson,
+		faPersonArrowUpFromLine,
 		faPersonWalkingArrowRight,
 		faPlayCircle,
 		faRightFromBracket,
@@ -50,6 +51,7 @@
 	import { notify } from '$lib/utils/notify';
 	import AddLiveUserParticipantModal from '$lib/components/AddLiveUserParticipantModal.svelte';
 	import { newPellet } from '$lib/canvas/pellet';
+	import type { LiveUser } from '$lib/social';
 
 	let { id: spectrumId }: { id: string | undefined } = $props();
 
@@ -589,7 +591,6 @@
 	}
 
 	function receivedClaim(c: string) {
-		console.log(c.replace(/^(\|\|)+|(\|\|)+$/g, ''));
 		claim = c.replace(/^(\|\|)+|(\|\|)+$/g, '');
 	}
 
@@ -688,6 +689,21 @@
 	}
 
 	let liveVotes = new Map<string, number>();
+	let liveUsers = new Map<string, LiveUser>();
+
+	function saveLiveUser(
+		liveUserId: string,
+		liveUserNickname: string,
+		liveUserProfilePictureUrl: string
+	) {
+		if (liveUsers.has(liveUserId)) return;
+
+		liveUsers.set(liveUserId, {
+			userId: liveUserId,
+			nickname: liveUserNickname,
+			profilePictureUrl: liveUserProfilePictureUrl
+		});
+	}
 
 	function parseLiveSpectrum(liveUserId: string, liveSpectrum: string): { x: number; y: number } {
 		const parts = liveSpectrum.split(' ');
@@ -872,6 +888,7 @@
 						console.error('missing liveChannel');
 						return;
 				}
+				saveLiveUser(rpc.arguments[0], rpc.arguments[1], rpc.arguments[2]);
 				const coords = parseLiveSpectrum(rpc.arguments[0], rpc.arguments[3]);
 				const otherNickname = capitalize(liveChannel ?? '');
 				if (otherUserId != userId) updatePellet(otherUserId, coords, otherNickname);
@@ -931,7 +948,6 @@
 	let adminModeOn: boolean = $state(false);
 	function joinedSpectrum(id: string) {
 		spectrumId = id;
-		console.log(`spectrumId = ${id}`);
 
 		if (!adminModeOn) {
 			initPellet();
@@ -993,7 +1009,7 @@
 	function onAddLiveUserParticipant(
 		liveUserId: string,
 		liveUserNickname: string,
-		liveUserPictureUrl: string
+		liveUserPictureUrl?: string
 	) {
 		const userIdColor = stringToColorHex(liveUserId);
 
@@ -1064,7 +1080,8 @@
 <ConnectLiveModal bind:toggle={showConnectLiveModal} onSubmit={onConnectLive} />
 <AddLiveUserParticipantModal
 	bind:toggle={showAddLiveUserParticipantModal}
-	onSubmit={onConnectLive}
+	bind:liveUsers
+	onSubmit={onAddLiveUserParticipant}
 />
 <EmojiBurst {emoji} {trigger} {handAnimation} {handUsername} />
 
@@ -1403,6 +1420,20 @@
 								</td>
 							</tr>
 						{/each}
+						{#if true}
+							<tr>
+								<td colspan="3" class="text-center">
+									<button
+										class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+										onclick={() =>
+											(showAddLiveUserParticipantModal = !showAddLiveUserParticipantModal)}
+										><Fa icon={faPersonArrowUpFromLine} /><span class="hidden lg:!inline-block">
+											{m.add_live_user()}</span
+										></button
+									>
+								</td>
+							</tr>
+						{/if}
 					</tbody>
 				</table>
 			</div>

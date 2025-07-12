@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages.js';
+	import type { LiveUser } from '$lib/social';
 
 	interface ModalProps {
 		toggle: boolean;
-		onSubmit: (channel: 'youtube' | 'tiktok' | 'twitch', liveId: string, secret: string) => void;
+		liveUsers: Map<string, LiveUser>;
+		onSubmit: (liveUserId: string, liveUserNickname: string, liveUserPictureUrl?: string) => void;
 	}
 
-	let { toggle = $bindable(false), onSubmit }: ModalProps = $props();
+	let { toggle = $bindable(false), liveUsers = $bindable(), onSubmit }: ModalProps = $props();
 
-	const modalId = 'connect-live';
+	const modalId = 'add-live-user';
 
 	$effect(() => {
 		const el = document.getElementById(modalId);
@@ -21,9 +23,16 @@
 		}
 	});
 
-	let channel: 'youtube' | 'tiktok' | 'twitch' | undefined = $state();
-	let liveId: string | undefined = $state();
-	let secret: string | undefined = $state();
+	let selectedUserId: string | undefined = $state();
+	let search: string = $state('');
+
+	const filteredUsers = $derived(() => {
+		const query = search.toLowerCase().trim();
+		if (!query) return Array.from(liveUsers.values());
+		return Array.from(liveUsers.values()).filter((user) =>
+			user.nickname.toLowerCase().includes(query)
+		);
+	});
 </script>
 
 <dialog id={modalId} class="modal">
@@ -36,33 +45,52 @@
 		</form>
 		<form
 			class="p-4"
-			onsubmit={() => channel && liveId && secret && onSubmit(channel, liveId, secret)}
+			onsubmit={() =>
+				selectedUserId &&
+				liveUsers.has(selectedUserId) &&
+				onSubmit(
+					selectedUserId,
+					liveUsers.get(selectedUserId)!.nickname,
+					liveUsers.get(selectedUserId)!.profilePictureUrl
+				)}
 		>
-			<label class="label text-base-content block font-bold" for="nickname2">Plate-forme</label>
-			<select class="select mb-6 block" bind:value={channel}>
-				<option disabled selected>{m.pick_platform()}</option>
-				<option value="youtube">YouTube</option>
-				<option value="tiktok">TikTok</option>
-				<option value="twitch">Twitch</option>
-			</select>
-			<label class="label text-base-content font-bold" for="claim">{m.live_id()}</label>
-			<input
-				class="input mb-4 block w-full"
-				type="text"
-				placeholder={m.placeholder_live_id()}
-				id="claim"
-				bind:value={liveId}
-				required
-			/>
-			<label class="label text-base-content font-bold" for="claim">{m.secret()}</label>
-			<input
-				class="input mb-4 block w-full"
-				type="text"
-				placeholder={m.placeholder_secret()}
-				id="claim"
-				bind:value={secret}
-				required
-			/>
+			<label class="input">
+				<svg class="h-[1em] opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+					<g
+						stroke-linejoin="round"
+						stroke-linecap="round"
+						stroke-width="2.5"
+						fill="none"
+						stroke="currentColor"
+					>
+						<circle cx="11" cy="11" r="8"></circle>
+						<path d="m21 21-4.3-4.3"></path>
+					</g>
+				</svg>
+				<input type="search" bind:value={search} required placeholder="Search" class="grow" />
+			</label>
+
+			<!-- Filtered list of users-->
+			<ul class="mb-4 max-h-60 space-y-2 overflow-y-auto">
+				{#each filteredUsers() as user (user.userId)}
+					<li>
+						<button
+							type="button"
+							onclick={() => (selectedUserId = user.userId)}
+							class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors"
+							class:selected={selectedUserId === user.userId}
+						>
+							<img
+								src={user.profilePictureUrl ?? '/default-avatar.png'}
+								alt="avatar"
+								class="h-8 w-8 rounded-full"
+							/>
+							<span>{user.nickname}</span>
+						</button>
+					</li>
+				{/each}
+			</ul>
+
 			<div>
 				<button class="btn btn-success float-left" type="submit">{m.start_connection()}</button>
 				<button class="btn btn-warning float-right" type="button" onclick={() => (toggle = false)}
