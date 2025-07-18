@@ -1,4 +1,4 @@
-import { Circle, FabricImage, FabricText, Group, Rect } from 'fabric';
+import { Circle, FabricText, Group, Rect } from 'fabric';
 
 export function oldPellet(colorHex: string, nickname: string) {
 	const options = {
@@ -61,7 +61,7 @@ export function oldPellet(colorHex: string, nickname: string) {
 	return g;
 }
 
-export function newPellet(userId: string, nickname: string, pictureUrl?: string) {
+export function newPellet(userId: string, nickname: string /*, pictureUrl?: string*/) {
 	const options = {
 		top: 0,
 		left: 0,
@@ -81,7 +81,7 @@ export function newPellet(userId: string, nickname: string, pictureUrl?: string)
 		hasBorders: false
 	});
 
-	const image = new FabricImage('pug', {
+	/*const image = new FabricImage('pug', {
 		top: 0,
 		left: 0,
 		evented: false,
@@ -104,7 +104,7 @@ export function newPellet(userId: string, nickname: string, pictureUrl?: string)
 		left: 0,
 		top: 0
 	});
-	image.clipPath = circleClip;
+	image.clipPath = circleClip;*/
 
 	const text = new FabricText(nickname, {
 		fontFamily:
@@ -134,7 +134,7 @@ export function newPellet(userId: string, nickname: string, pictureUrl?: string)
 		hasContext: false
 	});
 
-	const g = new Group([rect, text, circle, image], {
+	const g = new Group([rect, text, circle /* image */], {
 		evented: false,
 		hasBorders: false,
 		hasControls: false

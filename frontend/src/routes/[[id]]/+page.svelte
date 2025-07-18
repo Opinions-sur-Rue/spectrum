@@ -1607,7 +1607,6 @@
 <p>&nbsp;</p>
 <p>&nbsp;</p>
 <p>&nbsp;</p>
-<img src="https://fabricjs.github.io/assets/pug.jpg" id="pug" alt="pug" style="display: none;" />
 
 <style>
 	table {
