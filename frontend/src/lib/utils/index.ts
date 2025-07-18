@@ -113,3 +113,20 @@ export function capitalize(str: string): string {
 	if (!str) return '';
 	return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+export function stringToColorHex(input: string): string {
+	// Create a simple hash from the input string
+	let hash = 0;
+	for (let i = 0; i < input.length; i++) {
+		hash = input.charCodeAt(i) + ((hash << 5) - hash);
+		hash = hash & hash; // Convert to 32bit integer
+	}
+
+	// Extract RGB components from the hash
+	const r = (hash >> 16) & 0xff;
+	const g = (hash >> 8) & 0xff;
+	const b = hash & 0xff;
+
+	// Convert to 2-digit hex and concatenate
+	return [r, g, b].map((val) => val.toString(16).padStart(2, '0')).join('');
+}
