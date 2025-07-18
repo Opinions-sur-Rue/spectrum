@@ -50,6 +50,30 @@ The easiest to run an online spectrum is to use:
 
 - the third option is you to run the software from that repository.
 
+## Features
+
+- Can start or join a spectrum with between 2 to 6 participants
+
+- No collision, everyone controls only his own pellet
+
+- Each spectrum has its own private room/link to share to participants
+
+- Integrated text chat including history of the spectrum (positions, new claims, ...)
+
+- Integrated voice calls too (still a bit chunky though)
+
+- Possible to connect to a live stream chat to get an average vote of the viewers (platforms supported: YouTube, Twitch, and TikTok)
+
+- And to include viewers from the live chat inside the participants of the Spectrum
+
+- Send emoji reactions or raise hand with an animation alike Zoom, Google Meet, and others
+
+- Streamer mode to optimize UI for screen sharing
+
+- Localized in English and French
+
+- Respect of privacy, nothing is stored it's all in ephemeral memory database. And no login/password.
+
 ## 🚀 Deploying your own instance
 
 As you can see the application in split in two parts: 
