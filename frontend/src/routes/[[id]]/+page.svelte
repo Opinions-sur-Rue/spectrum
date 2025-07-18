@@ -729,25 +729,25 @@
 		let position;
 
 		switch (vote) {
-			case 3:
+			case -3:
 				position = { x: 98, y: 399 };
 				break;
-			case 2:
+			case -2:
 				position = { x: 157, y: 251 };
 				break;
-			case 1:
+			case -1:
 				position = { x: 292, y: 127 };
 				break;
 			case 0:
 				position = { x: 475, y: 78 };
 				break;
-			case -1:
+			case 1:
 				position = { x: 659, y: 123 };
 				break;
-			case -2:
+			case 2:
 				position = { x: 771, y: 250 };
 				break;
-			case -3:
+			case 3:
 				position = { x: 832, y: 408 };
 				break;
 			default:
