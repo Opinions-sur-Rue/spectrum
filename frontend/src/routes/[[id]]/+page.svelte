@@ -710,29 +710,58 @@
 		const vote = parseInt(parts[1]);
 
 		liveVotes.set(liveUserId, vote);
+
+		const userIdColor = stringToColorHex(liveUserId);
+		if (others[userIdColor]) {
+			// is participant
+			others[userIdColor].target = convertVoteToPosition(vote);
+		}
+
 		const sum = Array.from(liveVotes.values()).reduce((acc, val) => acc + val, 0);
 		const average = sum / liveVotes.size;
 
 		const averageVote = Math.round(average);
 
-		switch (averageVote) {
+		return convertVoteToPosition(averageVote);
+	}
+
+	function convertVoteToPosition(vote?: number) {
+		let position;
+
+		switch (vote) {
 			case 3:
-				return { x: 98, y: 399 };
+				position = { x: 98, y: 399 };
+				break;
 			case 2:
-				return { x: 157, y: 251 };
+				position = { x: 157, y: 251 };
+				break;
 			case 1:
-				return { x: 292, y: 127 };
+				position = { x: 292, y: 127 };
+				break;
 			case 0:
-				return { x: 475, y: 78 };
+				position = { x: 475, y: 78 };
+				break;
 			case -1:
-				return { x: 659, y: 123 };
+				position = { x: 659, y: 123 };
+				break;
 			case -2:
-				return { x: 771, y: 250 };
+				position = { x: 771, y: 250 };
+				break;
 			case -3:
-				return { x: 832, y: 408 };
+				position = { x: 832, y: 408 };
+				break;
+			default:
+				position = { x: 467, y: 424 };
+				break;
 		}
 
-		return { x: 467, y: 424 };
+		const randomOffsetSize = 40;
+		position = {
+			x: position.x + (Math.random() * randomOffsetSize - randomOffsetSize / 2),
+			y: position.y + (Math.random() * randomOffsetSize - randomOffsetSize / 2)
+		};
+
+		return position;
 	}
 
 	function parseCommand(line: string) {
@@ -827,7 +856,7 @@
 
 					clearTimeout(updateClaimLog);
 					updateClaimLog = setTimeout(() => {
-						log(m.log_claim({ claim }), 'claim');
+						if (claim) log(m.log_claim({ claim }), 'claim');
 					}, 3000);
 				}
 			} else if (command == 'voicechat') {
@@ -1015,7 +1044,7 @@
 
 		others[userIdColor] = {
 			pellet: initOtherPellet(userIdColor, liveUserNickname, liveUserPictureUrl),
-			target: undefined,
+			target: convertVoteToPosition(liveVotes.get(liveUserId)),
 			nickname: liveUserNickname,
 			microphone: false,
 			muted: false
@@ -1181,7 +1210,7 @@
 						}}
 						onfocusout={() => {
 							claimFocus = false;
-							if (claim != previousClaim) log(m.log_claim({ claim }), 'claim');
+							if (claim != previousClaim && claim) log(m.log_claim({ claim }), 'claim');
 						}}
 						oninput={() => {
 							if (adminModeOn) {
