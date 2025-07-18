@@ -1449,7 +1449,7 @@
 								</td>
 							</tr>
 						{/each}
-						{#if true}
+						{#if liveChannel && liveListenning}
 							<tr>
 								<td colspan="3" class="text-center">
 									<button
