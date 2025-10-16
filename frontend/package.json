@@ -51,7 +51,7 @@
 	},
 	"dependencies": {
 		"@fortawesome/free-brands-svg-icons": "^6.7.2",
-		"@inlang/paraglide-js": "^2.2.0",
+		"@inlang/paraglide-js": "^2.4.0",
 		"fabric": "^6.7.0",
 		"peerjs": "^1.5.5"
 	}
