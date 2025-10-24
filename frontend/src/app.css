@@ -3,13 +3,13 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
-@plugin "daisyui" {
+@plugin 'daisyui' {
 	themes:
 		light --default,
 		dark --prefersdark,
 		lofi;
 }
-@plugin "daisyui/theme" {
+@plugin 'daisyui/theme' {
 	name: 'lofi';
 	default: false;
 	prefersdark: false;
