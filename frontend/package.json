@@ -31,7 +31,7 @@
 		"@testing-library/svelte": "^5.2.8",
 		"daisyui": "^5.3.8",
 		"eslint": "^9.38.0",
-		"eslint-config-prettier": "^10.1.5",
+		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.12.5",
 		"globals": "^16.4.0",
 		"jsdom": "^27.0.1",
