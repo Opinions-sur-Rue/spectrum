@@ -29,7 +29,10 @@
 		faTowerBroadcast,
 		faUserSlash,
 		faVolumeHigh,
-		faVolumeMute
+		faVolumeLow,
+		faVolumeMute,
+		faVolumeOff,
+		faVolumeXmark
 	} from '@fortawesome/free-solid-svg-icons';
 	import Fa from 'svelte-fa';
 	import { page } from '$app/state';
@@ -110,6 +113,7 @@
 	let peerConnected = $state(false);
 	const connections = new Map<string, MediaStream>();
 	let microphone: boolean = $state(false);
+	const voiceIdToUserId = new Map<string, string>();
 
 	function validateOpinion(otherUserId: string) {
 		const target = others[otherUserId].pellet;
@@ -194,9 +198,8 @@
 
 	$effect(() => {
 		if (ENABLE_AUDIO) {
-			if (spectrumId && peerId && userId && localStream) {
+			if (spectrumId && peerId && userId) {
 				rpc('myvoicechatid', peerId);
-				rpc('mutedmymicrophone');
 			}
 		}
 	});
@@ -209,7 +212,6 @@
 	}
 
 	let svg: any;
-	let voiceActivated: boolean = $state(false);
 	let averageVoice: number = $state(0);
 	let voiceIndicator = $derived(1 + averageVoice / 100);
 	let otherVoices = $derived.by(() => {
@@ -220,7 +222,7 @@
 		return voices;
 	});
 
-	async function getAudioStream() {
+	async function turnOnMicrophone() {
 		console.log('ACTIVATION DU MICRO');
 		try {
 			localStream = await navigator.mediaDevices.getUserMedia({
@@ -262,7 +264,6 @@
 			}
 
 			detectVoice();
-			voiceActivated = true;
 		} catch (err) {
 			console.error('Error accessing microphone:', err);
 		}
@@ -317,6 +318,7 @@
 		}
 
 		detectVoice();
+		return audio;
 	}
 
 	function connectToPeer() {
@@ -385,7 +387,10 @@
 
 			console.log('RECEIVED CALL FROM', call.peer);
 			call.on('stream', (remoteStream) => {
-				playAudio(call.peer, remoteStream);
+				const voiceId = call.peer;
+				const userId = voiceIdToUserId.get(voiceId);
+				const audio = playAudio(voiceId, remoteStream);
+				if (userId) others[userId].audio = audio;
 
 				if (connections.has(call.peer)) {
 					// kill previous connection
@@ -558,7 +563,7 @@
 				target: coords && !isNaN(coords.x) && !isNaN(coords.y) ? coords : undefined,
 				nickname: otherNickname,
 				microphone: false,
-				muted: false
+				volume: 100
 			};
 		} else if (coords && !isNaN(coords.x) && !isNaN(coords.y)) {
 			// known user
@@ -864,18 +869,8 @@
 				if (otherUserId != userId) {
 					const voiceId = rpc.arguments[1].toString();
 					others[otherUserId].voiceId = voiceId;
+					voiceIdToUserId.set(voiceId, otherUserId);
 					if (localStream && peerId) attemptCallWithLimit(peer, voiceId, localStream, 10);
-				} else {
-					if (!localStream)
-						getAudioStream().then(() => {
-							if (peerId) {
-								for (const key in others) {
-									if (others[key].voiceId) {
-										attemptCallWithLimit(peer, others[key].voiceId, localStream, 10);
-									}
-								}
-							}
-						});
 				}
 			} else if (command == 'microphonemuted') {
 				const otherUserId = rpc.arguments[0];
@@ -1047,7 +1042,7 @@
 			target: convertVoteToPosition(liveVotes.get(liveUserId)),
 			nickname: liveUserNickname,
 			microphone: false,
-			muted: false
+			volume: 0
 		};
 	}
 
@@ -1077,7 +1072,7 @@
 
 		// Open microphone for first time, will trigger permission etc, and then call everybody we knew who had voiceId
 		if (!localStream && microphone) {
-			getAudioStream().then(() => {
+			turnOnMicrophone().then(() => {
 				for (const key in others) {
 					if (others[key].voiceId) attemptCallWithLimit(peer, others[key].voiceId, localStream, 10);
 				}
@@ -1085,22 +1080,11 @@
 		}
 	}
 
-	function toggleMute(userId: string) {
+	function setVolume(userId: string, volume: number) {
 		if (!ENABLE_AUDIO) return;
 
-		if (others[userId].muted) {
-			connections
-				.get(others[userId].voiceId)
-				?.getTracks()
-				.forEach((track) => (track.enabled = true));
-			others[userId].muted = false;
-		} else {
-			connections
-				.get(others[userId].voiceId)
-				?.getTracks()
-				.forEach((track) => (track.enabled = false));
-			others[userId].muted = true;
-		}
+		others[userId].volume = volume;
+		others[userId].audio.volume = volume / 100;
 	}
 </script>
 
@@ -1371,8 +1355,8 @@
 												>
 													<Fa icon={faMicrophoneSlash} />
 												</div>
-												{#if !peerConnected || !localStream}
-													<span class="badge badge-xs badge-warning indicator-item"></span>
+												{#if !peerConnected}
+													<span class="loading loading-spinner loading-xs indicator-item"></span>
 												{/if}
 											</label>
 										</div>
@@ -1414,20 +1398,41 @@
 									<span class="text-sm"><b>{(other as any).nickname}</b></span>
 								</td>
 								<td>
-									<div class="tooltip" data-tip={m.mute()}>
+									<div class="dropdown dropdown-hover dropdown-bottom dropdown-center">
 										<button
+											tabindex="0"
 											class="btn btn-square rounded-xl border-0 bg-yellow-500/20 text-yellow-500"
-											onclick={() => {
-												if (other.microphone) toggleMute(colorHex);
-											}}
 										>
-											{#if !other.muted}
+											{#if other.volume && other.volume > 50}
 												<Fa icon={faVolumeHigh} />
+											{:else if other.volume && other.volume > 20}
+												<Fa icon={faVolumeLow} />
+											{:else if other.volume && other.volume > 0}
+												<Fa icon={faVolumeOff} />
 											{:else}
-												<Fa icon={faVolumeMute} />
-											{/if}</button
-										>
+												<Fa icon={faVolumeXmark} />
+											{/if}
+										</button>
+
+										<div class="dropdown-content bg-base-200 rounded-box w-48 p-4 shadow">
+											<label class="label">
+												<span class="label-text"
+													>{m.volume_of({ name: (other as any).nickname })}</span
+												>
+											</label>
+											<input
+												type="range"
+												min="0"
+												max="100"
+												value="100"
+												class="range range-xs"
+												oninput={(e) => {
+													setVolume(colorHex, +e.target?.value);
+												}}
+											/>
+										</div>
 									</div>
+
 									{#if adminModeOn}
 										<div class="tooltip" data-tip={m.kick_participant()}>
 											<button
