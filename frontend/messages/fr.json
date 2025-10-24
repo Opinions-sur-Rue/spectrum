@@ -86,5 +86,6 @@
 	"theme_light": "Clair",
 	"theme_dark": "Sombre",
 	"unmute_microphone": "Allumer le micro",
+	"volume_of": "Volume de {name}",
 	"yourself": "Vous-même"
 }
