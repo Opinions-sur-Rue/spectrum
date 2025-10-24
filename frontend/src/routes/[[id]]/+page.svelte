@@ -194,9 +194,8 @@
 
 	$effect(() => {
 		if (ENABLE_AUDIO) {
-			if (spectrumId && peerId && userId && localStream) {
+			if (spectrumId && peerId && userId) {
 				rpc('myvoicechatid', peerId);
-				rpc('mutedmymicrophone');
 			}
 		}
 	});
@@ -220,7 +219,7 @@
 		return voices;
 	});
 
-	async function getAudioStream() {
+	async function turnOnMicrophone() {
 		console.log('ACTIVATION DU MICRO');
 		try {
 			localStream = await navigator.mediaDevices.getUserMedia({
@@ -865,17 +864,6 @@
 					const voiceId = rpc.arguments[1].toString();
 					others[otherUserId].voiceId = voiceId;
 					if (localStream && peerId) attemptCallWithLimit(peer, voiceId, localStream, 10);
-				} else {
-					if (!localStream)
-						getAudioStream().then(() => {
-							if (peerId) {
-								for (const key in others) {
-									if (others[key].voiceId) {
-										attemptCallWithLimit(peer, others[key].voiceId, localStream, 10);
-									}
-								}
-							}
-						});
 				}
 			} else if (command == 'microphonemuted') {
 				const otherUserId = rpc.arguments[0];
@@ -1077,7 +1065,7 @@
 
 		// Open microphone for first time, will trigger permission etc, and then call everybody we knew who had voiceId
 		if (!localStream && microphone) {
-			getAudioStream().then(() => {
+			turnOnMicrophone().then(() => {
 				for (const key in others) {
 					if (others[key].voiceId) attemptCallWithLimit(peer, others[key].voiceId, localStream, 10);
 				}
@@ -1418,7 +1406,7 @@
 										<button
 											class="btn btn-square rounded-xl border-0 bg-yellow-500/20 text-yellow-500"
 											onclick={() => {
-												if (other.microphone) toggleMute(colorHex);
+												toggleMute(colorHex);
 											}}
 										>
 											{#if !other.muted}
