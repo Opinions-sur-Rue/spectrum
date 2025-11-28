@@ -17,7 +17,7 @@
 		"test:e2e": "playwright test"
 	},
 	"devDependencies": {
-		"@eslint/compat": "^1.4.0",
+		"@eslint/compat": "^1.4.1",
 		"@eslint/js": "^9.31.0",
 		"@fortawesome/free-solid-svg-icons": "^7.1.0",
 		"@playwright/test": "^1.56.1",
