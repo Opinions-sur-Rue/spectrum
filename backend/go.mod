@@ -6,7 +6,7 @@ require (
 	github.com/gempir/go-twitch-irc/v4 v4.2.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/steampoweredtaco/gotiktoklive v0.0.4
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/http-swagger/v2 v2.0.2
