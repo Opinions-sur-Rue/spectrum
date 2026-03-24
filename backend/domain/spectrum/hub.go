@@ -230,6 +230,7 @@ func (h *Hub) Routine(ctx context.Context) {
 				}
 
 				participantsDeleted := make([]string, 0, len(room.participants))
+				adminWasRemoved := false
 				participantsToNotify := make([]string, 0, len(room.participants))
 				for i, participant := range room.participants {
 					log.WithFields(log.Fields{
@@ -242,6 +243,10 @@ func (h *Hub) Routine(ctx context.Context) {
 							"now":   time.Now().Unix(),
 						}).Debug("Removing user")
 
+						if room.IsAdmin(participant.UserID) {
+							room.RemoveAdmin(participant.UserID)
+							adminWasRemoved = true
+						}
 						participant.SetRoom("")
 						delete(room.participants, i)
 						participantsDeleted = append(participantsDeleted, i)
@@ -253,6 +258,26 @@ func (h *Hub) Routine(ctx context.Context) {
 					for _, participantDeleted := range participantsDeleted {
 						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_USERLEFT, participantDeleted)
 						h.MessageUser(participantToNotify, participantToNotify, reply)
+					}
+				}
+
+				// If an admin was removed, reassign to the first remaining participant
+				if adminWasRemoved && len(room.admins) == 0 && len(room.participants) > 0 {
+					var newAdminColor string
+					var newAdmin *User
+					for color, participant := range room.participants {
+						newAdminColor = color
+						newAdmin = participant
+						break
+					}
+					if err := room.SetAdmin(newAdmin); err == nil {
+						log.WithFields(log.Fields{
+							"roomID": roomID,
+							"color":  newAdminColor,
+							"userID": newAdmin.UserID,
+						}).Info("Admin reassigned after disconnection")
+						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MADEADMIN, newAdminColor)
+						h.MessageRoom(roomID, reply)
 					}
 				}
 			}
