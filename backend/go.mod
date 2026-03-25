@@ -3,7 +3,7 @@ module Opinions-sur-Rue/spectrum
 go 1.24.0
 
 require (
-	github.com/gempir/go-twitch-irc/v4 v4.2.0
+	github.com/gempir/go-twitch-irc/v4 v4.4.1
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/sirupsen/logrus v1.9.3
