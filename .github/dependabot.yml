@@ -17,3 +17,7 @@ updates:
     directory: '/frontend'
     schedule:
       interval: 'daily'
+    ignore:
+      - dependency-name: 'eslint'
+        versions:
+          - '>=10.0.0'
