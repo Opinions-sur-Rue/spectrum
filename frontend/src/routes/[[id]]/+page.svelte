@@ -38,7 +38,7 @@
 	import { ENABLE_AUDIO, HEADER_TITLE, LOGO_URL, LOGO_WIDTH, PUBLIC_URL } from '$lib/env';
 	import { startWebsocket, wsState } from '$lib/spectrum/websocket.svelte';
 	import { Canvas, loadSVGFromURL, util } from 'fabric';
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { copy } from 'svelte-copy';
 	import { capitalize, lerp, pointInPolygon, stringToColorHex } from '$lib/utils';
@@ -204,6 +204,15 @@
 		if (ENABLE_AUDIO) {
 			if (spectrumId && voice.voiceState.peerId && userId) {
 				rpc('myvoicechatid', voice.voiceState.peerId);
+				// Call all known peers as safety net (handles race conditions on first load)
+				// untrack prevents this effect from re-running on every others mutation
+				untrack(() => {
+					for (const key in others) {
+						if (others[key].voiceId) {
+							voice.callPeerWithLimit(others[key].voiceId!);
+						}
+					}
+				});
 			}
 		}
 	});
@@ -706,11 +715,11 @@
 				}
 			} else if (command == 'voicechat') {
 				const otherUserId = rpc.arguments[0];
-				if (otherUserId != userId && others[otherUserId]) {
+				if (otherUserId != userId) {
 					const voiceId = rpc.arguments[1].toString();
-					others[otherUserId].voiceId = voiceId;
 					voice.mapVoiceId(voiceId, otherUserId);
-					if (voice.voiceState.peerId) voice.callPeerWithLimit(voiceId);
+					if (others[otherUserId]) others[otherUserId].voiceId = voiceId;
+					voice.callPeerWithLimit(voiceId);
 				}
 			} else if (command == 'microphonemuted') {
 				const otherUserId = rpc.arguments[0];

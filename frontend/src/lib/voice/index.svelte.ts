@@ -25,12 +25,47 @@ export const voiceState = $state({
 
 let peer: Peer | undefined;
 let localStream: MediaStream | undefined;
+let silentStream: MediaStream | undefined;
 const connections = new SvelteMap<string, MediaStream>();
 const voiceIdToUserId = new SvelteMap<string, string>();
 
 const getAudioContext = () =>
 	new (window.AudioContext ||
 		(window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext)();
+
+const pendingAudio: HTMLAudioElement[] = [];
+
+function resumePendingAudio() {
+	while (pendingAudio.length) {
+		pendingAudio.pop()!.play().catch(console.error);
+	}
+	document.removeEventListener('click', resumePendingAudio);
+	document.removeEventListener('keydown', resumePendingAudio);
+}
+
+/** Returns a silent audio stream for establishing listen-only peer connections.
+ *  An oscillator at zero gain keeps the track "live" so WebRTC negotiates
+ *  sendrecv (not inactive), ensuring the remote stream is properly received. */
+function getSilentStream(): MediaStream {
+	if (!silentStream) {
+		const ctx = getAudioContext();
+		ctx.resume().catch(() => {});
+		const oscillator = ctx.createOscillator();
+		const gain = ctx.createGain();
+		gain.gain.value = 0;
+		const dest = ctx.createMediaStreamDestination();
+		oscillator.connect(gain);
+		gain.connect(dest);
+		oscillator.start();
+		silentStream = dest.stream;
+	}
+	return silentStream;
+}
+
+/** Returns localStream if available, otherwise a silent placeholder. */
+function getOutboundStream(): MediaStream {
+	return localStream ?? getSilentStream();
+}
 
 // ---------------------------------------------------------------------------
 // Callbacks (set by the page to bridge voice events into app state)
@@ -106,29 +141,10 @@ export function connect() {
 	});
 
 	peer.on('call', (call) => {
-		// Answer with localStream if mic is active, otherwise answer without stream (listen-only)
-		if (localStream) {
-			call.answer(localStream);
-		} else {
-			call.answer();
-		}
-		call.on('stream', (remoteStream) => {
-			const voiceId = call.peer;
-			const userId = callbacks?.resolveVoiceId(voiceId);
-			const audio = _playRemoteAudio(voiceId, remoteStream);
-
-			if (userId && audio) {
-				callbacks?.onAudio(userId, audio);
-			}
-
-			if (connections.has(call.peer)) {
-				connections
-					.get(call.peer)
-					?.getTracks()
-					.forEach((t) => t.stop());
-			}
-			connections.set(call.peer, remoteStream);
-		});
+		// Always answer with a stream so WebRTC negotiates bidirectional media properly.
+		// Without a stream, some browsers won't fire the 'stream' event for the remote side.
+		call.answer(localStream ?? getOutboundStream());
+		call.on('stream', (remoteStream) => _handleRemoteStream(call.peer, remoteStream));
 	});
 }
 
@@ -187,14 +203,16 @@ export function unmuteMicrophone() {
 /** Call a remote peer by their PeerJS ID. */
 export function callPeer(targetId: string) {
 	if (peer) {
-		peer.call(targetId, localStream!);
+		const call = peer.call(targetId, getOutboundStream());
+		call.on('stream', (remoteStream) => _handleRemoteStream(targetId, remoteStream));
 	}
 }
 
-/** Call with retries (for late-joining participants). */
-export function callPeerWithLimit(targetId: string, maxRetries = 5, attempt = 1) {
+/** Call with retries (for late-joining participants or slow PeerJS connections). */
+export function callPeerWithLimit(targetId: string, maxRetries = 10, attempt = 1) {
 	if (peer && voiceState.peerConnected) {
-		peer.call(targetId, localStream!);
+		const call = peer.call(targetId, getOutboundStream());
+		call.on('stream', (remoteStream) => _handleRemoteStream(targetId, remoteStream));
 	} else if (attempt <= maxRetries) {
 		setTimeout(() => callPeerWithLimit(targetId, maxRetries, attempt + 1), 1000);
 	} else {
@@ -219,21 +237,48 @@ export function getLocalStream() {
 
 /** Returns the current peer ID. */
 export function getPeerId() {
-	return peerId;
+	return voiceState.peerId;
 }
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/** Resolve a PeerJS voiceId to a userId, using both the page callback and the internal map. */
+function _resolveVoiceId(voiceId: string): string | undefined {
+	return callbacks?.resolveVoiceId(voiceId) ?? voiceIdToUserId.get(voiceId);
+}
+
+/** Handle a remote stream (shared by incoming and outgoing call handlers). */
+function _handleRemoteStream(voiceId: string, remoteStream: MediaStream) {
+	const userId = _resolveVoiceId(voiceId);
+	const audio = _playRemoteAudio(voiceId, remoteStream);
+
+	if (userId && audio) {
+		callbacks?.onAudio(userId, audio);
+	}
+
+	if (connections.has(voiceId)) {
+		connections
+			.get(voiceId)
+			?.getTracks()
+			.forEach((t) => t.stop());
+	}
+	connections.set(voiceId, remoteStream);
+}
+
 function _playRemoteAudio(voiceId: string, stream: MediaStream): HTMLAudioElement | undefined {
-	const userId = callbacks?.resolveVoiceId(voiceId);
+	const userId = _resolveVoiceId(voiceId);
 	if (!userId) return;
 
 	const audio = new Audio();
 	audio.srcObject = stream;
 	audio.autoplay = true;
-	audio.play().catch(console.error);
+	audio.play().catch(() => {
+		pendingAudio.push(audio);
+		document.addEventListener('click', resumePendingAudio);
+		document.addEventListener('keydown', resumePendingAudio);
+	});
 
 	const ctx = getAudioContext();
 	const source = ctx.createMediaStreamSource(stream);
