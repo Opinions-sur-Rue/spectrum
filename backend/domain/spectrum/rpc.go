@@ -16,9 +16,6 @@ import (
 var (
 	newPositions   = []string{"569,514", "509,521", "426,521", "514,566", "424,569", "382,523"}
 	procedureRegex = regexp.MustCompile(`^(sendchatmessage|listen|disconnect|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick)$`)
-	//hexadecimalRegex = regexp.MustCompile(`^([0-9a-f-]*)$`)
-	//emojiRegex       = regexp.MustCompile(`^([\x{1F600}-\x{1F6FF}|[\x{2600}-\x{26FF}]|[\x{1FAE3}]|[\x{1F92F}]|[\x{1F91A}]|[\x{1F914}]||[\x{1F99D}]|[\x{1FAE1}]|[\x{1F6DF}])$`)
-	//coordsRegex      = regexp.MustCompile(`^([0-9]+,[0-9]+)$`)
 )
 
 var (
@@ -41,7 +38,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 	log.Debug("RPC " + rpc.Procedure)
 	log.Debug(rpc.Arguments)
 
-	user := c.hub.users[c.userID]
+	user := c.hub.GetUser(c.userID)
 
 	switch rpc.Procedure {
 	case "emoji":
@@ -54,36 +51,37 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		c.hub.LinkUserWithClient(c.UserID(), c)
 		c.send <- valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK, "signin").Export()
 
-		user = c.hub.users[c.userID]
+		user = c.hub.GetUser(c.userID)
 
 		if user != nil && user.IsInRoom() {
-			user.beginningGracePeriod = math.MaxInt64 - 100
+			c.hub.SetUserGracePeriod(c.userID, math.MaxInt64-100)
 
 			roomID := user.currentRoomID
-			admin := slices.Contains(c.hub.rooms[roomID].admins, c.userID)
-
-			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin))
-			c.send <- reply.Export()
-
-			for _, participant := range c.hub.rooms[roomID].participants {
-				adminUser := ""
-				if slices.Contains(c.hub.rooms[roomID].admins, participant.UserID) {
-					adminUser = "*"
-				}
-				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, participant.LastPosition(), participant.Nickname, adminUser)
+			c.hub.WithRoomRead(roomID, func(room *Room) {
+				admin := slices.Contains(room.admins, c.userID)
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin))
 				c.send <- reply.Export()
-			}
+
+				for _, participant := range room.participants {
+					adminUser := ""
+					if slices.Contains(room.admins, participant.UserID) {
+						adminUser = "*"
+					}
+					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, participant.LastPosition(), participant.Nickname, adminUser)
+					c.send <- reply.Export()
+				}
+
+				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, room.Topic())
+				c.send <- reply.Export()
+
+				if room.SocialListener() != nil {
+					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LISTENNING, room.SocialListener().GetType())
+					c.send <- reply.Export()
+				}
+			})
 
 			if user.LastPosition() != "N,A" {
-				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, user.LastPosition())
-				c.hub.MessageUser(c.UserID(), c.UserID(), reply)
-			}
-
-			reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, c.hub.rooms[roomID].Topic())
-			c.hub.MessageUser(c.UserID(), c.UserID(), reply)
-
-			if c.hub.rooms[roomID].SocialListener() != nil {
-				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LISTENNING, c.hub.rooms[roomID].SocialListener().GetType())
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, user.LastPosition())
 				c.hub.MessageUser(c.UserID(), c.UserID(), reply)
 			}
 		}
@@ -119,7 +117,6 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		roomID := rpc.Arguments[0]
 		color, err := c.hub.JoinRoom(roomID, c.UserID())
 		if err != nil {
-			// Nothing
 			log.Error(err.Error())
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
 			c.send <- reply.Export()
@@ -134,16 +131,18 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, newPositions[rand.Intn(len(newPositions))%len(newPositions)])
 			c.hub.MessageUser(c.UserID(), c.UserID(), reply)
 
-			for _, participant := range c.hub.rooms[roomID].participants {
-				adminUser := ""
-				if slices.Contains(c.hub.rooms[roomID].admins, participant.UserID) {
-					adminUser = "*"
+			c.hub.WithRoomRead(roomID, func(room *Room) {
+				for _, participant := range room.participants {
+					adminUser := ""
+					if slices.Contains(room.admins, participant.UserID) {
+						adminUser = "*"
+					}
+					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, participant.LastPosition(), participant.Nickname, adminUser)
+					c.send <- reply.Export()
 				}
-				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, participant.LastPosition(), participant.Nickname, adminUser)
+				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, room.Topic())
 				c.send <- reply.Export()
-			}
-			reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, c.hub.rooms[roomID].Topic())
-			c.hub.MessageUser(c.UserID(), c.UserID(), reply)
+			})
 		}
 	case "leavespectrum":
 		if !user.IsInRoom() {
@@ -153,7 +152,9 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		}
 
 		roomID := user.Room()
-		err := c.hub.rooms[roomID].Leave(user.Color)
+		err := c.hub.WithRoom(roomID, func(room *Room) error {
+			return room.Leave(user.Color)
+		})
 		if err != nil {
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
 			c.send <- reply.Export()
@@ -174,53 +175,61 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 	case "makeadmin":
 		if user.IsInRoom() {
 			roomID := user.Room()
-			err := c.hub.rooms[roomID].SetAdminByColor(rpc.Arguments[0])
+			err := c.hub.WithRoom(roomID, func(room *Room) error {
+				return room.SetAdminByColor(rpc.Arguments[0])
+			})
 			if err != nil {
 				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
 				c.send <- reply.Export()
 				break
 			}
-
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MADEADMIN, rpc.Arguments[0])
 			c.hub.MessageRoom(roomID, reply)
 		}
 	case "resetpositions":
 		if user.IsInRoom() {
-			room := c.hub.rooms[user.Room()]
-			var i = 0
-			for _, user := range room.participants {
-				if slices.Contains(room.admins, user.UserID) {
-					continue
+			roomID := user.Room()
+			i := 0
+			c.hub.WithRoomRead(roomID, func(room *Room) {
+				for _, u := range room.participants {
+					if slices.Contains(room.admins, u.UserID) {
+						continue
+					}
+					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, newPositions[i%len(newPositions)])
+					c.hub.MessageUser(c.UserID(), u.UserID, reply)
+					i++
 				}
-				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, newPositions[i%len(newPositions)])
-				c.hub.MessageUser(c.UserID(), user.UserID, reply)
-				i = i + 1
-			}
+			})
 		}
 	case "kick":
 		if user.IsInRoom() {
 			roomID := user.Room()
-			if c.hub.rooms[roomID].IsAdmin(c.UserID()) {
+			room := c.hub.GetRoom(roomID)
+			if room == nil {
+				break
+			}
+			if room.IsAdmin(c.UserID()) {
 				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_USERLEFT, rpc.Arguments[0])
 				c.hub.MessageRoom(roomID, reply)
-				err := c.hub.rooms[roomID].Leave(rpc.Arguments[0])
+				err := c.hub.WithRoom(roomID, func(room *Room) error {
+					return room.Leave(rpc.Arguments[0])
+				})
 				if err != nil {
 					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
 					c.send <- reply.Export()
 					break
 				}
-				for _, user := range c.hub.users {
-					if user.Color == rpc.Arguments[0] && user.Room() == roomID {
-						user.SetColor("")
-						user.SetRoom("")
-					}
-				}
+				// Clear room/color for the kicked user
+				c.hub.ClearUserByColor(roomID, rpc.Arguments[0])
 			}
 		}
 	case "claim":
 		if user.IsInRoom() {
 			roomID := user.Room()
-			c.hub.rooms[roomID].SetTopic(rpc.Arguments[0])
+			_ = c.hub.WithRoom(roomID, func(room *Room) error {
+				room.SetTopic(rpc.Arguments[0])
+				return nil
+			})
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, rpc.Arguments[0])
 			c.hub.MessageRoom(roomID, reply)
 		}
@@ -228,24 +237,24 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		if user.IsInRoom() {
 			user.SetLastVoiceId(rpc.Arguments[0])
 			roomID := user.Room()
-			log.Debug("Cpicpi")
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_VOICECHAT, user.Color, rpc.Arguments[0])
-			log.Debug("Cpicpi")
 			c.hub.MessageRoom(roomID, reply)
 
-			for _, participant := range c.hub.rooms[roomID].participants {
-				if participant.LastVoiceId() != "" && participant.UserID != c.UserID() {
-					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_VOICECHAT, participant.Color, participant.LastVoiceId())
-					c.send <- reply.Export()
+			c.hub.WithRoomRead(roomID, func(room *Room) {
+				for _, participant := range room.participants {
+					if participant.LastVoiceId() != "" && participant.UserID != c.UserID() {
+						reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_VOICECHAT, participant.Color, participant.LastVoiceId())
+						c.send <- reply.Export()
 
-					if participant.MicrophoneEnabled() {
-						reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MICROPHONEUNMUTED, participant.Color)
-					} else {
-						reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MICROPHONEMUTED, participant.Color)
+						if participant.MicrophoneEnabled() {
+							reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MICROPHONEUNMUTED, participant.Color)
+						} else {
+							reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MICROPHONEMUTED, participant.Color)
+						}
+						c.send <- reply.Export()
 					}
-					c.send <- reply.Export()
 				}
-			}
+			})
 		}
 	case "unmutedmymicrophone":
 		if user.IsInRoom() {
@@ -264,39 +273,50 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 	case "listen":
 		if user.IsInRoom() {
 			roomID := user.Room()
-			if c.hub.rooms[roomID].IsAdmin(c.UserID()) {
-				if c.hub.rooms[roomID].SocialListener() != nil {
-					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, "already connected")
-					c.send <- reply.Export()
-					break
-				}
+			room := c.hub.GetRoom(roomID)
+			if room == nil {
+				break
+			}
+			if !room.IsAdmin(c.UserID()) {
+				break
+			}
+			if room.SocialListener() != nil {
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, "already connected")
+				c.send <- reply.Export()
+				break
+			}
 
-				listener, err := social.CreateListener(rpc.Arguments[0], "^\\s*spectrum\\s+-?[0-3i]\\s*$", rpc.Arguments[2])
+			listener, err := social.CreateListener(rpc.Arguments[0], "^\\s*spectrum\\s+-?[0-3i]\\s*$", rpc.Arguments[2])
+			if err != nil {
+				log.Error(err.Error())
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
+				c.send <- reply.Export()
+				break
+			}
+
+			_ = c.hub.WithRoom(roomID, func(room *Room) error {
+				room.SetSocialListener(listener)
+				return nil
+			})
+
+			go func() {
+				messageRoom := func(reply *valueobjects.MessageContent) {
+					c.hub.MessageRoom(roomID, reply)
+				}
+				err := listener.Connect(c.hub.context, rpc.Arguments[1], messageRoom)
 				if err != nil {
 					log.Error(err.Error())
 					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
 					c.send <- reply.Export()
-					break
+					_ = c.hub.WithRoom(roomID, func(room *Room) error {
+						room.SetSocialListener(nil)
+						return nil
+					})
 				}
+			}()
 
-				c.hub.rooms[roomID].SetSocialListener(listener)
-
-				go func() {
-					messageRoom := func(reply *valueobjects.MessageContent) {
-						c.hub.MessageRoom((roomID), reply)
-					}
-					err := listener.Connect(c.hub.context, rpc.Arguments[1], messageRoom)
-					if err != nil {
-						log.Error(err.Error())
-						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
-						c.send <- reply.Export()
-						c.hub.rooms[roomID].SetSocialListener(nil)
-					}
-				}()
-
-				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LISTENNING, rpc.Arguments[0])
-				c.hub.MessageRoom(roomID, reply)
-			}
+			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LISTENNING, rpc.Arguments[0])
+			c.hub.MessageRoom(roomID, reply)
 		}
 	case "sendchatmessage":
 		if user.IsInRoom() {
@@ -307,20 +327,29 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 	case "disconnect":
 		if user.IsInRoom() {
 			roomID := user.Room()
-			if c.hub.rooms[roomID].IsAdmin(c.UserID()) {
-				if c.hub.rooms[roomID].SocialListener() != nil {
-					err := c.hub.rooms[roomID].SocialListener().Disconnect()
-					if err != nil {
-						log.Error(err.Error())
-						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
-						c.send <- reply.Export()
-						break
-					}
-					c.hub.rooms[roomID].SetSocialListener(nil)
-					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK, "disconnect")
-					c.send <- reply.Export()
-				}
+			room := c.hub.GetRoom(roomID)
+			if room == nil {
+				break
 			}
+			if !room.IsAdmin(c.UserID()) {
+				break
+			}
+			if room.SocialListener() == nil {
+				break
+			}
+			err := room.SocialListener().Disconnect()
+			if err != nil {
+				log.Error(err.Error())
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
+				c.send <- reply.Export()
+				break
+			}
+			_ = c.hub.WithRoom(roomID, func(room *Room) error {
+				room.SetSocialListener(nil)
+				return nil
+			})
+			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_ACK, "disconnect")
+			c.send <- reply.Export()
 		}
 	default:
 		return ErrCommandNotRecognized
