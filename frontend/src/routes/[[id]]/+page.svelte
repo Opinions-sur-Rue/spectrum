@@ -108,6 +108,8 @@
 	let tbodyRef: any; // Reference to tbody
 
 	let localStream: MediaStream | undefined = $state();
+	let micGain: number = $state(100); // 0-150, 100 = default (no gain change)
+	let micGainNode: GainNode | undefined;
 	let peer: Peer;
 	let peerId: string | undefined = $state();
 	let peerConnected = $state(false);
@@ -231,7 +233,8 @@
 				audio: {
 					echoCancellation: true,
 					noiseSuppression: true,
-					autoGainControl: true
+					// Disable browser auto gain so our GainNode has full control
+					autoGainControl: false
 				}
 			});
 
@@ -239,10 +242,15 @@
 
 			const source = audioContext.createMediaStreamSource(localStream);
 
+			// GainNode for manual microphone gain control (0–1.5)
+			micGainNode = audioContext.createGain();
+			micGainNode.gain.value = micGain / 100;
+			source.connect(micGainNode);
+
 			const analyser = audioContext.createAnalyser();
 			analyser.fftSize = 512;
 
-			source.connect(analyser);
+			micGainNode.connect(analyser);
 
 			const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
@@ -1088,7 +1096,15 @@
 		if (!ENABLE_AUDIO) return;
 
 		others[userId].volume = volume;
-		others[userId].audio.volume = volume / 100;
+		if (others[userId].audio) others[userId].audio!.volume = volume / 100;
+	}
+
+	function setMicGain(gain: number) {
+		if (!ENABLE_AUDIO) return;
+		micGain = gain;
+		if (micGainNode) {
+			micGainNode.gain.value = gain / 100;
+		}
 	}
 </script>
 
@@ -1344,28 +1360,42 @@
 								</td>
 								<td>
 									{#if ENABLE_AUDIO}
-										<div
-											class="tooltip"
-											data-tip={microphone ? m.mute_microphone() : m.unmute_microphone()}
-										>
-											<!-- svelte-ignore a11y_click_events_have_key_events -->
-											<label
-												class="swap indicator"
-												onclick={toggleMicrophone}
-												class:swap-active={microphone && peerConnected}
+										<div class="flex items-center gap-2">
+											<div
+												class="tooltip"
+												data-tip={microphone ? m.mute_microphone() : m.unmute_microphone()}
 											>
-												<div class="swap-on btn btn-ghost btn-square rounded-xl">
-													<Fa icon={faMicrophone} />
-												</div>
-												<div
-													class="swap-off btn btn-square rounded-xl border-0 bg-red-500/20 text-red-500"
+												<!-- svelte-ignore a11y_click_events_have_key_events -->
+												<label
+													class="swap indicator"
+													onclick={toggleMicrophone}
+													class:swap-active={microphone && peerConnected}
 												>
-													<Fa icon={faMicrophoneSlash} />
+													<div class="swap-on btn btn-ghost btn-square rounded-xl">
+														<Fa icon={faMicrophone} />
+													</div>
+													<div
+														class="swap-off btn btn-square rounded-xl border-0 bg-red-500/20 text-red-500"
+													>
+														<Fa icon={faMicrophoneSlash} />
+													</div>
+													{#if !peerConnected}
+														<span class="loading loading-spinner loading-xs indicator-item"></span>
+													{/if}
+												</label>
+											</div>
+											{#if microphone}
+												<div class="tooltip" data-tip="Mic gain ({micGain}%)">
+													<input
+														type="range"
+														min="0"
+														max="150"
+														value={micGain}
+														class="range range-xs w-20"
+														oninput={(e) => setMicGain(+(e.target as HTMLInputElement).value)}
+													/>
 												</div>
-												{#if !peerConnected}
-													<span class="loading loading-spinner loading-xs indicator-item"></span>
-												{/if}
-											</label>
+											{/if}
 										</div>
 									{/if}
 								</td>
