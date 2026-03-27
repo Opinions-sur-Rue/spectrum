@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/xml"
+	"errors"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"Opinions-sur-Rue/spectrum/api"
 	_ "Opinions-sur-Rue/spectrum/docs"
@@ -64,6 +69,13 @@ func initLogging() {
 func main() {
 	initLogging()
 
+	// Context cancelled on SIGTERM or SIGINT — propagated to Hub goroutines.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Initialize Hub with the cancellable context so its goroutines stop on shutdown.
+	api.InitHub(ctx)
+
 	apiRouter := mux.NewRouter()
 
 	apiRouter.Use(utils.EnableCors)
@@ -84,6 +96,31 @@ func main() {
 		port = "3000"
 	}
 
-	log.Info("Starting server on port ", port)
-	log.Fatal(http.ListenAndServe(":"+port, apiRouter))
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: apiRouter,
+	}
+
+	// Start server in background.
+	go func() {
+		log.Info("Starting server on port ", port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.WithError(err).Fatal("Server error")
+		}
+	}()
+
+	// Block until signal received.
+	<-ctx.Done()
+	stop()
+	log.Info("Shutdown signal received, draining connections...")
+
+	// Give active connections up to 10s to finish.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.WithError(err).Error("Graceful shutdown failed, forcing close")
+	} else {
+		log.Info("Server stopped cleanly")
+	}
 }
