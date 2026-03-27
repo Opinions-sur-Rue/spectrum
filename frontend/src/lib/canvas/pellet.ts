@@ -1,12 +1,16 @@
 import { Circle, FabricText, Group, Rect } from 'fabric';
 
+const RADIUS = 12;
+
 export function newPellet(userId: string, nickname: string) {
+	// All objects use originX: 'left', originY: 'top' (explicit, Fabric 6 behavior)
+	// Circle center is at (RADIUS, RADIUS) so it sits at top-left of bounding box
 	const circle = new Circle({
-		top: 0,
 		left: 0,
-		radius: 12,
-		originX: 'center',
-		originY: 'center',
+		top: 0,
+		radius: RADIUS,
+		originX: 'left',
+		originY: 'top',
 		fill: `#f9f9f9`,
 		stroke: `#${userId}`,
 		strokeWidth: 5,
@@ -19,25 +23,26 @@ export function newPellet(userId: string, nickname: string) {
 	const text = new FabricText(nickname, {
 		fontFamily:
 			'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-		left: circle.left + circle.radius + 4,
+		left: RADIUS * 2 + 8, // right of the circle + small gap
 		top: 0,
 		fontSize: 14,
 		fill: '#ffffff',
+		originX: 'left',
+		originY: 'top',
 		evented: false,
-		originY: 'center',
 		hasBorders: false,
 		hasContext: false
 	});
 
 	const rect = new Rect({
-		left: circle.left + circle.radius - 10,
+		left: RADIUS * 2, // starts right after the circle
 		top: 0,
-		width: text.width + 20,
-		height: text.height + 10,
+		width: (text.width ?? 0) + 16,
+		height: RADIUS * 2,
 		fill: `#${userId}`,
-		originY: 'center',
-		strokeWidth: 3,
-		strokeUniform: true,
+		originX: 'left',
+		originY: 'top',
+		strokeWidth: 0,
 		evented: false,
 		hasBorders: false,
 		hasContext: false
