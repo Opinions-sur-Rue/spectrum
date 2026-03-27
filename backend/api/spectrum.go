@@ -15,11 +15,17 @@ var (
 	hubOnce     sync.Once
 )
 
-func getSpectrumHub(ctx context.Context) *spectrum.Hub {
+// InitHub initialises the Hub with the provided context and starts its goroutines.
+// Must be called once before serving WebSocket connections.
+// The context controls the lifetime of Hub.Run and Hub.Routine — cancel it to shut down cleanly.
+func InitHub(ctx context.Context) {
 	hubOnce.Do(func() {
 		spectrumHub = spectrum.NewHub()
 		go spectrumHub.Run(ctx)
 	})
+}
+
+func getSpectrumHub() *spectrum.Hub {
 	return spectrumHub
 }
 
@@ -45,7 +51,7 @@ func SpectrumWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 
-	hub := getSpectrumHub(context.Background())
+	hub := getSpectrumHub()
 	client := spectrum.NewClient(hub, c)
 	hub.Register <- client
 
