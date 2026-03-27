@@ -881,15 +881,17 @@
 	let streamerMode = $state(false);
 
 	function toggleMicrophone() {
-		voice.voiceState.microphone = !voice.voiceState.microphone;
-
-		// Open voice.voiceState.microphone for first time, will trigger permission etc, and then call everybody we knew who had voiceId
-		if (!localStream && voice.voiceState.microphone) {
+		if (voice.voiceState.microphone) {
+			voice.muteMicrophone();
+		} else if (!voice.getLocalStream()) {
+			// First activation — request mic permission then call all known participants
 			voice.enableMicrophone().then(() => {
 				for (const key in others) {
-					if (others[key].voiceId) voice.callPeerWithLimit(others[key].voiceId);
+					if (others[key].voiceId) voice.callPeerWithLimit(others[key].voiceId!);
 				}
 			});
+		} else {
+			voice.unmuteMicrophone();
 		}
 	}
 
