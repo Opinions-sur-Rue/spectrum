@@ -22,7 +22,7 @@ jobs:
           cache: false
 
       - name: 🔍 Lint code
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           working-directory: backend
           args: --timeout=5m
