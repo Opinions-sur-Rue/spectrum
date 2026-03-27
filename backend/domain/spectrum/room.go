@@ -140,6 +140,15 @@ func (r *Room) IsAdmin(userID string) bool {
 	return slices.Contains(r.admins, userID)
 }
 
+func (r *Room) RemoveAdmin(userID string) {
+	for i, adminID := range r.admins {
+		if adminID == userID {
+			r.admins = append(r.admins[:i], r.admins[i+1:]...)
+			return
+		}
+	}
+}
+
 func (r *Room) Close() error {
 	if r.closed {
 		return errors.New("room closed")
