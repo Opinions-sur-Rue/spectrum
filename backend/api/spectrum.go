@@ -12,13 +12,14 @@ import (
 
 var (
 	spectrumHub *spectrum.Hub
+	hubOnce     sync.Once
 )
 
 func getSpectrumHub(ctx context.Context) *spectrum.Hub {
-	if spectrumHub == nil {
+	hubOnce.Do(func() {
 		spectrumHub = spectrum.NewHub()
 		go spectrumHub.Run(ctx)
-	}
+	})
 	return spectrumHub
 }
 
