@@ -992,8 +992,8 @@
 			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
 					<InputFlex
-						name="room.claim"
-						placeholder={m.room.claim()}
+						name="claim"
+						placeholder={m.claim()}
 						readonly={!room.adminModeOn}
 						bind:value={room.claim}
 						onfocusin={() => {
@@ -1013,7 +1013,7 @@
 						minFontSize={12}
 						maxFontSize={24}
 					/>
-					<span class="font-bold"><Fa icon={faMapPin} /> {m.room.claim()}</span>
+					<span class="font-bold"><Fa icon={faMapPin} /> {m.claim()}</span>
 				</label>
 			</header>
 
