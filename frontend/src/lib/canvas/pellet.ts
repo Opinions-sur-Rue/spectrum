@@ -10,7 +10,7 @@ export function newPellet(userId: string, nickname: string) {
 
 	const circle = new Circle({
 		left: RADIUS, // center of circle
-		top: 0,       // vertical center
+		top: 0, // vertical center
 		radius: RADIUS,
 		originX: 'center',
 		originY: 'center',
