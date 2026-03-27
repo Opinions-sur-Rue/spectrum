@@ -466,13 +466,6 @@
 						pathPoint[pathPoint.length - 1] * cell.scaleY * scale - 10
 					];
 
-					/*const circle = new fabric.Circle({
-							radius: 20,           // Radius of the circle (small size)
-							fill: 'blue',         // Fill color of the circle
-							left: p[0],            // X position of the circle (left)
-							top: p[1],             // Y position of the circle (top)
-						});
-						myCanvas.add(circle)*/
 					cellsPoints[cells.length - 1].push(p);
 				}
 			}
@@ -777,9 +770,6 @@
 	function parseCommand(line: string) {
 		if (!listenning) return;
 
-		/*const re = new RegExp(
-			/^(ack|nack|update|claim|spectrum|newposition|userleft|madeadmin|receive|voicechat|microphonemute|microphoneunmute)(\s+([0-9a-f]*))?(\s+([0-9N-]+,[0-9A-]+))?(\s+(.+))?$/gu
-		);*/
 		const rpc = JSON.parse(line) as { procedure: string; arguments: string[] };
 
 		if (rpc.procedure) {
