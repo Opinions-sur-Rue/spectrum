@@ -3,6 +3,7 @@ package social
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
@@ -51,14 +52,14 @@ func (l *TiktokListener) Connect(ctx context.Context, liveID string, onEvent OnE
 	var err error
 	l.tiktokService, err = gotiktoklive.NewTikTok()
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to create TikTok client: %w", err)
 	}
 
 	log.Info("Connected to tiktok")
 
 	live, err := l.tiktokService.TrackUser(liveID)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to track TikTok user %q: %w", liveID, err)
 	}
 
 	log.Info("Connected to user live")

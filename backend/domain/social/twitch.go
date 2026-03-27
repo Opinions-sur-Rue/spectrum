@@ -2,6 +2,7 @@ package social
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
@@ -53,7 +54,7 @@ func (l *TwitchListener) Connect(ctx context.Context, liveID string, onEvent OnE
 
 	err = l.service.Connect()
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to connect to Twitch IRC: %w", err)
 	}
 
 	log.Infof("Live Chat ID: %s\n", liveID)
