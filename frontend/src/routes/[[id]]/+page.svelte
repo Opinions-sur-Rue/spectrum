@@ -1081,7 +1081,7 @@
 							<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 							<ul
 								tabindex="0"
-								class="dropdown-content menu bg-base-100 rounded-box z-1 w-12 p-2 shadow-sm"
+								class="dropdown-content menu bg-base-100 rounded-box z-1 w-14 items-center p-2 shadow-sm"
 							>
 								<li><button onclick={() => sendEmoji(0)}>😜</button></li>
 								<li><button onclick={() => sendEmoji(1)}>🤔</button></li>
