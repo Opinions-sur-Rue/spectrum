@@ -770,7 +770,7 @@
 	function parseCommand(line: string) {
 		if (!listenning) return;
 
-const rpc = JSON.parse(line) as { procedure: string; arguments: string[] };
+		const rpc = JSON.parse(line) as { procedure: string; arguments: string[] };
 
 		if (rpc.procedure) {
 			const command = rpc.procedure;
