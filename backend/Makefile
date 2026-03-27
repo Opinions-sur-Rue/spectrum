@@ -1,6 +1,9 @@
 docs: 
 	swag fmt && swag init
 
+format: 
+	gci write --section Standard --section Default .
+
 lint: 
 	golangci-lint run
 
