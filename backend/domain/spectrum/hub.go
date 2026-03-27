@@ -325,90 +325,80 @@ func (h *Hub) Routine(ctx context.Context) {
 			log.Debug("Cleaning routine")
 			h.mu.Lock()
 			for roomID, room := range h.rooms {
-				log.WithFields(log.Fields{
-					"roomID": roomID,
-				}).Debug("Checking room")
-				if room.IsClosed() {
-					continue
-				}
-				if len(room.participants) == 0 {
-					room.Close()
-					continue
-				}
-
-				participantsDeleted := make([]string, 0, len(room.participants))
-				adminWasRemoved := false
-				participantsToNotify := make([]string, 0, len(room.participants))
-				for i, participant := range room.participants {
-					log.WithFields(log.Fields{
-						"color": i,
-					}).Debug("Checking user")
-					if participant.beginningGracePeriod+20 < time.Now().Unix() {
-						log.WithFields(log.Fields{
-							"color": i,
-							"grace": participant.beginningGracePeriod,
-							"now":   time.Now().Unix(),
-						}).Debug("Removing user")
-
-						if room.IsAdmin(participant.UserID) {
-							room.RemoveAdmin(participant.UserID)
-							adminWasRemoved = true
-						}
-						participant.SetRoom("")
-						delete(room.participants, i)
-						participantsDeleted = append(participantsDeleted, i)
-					} else {
-						participantsToNotify = append(participantsToNotify, participant.UserID)
-					}
-				}
-				for _, participantToNotify := range participantsToNotify {
-					for _, participantDeleted := range participantsDeleted {
-						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_USERLEFT, participantDeleted)
-						h.messages <- valueobjects.NewMessage(participantToNotify, participantToNotify, reply.Export())
-					}
-				}
-
-				// If an admin was removed, reassign to the first remaining participant
-				if adminWasRemoved && len(room.admins) == 0 && len(room.participants) > 0 {
-					var newAdminColor string
-					var newAdmin *User
-					for color, participant := range room.participants {
-						newAdminColor = color
-						newAdmin = participant
-						break
-					}
-					if err := room.SetAdmin(newAdmin); err == nil {
-						log.WithFields(log.Fields{
-							"roomID": roomID,
-							"color":  newAdminColor,
-							"userID": newAdmin.UserID,
-						}).Info("Admin reassigned after disconnection")
-						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MADEADMIN, newAdminColor)
-						h.messageRoomLocked(roomID, reply)
-					}
-				}
-
-				// If an admin was removed, reassign to the first remaining participant
-				if adminWasRemoved && len(room.admins) == 0 && len(room.participants) > 0 {
-					var newAdminColor string
-					var newAdmin *User
-					for color, participant := range room.participants {
-						newAdminColor = color
-						newAdmin = participant
-						break
-					}
-					if err := room.SetAdmin(newAdmin); err == nil {
-						log.WithFields(log.Fields{
-							"roomID": roomID,
-							"color":  newAdminColor,
-							"userID": newAdmin.UserID,
-						}).Info("Admin reassigned after disconnection")
-						reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MADEADMIN, newAdminColor)
-						h.MessageRoom(roomID, reply)
-					}
-				}
+				h.cleanupRoomLocked(roomID, room)
 			}
 			h.mu.Unlock()
 		}
+	}
+}
+
+// cleanupRoomLocked processes a single room during the cleanup routine.
+// Caller must hold h.mu write lock.
+func (h *Hub) cleanupRoomLocked(roomID string, room *Room) {
+	log.WithFields(log.Fields{"roomID": roomID}).Debug("Checking room")
+
+	if room.IsClosed() {
+		return
+	}
+	if len(room.participants) == 0 {
+		room.Close()
+		return
+	}
+
+	deleted, toNotify, adminRemoved := h.evictExpiredParticipants(room)
+
+	for _, notifyID := range toNotify {
+		for _, color := range deleted {
+			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_USERLEFT, color)
+			h.messages <- valueobjects.NewMessage(notifyID, notifyID, reply.Export())
+		}
+	}
+
+	if adminRemoved && len(room.admins) == 0 && len(room.participants) > 0 {
+		h.reassignAdminLocked(roomID, room)
+	}
+}
+
+// evictExpiredParticipants removes participants whose grace period has expired.
+// Returns deleted colors, userIDs to notify, and whether an admin was removed.
+// Caller must hold h.mu write lock.
+func (h *Hub) evictExpiredParticipants(room *Room) (deleted []string, toNotify []string, adminRemoved bool) {
+	now := time.Now().Unix()
+	for color, participant := range room.participants {
+		if participant.beginningGracePeriod+20 < now {
+			log.WithFields(log.Fields{
+				"color": color,
+				"grace": participant.beginningGracePeriod,
+				"now":   now,
+			}).Debug("Removing user")
+
+			if room.IsAdmin(participant.UserID) {
+				room.RemoveAdmin(participant.UserID)
+				adminRemoved = true
+			}
+			participant.SetRoom("")
+			delete(room.participants, color)
+			deleted = append(deleted, color)
+		} else {
+			toNotify = append(toNotify, participant.UserID)
+		}
+	}
+	return
+}
+
+// reassignAdminLocked picks the first remaining participant and promotes them to admin.
+// Caller must hold h.mu write lock.
+func (h *Hub) reassignAdminLocked(roomID string, room *Room) {
+	for color, participant := range room.participants {
+		if err := room.SetAdmin(participant); err == nil {
+			log.WithFields(log.Fields{
+				"roomID": roomID,
+				"color":  color,
+				"userID": participant.UserID,
+			}).Info("Admin reassigned after disconnection")
+			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MADEADMIN, color)
+			h.messageRoomLocked(roomID, reply)
+		}
+		return
 	}
 }
