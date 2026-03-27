@@ -42,7 +42,11 @@ type Health struct {
 }
 
 func initLogging() {
-	log.SetLevel(log.DebugLevel)
+	level, err := log.ParseLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		level = log.InfoLevel // safe default for production
+	}
+	log.SetLevel(level)
 	log.SetFormatter(&log.JSONFormatter{})
 }
 
