@@ -31,7 +31,7 @@
 	} from '@fortawesome/free-solid-svg-icons';
 	import Fa from 'svelte-fa';
 	import { page } from '$app/state';
-	import { getUserId } from '$lib/authentication/room.userId';
+	import { getUserId } from '$lib/authentication/userId';
 	import CreateSpectrumModal from '$lib/components/CreateSpectrumModal.svelte';
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
 	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
