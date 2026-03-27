@@ -706,15 +706,15 @@
 				}
 			} else if (command == 'voicechat') {
 				const otherUserId = rpc.arguments[0];
-				if (otherUserId != userId) {
+				if (otherUserId != userId && others[otherUserId]) {
 					const voiceId = rpc.arguments[1].toString();
 					others[otherUserId].voiceId = voiceId;
 					voice.mapVoiceId(voiceId, otherUserId);
-					voice.callPeerWithLimit(voiceId);
+					if (voice.voiceState.peerId) voice.callPeerWithLimit(voiceId);
 				}
 			} else if (command == 'microphonemuted') {
 				const otherUserId = rpc.arguments[0];
-				if (otherUserId != userId) {
+				if (otherUserId != userId && others[otherUserId]) {
 					others[otherUserId].microphone = false;
 				}
 			} else if (command == 'listenning') {
