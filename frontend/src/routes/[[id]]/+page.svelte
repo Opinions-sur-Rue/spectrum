@@ -189,8 +189,8 @@
 	});
 
 	$effect(() => {
-		if (ENABLE_AUDIO && peerId && spectrumId) {
-			if (microphone) {
+		if (ENABLE_AUDIO && voice.voiceState.peerId && spectrumId) {
+			if (voice.voiceState.microphone) {
 				voice.unmuteMicrophone();
 				rpc('unmutedmymicrophone');
 			} else {
@@ -202,8 +202,8 @@
 
 	$effect(() => {
 		if (ENABLE_AUDIO) {
-			if (spectrumId && peerId && userId) {
-				rpc('myvoicechatid', peerId);
+			if (spectrumId && voice.voiceState.peerId && userId) {
+				rpc('myvoicechatid', voice.voiceState.peerId);
 			}
 		}
 	});
@@ -881,10 +881,10 @@
 	let streamerMode = $state(false);
 
 	function toggleMicrophone() {
-		microphone = !microphone;
+		voice.voiceState.microphone = !voice.voiceState.microphone;
 
-		// Open microphone for first time, will trigger permission etc, and then call everybody we knew who had voiceId
-		if (!localStream && microphone) {
+		// Open voice.voiceState.microphone for first time, will trigger permission etc, and then call everybody we knew who had voiceId
+		if (!localStream && voice.voiceState.microphone) {
 			voice.enableMicrophone().then(() => {
 				for (const key in others) {
 					if (others[key].voiceId) voice.callPeerWithLimit(others[key].voiceId);
@@ -1136,7 +1136,7 @@
 									<div class="inline-grid *:[grid-area:1/1]">
 										<div
 											class="status status-lg animate-ping transition-transform duration-100"
-											class:hidden={!microphone}
+											class:hidden={!voice.voiceState.microphone}
 											style="transform: scale({voiceIndicator})"
 										></div>
 										<div
@@ -1154,13 +1154,16 @@
 									{#if ENABLE_AUDIO}
 										<div
 											class="tooltip"
-											data-tip={microphone ? m.mute_microphone() : m.unmute_microphone()}
+											data-tip={voice.voiceState.microphone
+												? m.mute_microphone()
+												: m.unmute_microphone()}
 										>
 											<!-- svelte-ignore a11y_click_events_have_key_events -->
 											<label
 												class="swap indicator"
 												onclick={toggleMicrophone}
-												class:swap-active={microphone && peerConnected}
+												class:swap-active={voice.voiceState.microphone &&
+													voice.voiceState.peerConnected}
 											>
 												<div class="swap-on btn btn-ghost btn-square rounded-xl">
 													<Fa icon={faMicrophone} />
@@ -1170,7 +1173,7 @@
 												>
 													<Fa icon={faMicrophoneSlash} />
 												</div>
-												{#if !peerConnected}
+												{#if !voice.voiceState.peerConnected}
 													<span class="loading loading-spinner loading-xs indicator-item"></span>
 												{/if}
 											</label>
@@ -1311,9 +1314,11 @@
 									<label class="swap swap-flip">
 										<input
 											type="checkbox"
-											checked={microphone}
+											checked={voice.voiceState.microphone}
 											onchange={() =>
-												microphone ? voice.muteMicrophone() : voice.enableMicrophone()}
+												voice.voiceState.microphone
+													? voice.muteMicrophone()
+													: voice.enableMicrophone()}
 											class="hidden"
 										/>
 										<div class="swap-on">
