@@ -1,5 +1,4 @@
 <script lang="ts">
-
 	import Header from '$lib/components/Header.svelte';
 	import {
 		faCirclePlus,
@@ -1430,9 +1429,7 @@
 
 										<div class="dropdown-content bg-base-200 rounded-box w-48 p-4 shadow">
 											<label class="label">
-												<span class="label-text"
-													>{m.volume_of({ name: other.nickname })}</span
-												>
+												<span class="label-text">{m.volume_of({ name: other.nickname })}</span>
 											</label>
 											<input
 												type="range"
