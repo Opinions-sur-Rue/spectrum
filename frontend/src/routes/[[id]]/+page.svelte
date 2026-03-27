@@ -102,7 +102,7 @@
 				if (cell.id != 'notReplied') {
 					log(
 						m.log_opinion({
-							name: room.others[otherUserId].room.nickname,
+							name: room.others[otherUserId].nickname,
 							opinion: opinions[cell.id as OpinionKey]
 						}),
 						'event'
@@ -383,8 +383,8 @@
 		} else if (coords && !isNaN(coords.x) && !isNaN(coords.y)) {
 			// known user
 			room.others[otherUserId].target = coords;
-			if (room.others[otherUserId].room.nickname != otherNickname)
-				room.others[otherUserId].room.nickname = otherNickname;
+			if (room.others[otherUserId].nickname != otherNickname)
+				room.others[otherUserId].nickname = otherNickname;
 			if (!room.others[otherUserId].pellet)
 				room.others[otherUserId].pellet = initOtherPellet(otherUserId, otherNickname);
 		}
@@ -623,7 +623,7 @@
 			} */ else if (command == 'userleft') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != room.userId) {
-					log(m.log_left_spectrum({ name: room.others[otherUserId].room.nickname }), 'leave');
+					log(m.log_left_spectrum({ name: room.others[otherUserId].nickname }), 'leave');
 					deletePellet(otherUserId);
 				} else {
 					log(m.log_you_left_spectrum(), 'leave');
@@ -633,13 +633,10 @@
 			} else if (command == 'receive') {
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != room.userId) {
-					notify.info(
-						room.others[otherUserId].room.nickname + ' a envoyé : ' + rpc.arguments[1],
-						5000
-					);
+					notify.info(room.others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1], 5000);
 					log(
 						m.log_emoji_received({
-							name: room.others[otherUserId].room.nickname,
+							name: room.others[otherUserId].nickname,
 							emoji: rpc.arguments[1]
 						}),
 						'event'
@@ -655,9 +652,7 @@
 				if (emoji === '🤚') {
 					handAnimation = true;
 					handUsername =
-						otherUserId != room.userId
-							? room.others[otherUserId].room.nickname
-							: (room.nickname ?? '');
+						otherUserId != room.userId ? room.others[otherUserId].nickname : (room.nickname ?? '');
 				}
 
 				requestAnimationFrame(() => (trigger = true)); // retrigger animation
@@ -665,7 +660,7 @@
 				const otherUserId = rpc.arguments[0];
 				if (otherUserId != room.userId) {
 					deletePellet(otherUserId, true);
-					log(m.log_made_admin({ name: room.others[otherUserId].room.nickname }), 'event');
+					log(m.log_made_admin({ name: room.others[otherUserId].nickname }), 'event');
 				} else {
 					room.adminModeOn = true;
 					myCanvas.remove(myPellet);
@@ -752,8 +747,7 @@
 			} else if (command == 'chatmessage') {
 				const otherUserId = rpc.arguments[0];
 				const message = rpc.arguments[1];
-				if (otherUserId != room.userId)
-					log(`${room.others[otherUserId].room.nickname}: ${message}`);
+				if (otherUserId != room.userId) log(`${room.others[otherUserId].nickname}: ${message}`);
 				else log(`${room.nickname}: ${message}`);
 			}
 		}
@@ -1207,7 +1201,7 @@
 											</div>
 										</label>
 									{/if}
-									<span class="text-sm"><b>{other.room.nickname}</b></span>
+									<span class="text-sm"><b>{other.nickname}</b></span>
 								</td>
 								<td>
 									<div class="dropdown dropdown-hover dropdown-bottom dropdown-center">
@@ -1228,7 +1222,7 @@
 
 										<div class="dropdown-content bg-base-200 rounded-box w-48 p-4 shadow">
 											<label class="label">
-												<span class="label-text">{m.volume_of({ name: other.room.nickname })}</span>
+												<span class="label-text">{m.volume_of({ name: other.nickname })}</span>
 											</label>
 											<input
 												type="range"
@@ -1350,7 +1344,7 @@
 							<!-- Participant info -->
 							<div class="flex-1">
 								<div class="truncate text-base font-bold">
-									{other.room.nickname}
+									{other.nickname}
 								</div>
 								<div class="text-sm text-gray-500">
 									{#if ENABLE_AUDIO}
