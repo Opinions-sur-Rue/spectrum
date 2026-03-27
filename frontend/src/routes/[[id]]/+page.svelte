@@ -31,7 +31,7 @@
 	} from '@fortawesome/free-solid-svg-icons';
 	import Fa from 'svelte-fa';
 	import { page } from '$app/state';
-	import { getUserId } from '$lib/authentication/userId';
+	import { getUserId } from '$lib/authentication/room.userId';
 	import CreateSpectrumModal from '$lib/components/CreateSpectrumModal.svelte';
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
 	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
@@ -43,6 +43,7 @@
 	import { copy } from 'svelte-copy';
 	import { capitalize, lerp, pointInPolygon, stringToColorHex } from '$lib/utils';
 	import * as voice from '$lib/voice/index.svelte';
+	import { room, type Participant } from '$lib/spectrum/room.svelte';
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
@@ -80,45 +81,18 @@
 
 	let websocket: WebSocket;
 
-	let userId: string | undefined = $state();
-	let nickname: string | undefined = $state();
-	let initialized: boolean = $state(false);
-	let listenning = true;
-
-	interface Log {
-		type: string;
-		message: string;
-	}
-
-	let logs: Log[] = $state([]);
-
 	let myPellet: ReturnType<typeof newPellet> | null = $state(null);
 	let moving = false;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const cells: any[] = [];
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const cellsPoints: any[] = [];
-	interface Participant {
-		pellet: ReturnType<typeof newPellet> | null;
-		target?: { x: number; y: number };
-		nickname: string;
-		microphone: boolean;
-		volume: number;
-		voiceId?: string;
-		audio?: HTMLAudioElement;
-		averageVoice?: number;
-		validateOpinion?: ReturnType<typeof setTimeout>;
-	}
-
-	const others = $state<Record<string, Participant>>({});
-
-	let claim: string = $state('');
 	let scale: number;
 
 	let tbodyRef: HTMLDivElement | undefined; // Reference to tbody
 
 	function validateOpinion(otherUserId: string) {
-		const target = others[otherUserId].pellet;
+		const target = room.others[otherUserId].pellet;
 		if (!target) return;
 
 		for (let i = 0; i < cells.length; i++) {
@@ -128,7 +102,7 @@
 				if (cell.id != 'notReplied') {
 					log(
 						m.log_opinion({
-							name: others[otherUserId].nickname,
+							name: room.others[otherUserId].room.nickname,
 							opinion: opinions[cell.id as OpinionKey]
 						}),
 						'event'
@@ -158,9 +132,9 @@
 					scaleY: scale
 				});
 
-				Object.keys(others).forEach((key: string) => {
-					if (others[key].pellet) {
-						others[key].pellet.set({
+				Object.keys(room.others).forEach((key: string) => {
+					if (room.others[key].pellet) {
+						room.others[key].pellet.set({
 							scaleX: scale,
 							scaleY: scale
 						});
@@ -202,14 +176,14 @@
 
 	$effect(() => {
 		if (ENABLE_AUDIO) {
-			if (spectrumId && voice.voiceState.peerId && userId) {
+			if (spectrumId && voice.voiceState.peerId && room.userId) {
 				rpc('myvoicechatid', voice.voiceState.peerId);
 				// Call all known peers as safety net (handles race conditions on first load)
 				// untrack prevents this effect from re-running on every others mutation
 				untrack(() => {
-					for (const key in others) {
-						if (others[key].voiceId) {
-							voice.callPeerWithLimit(others[key].voiceId!);
+					for (const key in room.others) {
+						if (room.others[key].voiceId) {
+							voice.callPeerWithLimit(room.others[key].voiceId!);
 						}
 					}
 				});
@@ -229,7 +203,7 @@
 	let voiceIndicator = $derived(1 + voice.voiceState.averageVoice / 100);
 	let otherVoices = $derived.by(() => {
 		const voices: Record<string, number> = {};
-		for (const [key, other] of Object.entries(others)) {
+		for (const [key, other] of Object.entries(room.others)) {
 			voices[key] = 1 + ((other as Participant).averageVoice ?? 0) / 100;
 		}
 		return voices;
@@ -239,19 +213,19 @@
 		voice.connect();
 		voice.setCallbacks({
 			resolveVoiceId: (voiceId) => {
-				for (const [key, other] of Object.entries(others)) {
+				for (const [key, other] of Object.entries(room.others)) {
 					if ((other as Participant).voiceId === voiceId) return key;
 				}
 				return undefined;
 			},
-			onAudio: (userId, audio) => {
-				if (others[userId]) others[userId].audio = audio;
+			onAudio: (uid, audio) => {
+				if (room.others[uid]) room.others[uid].audio = audio;
 			},
-			onAverageVoice: (userId, avg) => {
-				if (others[userId]) others[userId].averageVoice = avg;
+			onAverageVoice: (uid, avg) => {
+				if (room.others[uid]) room.others[uid].averageVoice = avg;
 			},
-			onStream: (userId, audio) => {
-				if (others[userId]) others[userId].audio = audio;
+			onStream: (uid, audio) => {
+				if (room.others[uid]) room.others[uid].audio = audio;
 			}
 		});
 		currentOpinion = 'notReplied';
@@ -330,10 +304,10 @@
 
 	function initPellet() {
 		console.log('Initalizing Your Pellet');
-		if (!userId) return false;
-		if (!nickname) nickname = 'Participant ' + (Math.floor(Math.random() * 100) + 1);
+		if (!room.userId) return false;
+		if (!room.nickname) room.nickname = 'Participant ' + (Math.floor(Math.random() * 100) + 1);
 
-		const pellet = newPellet(userId, nickname);
+		const pellet = newPellet(uid, room.nickname);
 
 		pellet.set({
 			top: (canvasWidth * originalHeight) / originalWidth / 2,
@@ -395,8 +369,8 @@
 		otherNickname: string
 	) {
 		// New user
-		if (!others[otherUserId]) {
-			others[otherUserId] = {
+		if (!room.others[otherUserId]) {
+			room.others[otherUserId] = {
 				pellet:
 					coords && !isNaN(coords.x) && !isNaN(coords.y)
 						? initOtherPellet(otherUserId, otherNickname)
@@ -408,36 +382,37 @@
 			};
 		} else if (coords && !isNaN(coords.x) && !isNaN(coords.y)) {
 			// known user
-			others[otherUserId].target = coords;
-			if (others[otherUserId].nickname != otherNickname)
-				others[otherUserId].nickname = otherNickname;
-			if (!others[otherUserId].pellet)
-				others[otherUserId].pellet = initOtherPellet(otherUserId, otherNickname);
+			room.others[otherUserId].target = coords;
+			if (room.others[otherUserId].room.nickname != otherNickname)
+				room.others[otherUserId].room.nickname = otherNickname;
+			if (!room.others[otherUserId].pellet)
+				room.others[otherUserId].pellet = initOtherPellet(otherUserId, otherNickname);
 		}
 
 		if (coords && (!isNaN(coords.x) || !isNaN(coords.y))) {
-			if (others[otherUserId].validateOpinion) clearTimeout(others[otherUserId].validateOpinion);
+			if (room.others[otherUserId].validateOpinion)
+				clearTimeout(room.others[otherUserId].validateOpinion);
 
-			others[otherUserId].validateOpinion = setTimeout(() => {
+			room.others[otherUserId].validateOpinion = setTimeout(() => {
 				validateOpinion(otherUserId);
 			}, 500);
 		}
 	}
 
 	function deletePellet(otherUserId: string, keepUser: boolean = false) {
-		if (others[otherUserId].pellet) {
-			myCanvas.remove(others[otherUserId].pellet);
+		if (room.others[otherUserId].pellet) {
+			myCanvas.remove(room.others[otherUserId].pellet);
 			myCanvas.renderAll();
-			others[otherUserId].pellet = null;
+			room.others[otherUserId].pellet = null;
 		}
 
 		if (!keepUser) {
-			delete others[otherUserId];
+			delete room.others[otherUserId];
 		}
 	}
 
 	function receivedClaim(c: string) {
-		claim = c.replace(/^(\|\|)+|(\|\|)+$/g, '');
+		room.claim = c.replace(/^(\|\|)+|(\|\|)+$/g, '');
 	}
 
 	let trigger = $state(false);
@@ -466,9 +441,9 @@
 	function animatePellets() {
 		const t = 0.2;
 
-		for (const userId of Object.keys(others)) {
-			const pellet = others[userId].pellet;
-			const target = others[userId].target;
+		for (const uid of Object.keys(room.others)) {
+			const pellet = room.others[uid].pellet;
+			const target = room.others[uid].target;
 
 			if (!pellet) continue;
 			const currentX = pellet.left ?? 0;
@@ -491,7 +466,7 @@
 			rpc(
 				'myposition',
 				`${Math.round(myPellet.left / scale)},${Math.round(myPellet.top / scale)}`,
-				nickname ?? ''
+				room.nickname ?? ''
 			);
 	}
 
@@ -524,8 +499,8 @@
 	function log(message: string, type?: string) {
 		const now = new Date();
 		const formattedDate = now.toLocaleString('fr-FR');
-		logs.push({ message: `[${formattedDate}] ${message}`, type: type ?? 'message' });
-		logs = logs;
+		room.logs.push({ message: `[${formattedDate}] ${message}`, type: type ?? 'message' });
+		room.logs = [...room.logs];
 		scrollToBottom();
 	}
 
@@ -565,9 +540,9 @@
 		liveVotes.set(liveUserId, vote);
 
 		const userIdColor = stringToColorHex(liveUserId);
-		if (others[userIdColor]) {
+		if (room.others[userIdColor]) {
 			// is participant
-			others[userIdColor].target = convertVoteToPosition(vote);
+			room.others[userIdColor].target = convertVoteToPosition(vote);
 		}
 
 		const sum = Array.from(liveVotes.values()).reduce((acc, val) => acc + val, 0);
@@ -618,7 +593,7 @@
 	}
 
 	function parseCommand(line: string) {
-		if (!listenning) return;
+		if (!room.listening) return;
 
 		const rpc = JSON.parse(line) as { procedure: string; arguments: string[] };
 
@@ -627,7 +602,7 @@
 
 			if (command == 'ack') {
 				if (rpc.arguments[0] == 'signin') {
-					if (!initialized) initialized = true;
+					if (!room.initialized) room.initialized = true;
 					if (wasReconnecting) {
 						wasReconnecting = false;
 						log('✓ Reconnected', 'join');
@@ -640,15 +615,15 @@
 				const otherUserId = rpc.arguments[0];
 				const coords = parseCoords(rpc.arguments[1]);
 				const otherNickname = rpc.arguments[2];
-				if (otherUserId != userId) updatePellet(otherUserId, coords, otherNickname);
+				if (otherUserId != room.userId) updatePellet(otherUserId, coords, otherNickname);
 			} /*else if (command == 'joined') {
 				const otherUserId = rpc.arguments[0];
 				const otherNickname = rpc.arguments[1];
-				if (otherUserId != userId) initOtherPellet(otherUserId, otherNickname);
+				if (otherUserId != room.userId) initOtherPellet(otherUserId, otherNickname);
 			} */ else if (command == 'userleft') {
 				const otherUserId = rpc.arguments[0];
-				if (otherUserId != userId) {
-					log(m.log_left_spectrum({ name: others[otherUserId].nickname }), 'leave');
+				if (otherUserId != room.userId) {
+					log(m.log_left_spectrum({ name: room.others[otherUserId].room.nickname }), 'leave');
 					deletePellet(otherUserId);
 				} else {
 					log(m.log_you_left_spectrum(), 'leave');
@@ -657,10 +632,16 @@
 				}
 			} else if (command == 'receive') {
 				const otherUserId = rpc.arguments[0];
-				if (otherUserId != userId) {
-					notify.info(others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1], 5000);
+				if (otherUserId != room.userId) {
+					notify.info(
+						room.others[otherUserId].room.nickname + ' a envoyé : ' + rpc.arguments[1],
+						5000
+					);
 					log(
-						m.log_emoji_received({ name: others[otherUserId].nickname, emoji: rpc.arguments[1] }),
+						m.log_emoji_received({
+							name: room.others[otherUserId].room.nickname,
+							emoji: rpc.arguments[1]
+						}),
 						'event'
 					);
 				} else {
@@ -673,17 +654,20 @@
 
 				if (emoji === '🤚') {
 					handAnimation = true;
-					handUsername = otherUserId != userId ? others[otherUserId].nickname : (nickname ?? '');
+					handUsername =
+						otherUserId != room.userId
+							? room.others[otherUserId].room.nickname
+							: (room.nickname ?? '');
 				}
 
 				requestAnimationFrame(() => (trigger = true)); // retrigger animation
 			} else if (command == 'madeadmin') {
 				const otherUserId = rpc.arguments[0];
-				if (otherUserId != userId) {
+				if (otherUserId != room.userId) {
 					deletePellet(otherUserId, true);
-					log(m.log_made_admin({ name: others[otherUserId].nickname }), 'event');
+					log(m.log_made_admin({ name: room.others[otherUserId].room.nickname }), 'event');
 				} else {
-					adminModeOn = true;
+					room.adminModeOn = true;
 					myCanvas.remove(myPellet);
 					myCanvas.renderAll();
 					myPellet = null;
@@ -705,49 +689,49 @@
 				}
 				moving = false;
 			} else if (command == 'claim') {
-				if (!adminModeOn || (adminModeOn && !claimFocus)) {
+				if (!room.adminModeOn || (room.adminModeOn && !claimFocus)) {
 					receivedClaim(rpc.arguments[0]);
 
 					clearTimeout(updateClaimLog);
 					updateClaimLog = setTimeout(() => {
-						if (claim) log(m.log_claim({ claim }), 'claim');
+						if (room.claim) log(m.log_claim({ claim: room.claim }), 'claim');
 					}, 3000);
 				}
 			} else if (command == 'voicechat') {
 				const otherUserId = rpc.arguments[0];
-				if (otherUserId != userId) {
+				if (otherUserId != room.userId) {
 					const voiceId = rpc.arguments[1].toString();
 					voice.mapVoiceId(voiceId, otherUserId);
-					if (others[otherUserId]) others[otherUserId].voiceId = voiceId;
+					if (room.others[otherUserId]) room.others[otherUserId].voiceId = voiceId;
 					voice.callPeerWithLimit(voiceId);
 				}
 			} else if (command == 'microphonemuted') {
 				const otherUserId = rpc.arguments[0];
-				if (otherUserId != userId && others[otherUserId]) {
-					others[otherUserId].microphone = false;
+				if (otherUserId != room.userId && room.others[otherUserId]) {
+					room.others[otherUserId].microphone = false;
 				}
 			} else if (command == 'listenning') {
-				liveListenning = true;
-				liveChannel = rpc.arguments[0];
-				log(m.log_spectrum_connected({ liveChannel: capitalize(liveChannel) }));
+				room.liveListening = true;
+				room.liveChannel = rpc.arguments[0];
+				log(m.log_spectrum_connected({ liveChannel: capitalize(room.liveChannel) }));
 			} else if (command == 'microphoneunmuted') {
 				const otherUserId = rpc.arguments[0];
-				if (otherUserId != userId) {
-					others[otherUserId].microphone = true;
+				if (otherUserId != room.userId) {
+					room.others[otherUserId].microphone = true;
 				}
 			} else if (command == 'spectrum') {
 				showJoinModal = false;
-				userId = rpc.arguments[0];
-				nickname = rpc.arguments[2];
+				room.userId = rpc.arguments[0];
+				room.nickname = rpc.arguments[2];
 				if (rpc.arguments[3] == 'true') {
-					adminModeOn = true;
+					room.adminModeOn = true;
 				}
 				joinedSpectrum(rpc.arguments[1]);
 
 				log(m.log_you_joined_spectrum(), 'join');
 			} else if (command == 'liveusermessage') {
 				let otherUserId;
-				switch (liveChannel) {
+				switch (room.liveChannel) {
 					case 'youtube':
 						otherUserId = 'ff0000';
 						break;
@@ -758,18 +742,19 @@
 						otherUserId = '9146ff';
 						break;
 					default:
-						console.error('missing liveChannel');
+						console.error('missing room.liveChannel');
 						return;
 				}
 				saveLiveUser(rpc.arguments[0], rpc.arguments[1], rpc.arguments[2]);
 				const coords = parseLiveSpectrum(rpc.arguments[0], rpc.arguments[3]);
-				const otherNickname = capitalize(liveChannel ?? '');
-				if (otherUserId != userId) updatePellet(otherUserId, coords, otherNickname);
+				const otherNickname = capitalize(room.liveChannel ?? '');
+				if (otherUserId != room.userId) updatePellet(otherUserId, coords, otherNickname);
 			} else if (command == 'chatmessage') {
 				const otherUserId = rpc.arguments[0];
 				const message = rpc.arguments[1];
-				if (otherUserId != userId) log(`${others[otherUserId].nickname}: ${message}`);
-				else log(`${nickname}: ${message}`);
+				if (otherUserId != room.userId)
+					log(`${room.others[otherUserId].room.nickname}: ${message}`);
+				else log(`${room.nickname}: ${message}`);
 			}
 		}
 	}
@@ -787,24 +772,23 @@
 	}
 
 	function onCreateSpectrum(nickname: string, initialClaim?: string) {
-		listenning = true;
-		claim = initialClaim ?? '';
-		rpc('startspectrum', nickname);
+		room.listening = true;
+		room.claim = initialClaim ?? '';
+		rpc('startspectrum', room.nickname);
 		showCreateModal = false;
-		adminModeOn = true;
-		rpc('claim', claim);
+		room.adminModeOn = true;
+		rpc('claim', room.claim);
 	}
 
 	function onJoinSpectrum(spectrumId: string, nickname: string) {
-		listenning = true;
+		room.listening = true;
 		rpc('joinspectrum', spectrumId, nickname);
 	}
 
-	let adminModeOn: boolean = $state(false);
 	function joinedSpectrum(id: string) {
 		spectrumId = id;
 
-		if (!adminModeOn) {
+		if (!room.adminModeOn) {
 			initPellet();
 		}
 
@@ -812,13 +796,13 @@
 	}
 
 	function makeAdmin(id: string) {
-		if (!adminModeOn) return;
+		if (!room.adminModeOn) return;
 
 		rpc('makeadmin', id);
 	}
 
 	function kick(id: string) {
-		if (!adminModeOn) return;
+		if (!room.adminModeOn) return;
 
 		rpc('kick', id);
 	}
@@ -847,20 +831,18 @@
 	}
 
 	let showAddLiveUserParticipantModal = $state(false);
-	let liveChannel: string | undefined = $state();
-	let liveListenning: boolean = $state(false);
 
 	function onConnectLive(channel: string, liveId: string, secret: string) {
 		rpc('listen', channel, liveId, secret);
-		liveListenning = false;
-		liveChannel = channel;
+		room.liveListening = false;
+		room.liveChannel = channel;
 		toggleConnectLiveModal();
 	}
 
 	function onAddLiveUserParticipant(liveUserId: string, liveUserNickname: string) {
 		const userIdColor = stringToColorHex(liveUserId);
 
-		others[userIdColor] = {
+		room.others[userIdColor] = {
 			pellet: initOtherPellet(userIdColor, liveUserNickname),
 			target: convertVoteToPosition(liveVotes.get(liveUserId)),
 			nickname: liveUserNickname,
@@ -870,14 +852,14 @@
 	}
 
 	function leaveSpectrum() {
-		listenning = false;
+		room.listening = false;
 		rpc('leavespectrum');
 		spectrumId = undefined;
-		adminModeOn = false;
+		room.adminModeOn = false;
 		myCanvas.remove(myPellet);
-		for (const key in others) {
-			if (others[key].pellet) myCanvas.remove(others[key].pellet);
-			delete others[key];
+		for (const key in room.others) {
+			if (room.others[key].pellet) myCanvas.remove(room.others[key].pellet);
+			delete room.others[key];
 		}
 		myCanvas.renderAll();
 		voice.disconnect();
@@ -895,8 +877,8 @@
 		} else if (!voice.getLocalStream()) {
 			// First activation — request mic permission then call all known participants
 			voice.enableMicrophone().then(() => {
-				for (const key in others) {
-					if (others[key].voiceId) voice.callPeerWithLimit(others[key].voiceId!);
+				for (const key in room.others) {
+					if (room.others[key].voiceId) voice.callPeerWithLimit(room.others[key].voiceId!);
 				}
 			});
 		} else {
@@ -906,8 +888,8 @@
 
 	function setVolume(userId: string, volume: number) {
 		if (!ENABLE_AUDIO) return;
-		others[userId].volume = volume;
-		voice.setParticipantVolume(others[userId].audio, volume);
+		room.others[room.userId].volume = volume;
+		voice.setParticipantVolume(room.others[room.userId].audio, volume);
 	}
 </script>
 
@@ -925,7 +907,7 @@
 	<Header subtitle={m.subtitle()} logo={LOGO_URL} logoWidth={LOGO_WIDTH} title={HEADER_TITLE}>
 		<div class="items-left justify-left mt-8 ml-0 flex flex-wrap gap-4 font-mono">
 			<span class="px-4 py-2">
-				{#if !initialized}
+				{#if !room.initialized}
 					<span class="loading loading-spinner loading-md text-success"></span> Loading...
 				{:else if wsState.reconnecting}
 					<span class="loading loading-spinner loading-sm text-warning"></span>
@@ -956,7 +938,7 @@
 				{/if}
 			</span>
 
-			{#if initialized && spectrumId}
+			{#if room.initialized && spectrumId}
 				<button
 					class="btn btn-success rounded-lg px-4 py-2"
 					use:copy={{
@@ -979,7 +961,7 @@
 				<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
 					><Fa icon={faPersonWalkingArrowRight} /> {m.leave_spectrum()}</button
 				>
-			{:else if initialized && !spectrumId}
+			{:else if room.initialized && !spectrumId}
 				<button onclick={toggleCreateModal} class="btn btn-warning rounded-lg px-4 py-2"
 					><Fa icon={faPlayCircle} /> {m.start_spectrum()}</button
 				>
@@ -1010,27 +992,28 @@
 			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
 					<InputFlex
-						name="claim"
-						placeholder={m.claim()}
-						readonly={!adminModeOn}
-						bind:value={claim}
+						name="room.claim"
+						placeholder={m.room.claim()}
+						readonly={!room.adminModeOn}
+						bind:value={room.claim}
 						onfocusin={() => {
 							claimFocus = true;
-							previousClaim = claim;
+							previousClaim = room.claim;
 						}}
 						onfocusout={() => {
 							claimFocus = false;
-							if (claim != previousClaim && claim) log(m.log_claim({ claim }), 'claim');
+							if (room.claim != previousClaim && room.claim)
+								log(m.log_claim({ claim: room.claim }), 'claim');
 						}}
 						oninput={() => {
-							if (adminModeOn) {
-								rpc('claim', claim);
+							if (room.adminModeOn) {
+								rpc('claim', room.claim);
 							}
 						}}
 						minFontSize={12}
 						maxFontSize={24}
 					/>
-					<span class="font-bold"><Fa icon={faMapPin} /> {m.claim()}</span>
+					<span class="font-bold"><Fa icon={faMapPin} /> {m.room.claim()}</span>
 				</label>
 			</header>
 
@@ -1039,7 +1022,7 @@
 			</div>
 
 			<footer class="flex flex-wrap items-center justify-center gap-4" class:p-4={spectrumId}>
-				{#if adminModeOn}
+				{#if room.adminModeOn}
 					<div>
 						<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={resetPositions}>
 							<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
@@ -1061,18 +1044,18 @@
 								{m.stop_spectrum()}</span
 							></button
 						>
-						{#if liveChannel && liveListenning}
+						{#if room.liveChannel && room.liveListening}
 							<button
 								class="btn btn-error rounded-lg px-4 py-2 font-mono"
 								onclick={() => {
 									rpc('disconnect');
-									liveChannel = undefined;
+									room.liveChannel = undefined;
 								}}
 								><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
 									{m.disconnect_live()}</span
 								></button
 							>
-						{:else if liveChannel}
+						{:else if room.liveChannel}
 							<button class="btn btn-error rounded-lg px-4 py-2 font-mono"
 								><span class="loading loading-spinner loading-xs"></span><span
 									class="hidden lg:!inline-block"
@@ -1152,13 +1135,13 @@
 										></div>
 										<div
 											class="status status-lg"
-											style="background: #{userId}; color: #{userId}; transform: scale({voiceIndicator})"
+											style="background: #{room.userId}; color: #{room.userId}; transform: scale({voiceIndicator})"
 										></div>
 									</div>
 								</td>
 								<td>
 									<span class="text-sm"
-										><b>{nickname}{adminModeOn ? '*' : ''}</b> ({m.yourself()})</span
+										><b>{room.nickname}{room.adminModeOn ? '*' : ''}</b> ({m.yourself()})</span
 									>
 								</td>
 								<td>
@@ -1193,7 +1176,7 @@
 								</td>
 							</tr>
 						{/if}
-						{#each Object.entries(others) as [colorHex, other] (colorHex)}
+						{#each Object.entries(room.others) as [colorHex, other] (colorHex)}
 							<tr class="even:bg-base-100">
 								<td>
 									<div class="inline-grid *:[grid-area:1/1]">
@@ -1224,7 +1207,7 @@
 											</div>
 										</label>
 									{/if}
-									<span class="text-sm"><b>{other.nickname}</b></span>
+									<span class="text-sm"><b>{other.room.nickname}</b></span>
 								</td>
 								<td>
 									<div class="dropdown dropdown-hover dropdown-bottom dropdown-center">
@@ -1245,7 +1228,7 @@
 
 										<div class="dropdown-content bg-base-200 rounded-box w-48 p-4 shadow">
 											<label class="label">
-												<span class="label-text">{m.volume_of({ name: other.nickname })}</span>
+												<span class="label-text">{m.volume_of({ name: other.room.nickname })}</span>
 											</label>
 											<input
 												type="range"
@@ -1260,7 +1243,7 @@
 										</div>
 									</div>
 
-									{#if adminModeOn}
+									{#if room.adminModeOn}
 										<div class="tooltip" data-tip={m.kick_participant()}>
 											<button
 												class="btn btn-square rounded-xl border-0 bg-orange-500/20 text-orange-500"
@@ -1281,7 +1264,7 @@
 								</td>
 							</tr>
 						{/each}
-						{#if liveChannel && liveListenning}
+						{#if room.liveChannel && room.liveListening}
 							<tr>
 								<td colspan="3" class="text-center">
 									<button
@@ -1311,14 +1294,16 @@
 								></div>
 								<div
 									class="status status-xl"
-									style="background: #{userId}; color: #{userId}; transform: scale({voiceIndicator})"
+									style="background: #{room.userId}; color: #{room.userId}; transform: scale({voiceIndicator})"
 								></div>
 							</div>
 						</div>
 						<!-- Participant info -->
 						<div class="flex-1">
 							<div class="text-base font-bold">
-								<span class="truncate text-sm"><b>{nickname}{adminModeOn ? '*' : ''}</b></span>
+								<span class="truncate text-sm"
+									><b>{room.nickname}{room.adminModeOn ? '*' : ''}</b></span
+								>
 							</div>
 							<div class="text-sm text-gray-500">
 								{#if ENABLE_AUDIO}
@@ -1344,7 +1329,7 @@
 						</div>
 					</div>
 				</div>
-				{#each Object.entries(others) as [colorHex, other] (colorHex)}
+				{#each Object.entries(room.others) as [colorHex, other] (colorHex)}
 					<div class="card bg-base-100 border-base-300 w-full border p-4 shadow-md">
 						<div class="flex items-center space-x-4">
 							<!-- Avatar or status indicator -->
@@ -1365,7 +1350,7 @@
 							<!-- Participant info -->
 							<div class="flex-1">
 								<div class="truncate text-base font-bold">
-									{other.nickname}
+									{other.room.nickname}
 								</div>
 								<div class="text-sm text-gray-500">
 									{#if ENABLE_AUDIO}
@@ -1405,7 +1390,7 @@
 					onmouseenter={() => (isHoveringHistory = true)}
 					onmouseleave={() => (isHoveringHistory = false)}
 				>
-					{#each logs as log (log.message + log.type)}
+					{#each room.logs as log (log.message + log.type)}
 						{@const regex = /^\[([^\]]+)\]\s*(.*)$/}
 						{@const match = log.message.match(regex)}
 						<div class="even:bg-base-100 px-4 py-1">
