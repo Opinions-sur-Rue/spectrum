@@ -9,5 +9,7 @@ test:
 
 tools:
 	go install github.com/daixiang0/gci@latest
+	go install github.com/swaggo/swag/cmd/swag@latest
+	go install gotest.tools/gotestsum@latest
 
 .PHONY: docs
