@@ -1,16 +1,19 @@
 import { Circle, FabricText, Group, Rect } from 'fabric';
 
 const RADIUS = 12;
+const FONT_SIZE = 14;
 
 export function newPellet(userId: string, nickname: string) {
-	// All objects use originX: 'left', originY: 'top' (explicit, Fabric 6 behavior)
-	// Circle center is at (RADIUS, RADIUS) so it sits at top-left of bounding box
+	// In Fabric 7, Group recalculates child positions relative to the group center.
+	// We position everything so the group's visual center aligns with what we want.
+	// Y=0 is the vertical center. X=0 is the left edge of the circle.
+
 	const circle = new Circle({
-		left: 0,
-		top: 0,
+		left: RADIUS, // center of circle
+		top: 0, // vertical center
 		radius: RADIUS,
-		originX: 'left',
-		originY: 'top',
+		originX: 'center',
+		originY: 'center',
 		fill: `#f9f9f9`,
 		stroke: `#${userId}`,
 		strokeWidth: 5,
@@ -20,37 +23,40 @@ export function newPellet(userId: string, nickname: string) {
 		hasBorders: false
 	});
 
+	// Measure text width first (before adding to group)
 	const text = new FabricText(nickname, {
 		fontFamily:
 			'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-		left: RADIUS * 2 + 8, // right of the circle + small gap
-		top: 0,
-		fontSize: 14,
+		fontSize: FONT_SIZE,
 		fill: '#ffffff',
-		originX: 'left',
-		originY: 'top',
 		evented: false,
+		originX: 'left',
+		originY: 'center',
 		hasBorders: false,
 		hasContext: false
 	});
 
+	const rectWidth = (text.width ?? 60) + 16;
+	const rectHeight = RADIUS * 2;
+
 	const rect = new Rect({
-		left: RADIUS * 2, // starts right after the circle
-		top: 0,
-		width: (text.width ?? 0) + 16,
-		height: RADIUS * 2,
+		width: rectWidth,
+		height: rectHeight,
 		fill: `#${userId}`,
 		originX: 'left',
-		originY: 'top',
+		originY: 'center',
 		strokeWidth: 0,
 		evented: false,
 		hasBorders: false,
 		hasContext: false
 	});
 
+	// Position rect right of circle (circle occupies -RADIUS to +RADIUS in x from its center)
+	// We set positions here; Fabric 7 will offset them relative to the computed group center
+	rect.set({ left: RADIUS * 2, top: 0 });
+	text.set({ left: RADIUS * 2 + 8, top: 0 });
+
 	const g = new Group([rect, text, circle], {
-		originX: 'left',
-		originY: 'top',
 		evented: false,
 		hasBorders: false,
 		hasControls: false
