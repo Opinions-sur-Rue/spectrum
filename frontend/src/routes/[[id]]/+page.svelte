@@ -1,8 +1,4 @@
 <script lang="ts">
-	/* eslint-disable */
-	// @ts-nocheck
-	/* eslint svelte/no-at-html-tags: "off" */
-
 	import Header from '$lib/components/Header.svelte';
 	import {
 		faCirclePlus,
@@ -30,7 +26,6 @@
 		faUserSlash,
 		faVolumeHigh,
 		faVolumeLow,
-		faVolumeMute,
 		faVolumeOff,
 		faVolumeXmark
 	} from '@fortawesome/free-solid-svg-icons';
@@ -44,10 +39,10 @@
 	import { startWebsocket, wsState } from '$lib/spectrum/websocket.svelte';
 	import { Canvas, loadSVGFromURL, util } from 'fabric';
 	import { onMount, tick } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { copy } from 'svelte-copy';
 	import { capitalize, lerp, pointInPolygon, stringToColorHex } from '$lib/utils';
 	import Peer from 'peerjs';
-	import * as pkg from 'peerjs';
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
@@ -56,6 +51,7 @@
 	import { newPellet } from '$lib/canvas/pellet';
 	import type { LiveUser } from '$lib/social';
 
+	// eslint-disable-next-line svelte/valid-prop-names-in-kit-pages
 	let { id: spectrumId }: { id: string | undefined } = $props();
 
 	const opinions = {
@@ -96,24 +92,38 @@
 
 	let logs: Log[] = $state([]);
 
-	let myPellet: any = $state();
+	let myPellet: ReturnType<typeof newPellet> | null = $state(null);
 	let moving = false;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const cells: any[] = [];
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const cellsPoints: any[] = [];
-	const others: any = $state({});
+	interface Participant {
+		pellet: ReturnType<typeof newPellet> | null;
+		target?: { x: number; y: number };
+		nickname: string;
+		microphone: boolean;
+		volume: number;
+		voiceId?: string;
+		audio?: HTMLAudioElement;
+		averageVoice?: number;
+		validateOpinion?: ReturnType<typeof setTimeout>;
+	}
+
+	const others = $state<Record<string, Participant>>({});
 
 	let claim: string = $state('');
 	let scale: number;
 
-	let tbodyRef: any; // Reference to tbody
+	let tbodyRef: HTMLDivElement | undefined; // Reference to tbody
 
 	let localStream: MediaStream | undefined = $state();
 	let peer: Peer;
 	let peerId: string | undefined = $state();
 	let peerConnected = $state(false);
-	const connections = new Map<string, MediaStream>();
+	const connections = new SvelteMap<string, MediaStream>();
 	let microphone: boolean = $state(false);
-	const voiceIdToUserId = new Map<string, string>();
+	const voiceIdToUserId = new SvelteMap<string, string>();
 
 	function validateOpinion(otherUserId: string) {
 		const target = others[otherUserId].pellet;
@@ -213,13 +223,14 @@
 		}
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let svg: any;
 	let averageVoice: number = $state(0);
 	let voiceIndicator = $derived(1 + averageVoice / 100);
 	let otherVoices = $derived.by(() => {
-		const voices: any = {};
+		const voices: Record<string, number> = {};
 		for (const [key, other] of Object.entries(others)) {
-			voices[key] = 1 + ((other as any).averageVoice ?? 0) / 100;
+			voices[key] = 1 + ((other as Participant).averageVoice ?? 0) / 100;
 		}
 		return voices;
 	});
@@ -235,7 +246,8 @@
 				}
 			});
 
-			const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+			const audioContext = new (window.AudioContext ||
+				(window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
 
 			const source = audioContext.createMediaStreamSource(localStream);
 
@@ -275,7 +287,7 @@
 		console.log('Playing audio for voiceId:', voiceId);
 		let otherId: string | undefined;
 		for (const [key, value] of Object.entries(others)) {
-			if ((value as any).voiceId === voiceId) {
+			if ((value as Participant).voiceId === voiceId) {
 				otherId = key;
 				break;
 			}
@@ -287,7 +299,8 @@
 		audio.autoplay = true;
 		audio.play().catch(console.error);
 
-		const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+		const audioContext = new (window.AudioContext ||
+			(window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
 
 		const source = audioContext.createMediaStreamSource(stream);
 
@@ -366,7 +379,7 @@
 				setTimeout(() => connectToPeer(), 1000);
 			} else if (err.type === 'peer-unavailable') {
 				console.log('Failed to connect with peer, trying again');
-				const match = err.message.match(/[0-9a-fA-F\-]{36}$/);
+				const match = err.message.match(/[0-9a-fA-F-]{36}$/);
 				if (match) {
 					const peerId = match[0];
 					console.log('Peer ID:', peerId);
@@ -431,9 +444,8 @@
 			}
 		});
 
-		// @ts-ignore
 		loadSVGFromURL(m.file_spectrum()).then(({ objects, options }) => {
-			// @ts-ignore
+			// @ts-expect-error -- groupSVGElements return type not fully typed
 			svg = util.groupSVGElements(objects, options);
 
 			// Get canvas dimensions
@@ -529,11 +541,11 @@
 		setInterval(updateMyPellet, updateTick);
 	}
 
-	function initOtherPellet(userId: string, nickname: string, pictureUrl?: string) {
+	function initOtherPellet(userId: string, nickname: string) {
 		console.log('Initalizing Other Pellet: ' + userId);
 		log(m.log_joined_spectrum({ name: nickname }), 'join');
 
-		const pellet = newPellet(userId, nickname, pictureUrl);
+		const pellet = newPellet(userId, nickname);
 
 		pellet.set({
 			top: (canvasWidth * originalHeight) / originalWidth / 2,
@@ -584,7 +596,7 @@
 		if (others[otherUserId].pellet) {
 			myCanvas.remove(others[otherUserId].pellet);
 			myCanvas.renderAll();
-			delete others[otherUserId].pellet;
+			others[otherUserId].pellet = null;
 		}
 
 		if (!keepUser) {
@@ -630,6 +642,8 @@
 			const currentX = pellet.left ?? 0;
 			const currentY = pellet.top ?? 0;
 
+			if (!target) continue;
+
 			pellet.set({
 				left: lerp(currentX, target.x * scale, t),
 				top: lerp(currentY, target.y * scale, t)
@@ -650,7 +664,7 @@
 	}
 
 	function drawCanvas(id: string) {
-		// @ts-ignore
+		// @ts-expect-error -- Canvas constructor options
 		const canvas = new Canvas(id);
 		canvas.hoverCursor = 'pointer';
 		canvas.selection = false;
@@ -695,8 +709,8 @@
 		return { x, y };
 	}
 
-	let liveVotes = new Map<string, number>();
-	let liveUsers = new Map<string, LiveUser>();
+	let liveVotes = new SvelteMap<string, number>();
+	let liveUsers = new SvelteMap<string, LiveUser>();
 
 	function saveLiveUser(
 		liveUserId: string,
@@ -827,7 +841,7 @@
 
 				if (emoji === '🤚') {
 					handAnimation = true;
-					handUsername = otherUserId != userId ? others[otherUserId].nickname : nickname;
+					handUsername = otherUserId != userId ? others[otherUserId].nickname : (nickname ?? '');
 				}
 
 				requestAnimationFrame(() => (trigger = true)); // retrigger animation
@@ -947,7 +961,7 @@
 		}
 	}
 
-	let updateClaimLog: number | undefined;
+	let updateClaimLog: ReturnType<typeof setTimeout> | undefined;
 	let previousClaim: string | undefined;
 
 	function connectionLost() {
@@ -1020,10 +1034,6 @@
 	}
 
 	let showAddLiveUserParticipantModal = $state(false);
-	function toggleAddLiveUserParticipantModal() {
-		showAddLiveUserParticipantModal = !showAddLiveUserParticipantModal;
-	}
-
 	let liveChannel: string | undefined = $state();
 	let liveListenning: boolean = $state(false);
 
@@ -1034,15 +1044,11 @@
 		toggleConnectLiveModal();
 	}
 
-	function onAddLiveUserParticipant(
-		liveUserId: string,
-		liveUserNickname: string,
-		liveUserPictureUrl?: string
-	) {
+	function onAddLiveUserParticipant(liveUserId: string, liveUserNickname: string) {
 		const userIdColor = stringToColorHex(liveUserId);
 
 		others[userIdColor] = {
-			pellet: initOtherPellet(userIdColor, liveUserNickname, liveUserPictureUrl),
+			pellet: initOtherPellet(userIdColor, liveUserNickname),
 			target: convertVoteToPosition(liveVotes.get(liveUserId)),
 			nickname: liveUserNickname,
 			microphone: false,
@@ -1071,7 +1077,7 @@
 
 	let streamerMode = $state(false);
 
-	function toggleMicrophone(event: MouseEvent & { currentTarget: EventTarget & HTMLLabelElement }) {
+	function toggleMicrophone() {
 		microphone = !microphone;
 
 		// Open microphone for first time, will trigger permission etc, and then call everybody we knew who had voiceId
@@ -1088,7 +1094,7 @@
 		if (!ENABLE_AUDIO) return;
 
 		others[userId].volume = volume;
-		others[userId].audio.volume = volume / 100;
+		if (others[userId].audio) others[userId].audio!.volume = volume / 100;
 	}
 </script>
 
@@ -1371,7 +1377,7 @@
 								</td>
 							</tr>
 						{/if}
-						{#each Object.entries(others) as [colorHex, other]}
+						{#each Object.entries(others) as [colorHex, other] (colorHex)}
 							<tr class="even:bg-base-100">
 								<td>
 									<div class="inline-grid *:[grid-area:1/1]">
@@ -1392,7 +1398,7 @@
 									{#if ENABLE_AUDIO}
 										<label
 											class="swap swap-flip cursor-default"
-											class:swap-active={(other as any).microphone}
+											class:swap-active={other.microphone}
 										>
 											<div class="swap-on">
 												<Fa icon={faMicrophone} />
@@ -1402,7 +1408,7 @@
 											</div>
 										</label>
 									{/if}
-									<span class="text-sm"><b>{(other as any).nickname}</b></span>
+									<span class="text-sm"><b>{other.nickname}</b></span>
 								</td>
 								<td>
 									<div class="dropdown dropdown-hover dropdown-bottom dropdown-center">
@@ -1423,9 +1429,7 @@
 
 										<div class="dropdown-content bg-base-200 rounded-box w-48 p-4 shadow">
 											<label class="label">
-												<span class="label-text"
-													>{m.volume_of({ name: (other as any).nickname })}</span
-												>
+												<span class="label-text">{m.volume_of({ name: other.nickname })}</span>
 											</label>
 											<input
 												type="range"
@@ -1434,7 +1438,7 @@
 												value="100"
 												class="range range-xs"
 												oninput={(e) => {
-													setVolume(colorHex, +e.target?.value);
+													setVolume(colorHex, +(e.target as HTMLInputElement)?.value);
 												}}
 											/>
 										</div>
@@ -1516,7 +1520,7 @@
 						</div>
 					</div>
 				</div>
-				{#each Object.entries(others) as [colorHex, other]}
+				{#each Object.entries(others) as [colorHex, other] (colorHex)}
 					<div class="card bg-base-100 border-base-300 w-full border p-4 shadow-md">
 						<div class="flex items-center space-x-4">
 							<!-- Avatar or status indicator -->
@@ -1537,13 +1541,13 @@
 							<!-- Participant info -->
 							<div class="flex-1">
 								<div class="truncate text-base font-bold">
-									{(other as any).nickname}
+									{other.nickname}
 								</div>
 								<div class="text-sm text-gray-500">
 									{#if ENABLE_AUDIO}
 										<label
 											class="swap swap-flip cursor-default"
-											class:swap-active={(other as any).microphone}
+											class:swap-active={other.microphone}
 										>
 											<div class="swap-on">
 												<Fa icon={faMicrophone} />
@@ -1577,7 +1581,7 @@
 					onmouseenter={() => (isHoveringHistory = true)}
 					onmouseleave={() => (isHoveringHistory = false)}
 				>
-					{#each logs as log, i}
+					{#each logs as log (log.message + log.type)}
 						{@const regex = /^\[([^\]]+)\]\s*(.*)$/}
 						{@const match = log.message.match(regex)}
 						<div class="even:bg-base-100 px-4 py-1">

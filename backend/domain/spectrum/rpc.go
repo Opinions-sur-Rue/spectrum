@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	newPositions   = []string{"569,514", "509,521", "426,521", "514,566", "424,569", "382,523"}
+	newPositions   = []string{"431,582", "502,564", "503,623", "574,591", "416,553", "576,543"}
 	procedureRegex = regexp.MustCompile(`^(sendchatmessage|listen|disconnect|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick)$`)
 )
 
