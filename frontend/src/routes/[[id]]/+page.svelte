@@ -444,7 +444,6 @@
 			}
 		});
 
-		// @ts-expect-error -- loadSVGFromURL return type not fully typed
 		loadSVGFromURL(m.file_spectrum()).then(({ objects, options }) => {
 			// @ts-expect-error -- groupSVGElements return type not fully typed
 			svg = util.groupSVGElements(objects, options);
