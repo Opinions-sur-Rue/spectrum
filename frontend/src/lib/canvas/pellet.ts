@@ -36,7 +36,7 @@ export function newPellet(userId: string, nickname: string) {
 		hasContext: false
 	});
 
-	const rectWidth = (text.width ?? 60) + 16;
+	const rectWidth = (text.width ?? 60) + RADIUS + 20;
 	const rectHeight = RADIUS * 2;
 
 	const rect = new Rect({
@@ -53,7 +53,7 @@ export function newPellet(userId: string, nickname: string) {
 
 	// Position rect right of circle (circle occupies -RADIUS to +RADIUS in x from its center)
 	// We set positions here; Fabric 7 will offset them relative to the computed group center
-	rect.set({ left: RADIUS * 2, top: 0 });
+	rect.set({ left: RADIUS, top: 0 });
 	text.set({ left: RADIUS * 2 + 8, top: 0 });
 
 	const g = new Group([rect, text, circle], {

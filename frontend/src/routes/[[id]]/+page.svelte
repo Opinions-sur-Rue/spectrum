@@ -26,7 +26,6 @@
 		faUserSlash,
 		faVolumeHigh,
 		faVolumeLow,
-		faVolumeMute,
 		faVolumeOff,
 		faVolumeXmark
 	} from '@fortawesome/free-solid-svg-icons';
