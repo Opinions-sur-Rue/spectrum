@@ -41,7 +41,7 @@
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
 	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
 	import { ENABLE_AUDIO, HEADER_TITLE, LOGO_URL, LOGO_WIDTH, PUBLIC_URL } from '$lib/env';
-	import { startWebsocket } from '$lib/spectrum/websocket';
+	import { startWebsocket, wsState } from '$lib/spectrum/websocket.svelte';
 	import { Canvas, loadSVGFromURL, util } from 'fabric';
 	import { onMount, tick } from 'svelte';
 	import { copy } from 'svelte-copy';
@@ -667,7 +667,12 @@
 		return canvas;
 	}
 
+	let wasReconnecting = false;
+
 	function signIn() {
+		if (wsState.reconnecting) {
+			wasReconnecting = true;
+		}
 		rpc('signin', getUserId());
 	}
 
@@ -783,6 +788,10 @@
 			if (command == 'ack') {
 				if (rpc.arguments[0] == 'signin') {
 					if (!initialized) initialized = true;
+					if (wasReconnecting) {
+						wasReconnecting = false;
+						log('✓ Reconnected', 'join');
+					}
 				}
 			} else if (command == 'nack') {
 				// TODO: translate
@@ -948,6 +957,7 @@
 	let previousClaim: string | undefined;
 
 	function connectionLost() {
+		log(m.cannot_connect(), 'leave');
 		notify.error(m.cannot_connect());
 	}
 
@@ -1104,6 +1114,9 @@
 			<span class="px-4 py-2">
 				{#if !initialized}
 					<span class="loading loading-spinner loading-md text-success"></span> Loading...
+				{:else if wsState.reconnecting}
+					<span class="loading loading-spinner loading-sm text-warning"></span>
+					<span class="text-warning font-mono text-sm">Reconnecting...</span>
 				{:else}
 					<div class="inline-grid *:[grid-area:1/1]">
 						<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>

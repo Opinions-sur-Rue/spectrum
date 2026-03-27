@@ -4,6 +4,9 @@ const WS_URL = API_URL.replace('http://', 'ws://').replace('https://', 'wss://')
 
 let websocket: WebSocket;
 
+/** Reactive WebSocket state. Use wsState.reconnecting in templates. */
+export const wsState = $state({ reconnecting: false });
+
 export function startWebsocket(
 	onOpenCallback: () => void,
 	onMessageCallback: (arg: string) => void,
@@ -15,6 +18,8 @@ export function startWebsocket(
 
 	websocket.onclose = async function (evt) {
 		console.warn('Websocket connection lost: ' + evt.reason);
+
+		wsState.reconnecting = true;
 
 		if (onCloseCallback) await onCloseCallback();
 
@@ -36,6 +41,7 @@ export function startWebsocket(
 	};
 
 	websocket.onopen = async function () {
+		wsState.reconnecting = false;
 		if (onOpenCallback) await onOpenCallback();
 	};
 
