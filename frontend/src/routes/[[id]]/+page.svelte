@@ -143,6 +143,8 @@
 				myCanvas.setDimensions({ width: canvasWidth, height: scale * originalHeight });
 
 				svg.set({
+					originX: 'left',
+					originY: 'top',
 					scaleX: scale,
 					scaleY: scale,
 					left: (canvasWidth - svg.width! * scale) / 2,
@@ -444,6 +446,8 @@
 			const scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
 
 			svg.set({
+				originX: 'left',
+				originY: 'top',
 				scaleX: scale,
 				scaleY: scale,
 				left: (canvasWidth - svg.width! * scale) / 2,

@@ -44,6 +44,8 @@ export function newPellet(userId: string, nickname: string) {
 	});
 
 	const g = new Group([rect, text, circle], {
+		originX: 'left',
+		originY: 'top',
 		evented: false,
 		hasBorders: false,
 		hasControls: false
