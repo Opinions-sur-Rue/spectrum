@@ -6,7 +6,7 @@
 
 	let show = false;
 	let element: HTMLDivElement;
-	let timeout: number | undefined;
+	let timeout: ReturnType<typeof setTimeout> | undefined;
 
 	$: if (trigger) {
 		if (timeout) clearTimeout(timeout);
