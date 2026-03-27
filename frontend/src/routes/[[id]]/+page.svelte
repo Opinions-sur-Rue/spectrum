@@ -42,7 +42,7 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import { copy } from 'svelte-copy';
 	import { capitalize, lerp, pointInPolygon, stringToColorHex } from '$lib/utils';
-	import Peer from 'peerjs';
+	import * as voice from '$lib/voice/index.svelte';
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
@@ -116,14 +116,6 @@
 	let scale: number;
 
 	let tbodyRef: HTMLDivElement | undefined; // Reference to tbody
-
-	let localStream: MediaStream | undefined = $state();
-	let peer: Peer;
-	let peerId: string | undefined = $state();
-	let peerConnected = $state(false);
-	const connections = new SvelteMap<string, MediaStream>();
-	let microphone: boolean = $state(false);
-	const voiceIdToUserId = new SvelteMap<string, string>();
 
 	function validateOpinion(otherUserId: string) {
 		const target = others[otherUserId].pellet;
@@ -199,10 +191,10 @@
 	$effect(() => {
 		if (ENABLE_AUDIO && peerId && spectrumId) {
 			if (microphone) {
-				localStream?.getTracks().forEach((track) => (track.enabled = true));
+				voice.unmuteMicrophone();
 				rpc('unmutedmymicrophone');
 			} else {
-				localStream?.getTracks().forEach((track) => (track.enabled = false));
+				voice.muteMicrophone();
 				rpc('mutedmymicrophone');
 			}
 		}
@@ -225,7 +217,6 @@
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let svg: any;
-	let averageVoice: number = $state(0);
 	let voiceIndicator = $derived(1 + averageVoice / 100);
 	let otherVoices = $derived.by(() => {
 		const voices: Record<string, number> = {};
@@ -235,193 +226,25 @@
 		return voices;
 	});
 
-	async function turnOnMicrophone() {
-		console.log('ACTIVATION DU MICRO');
-		try {
-			localStream = await navigator.mediaDevices.getUserMedia({
-				audio: {
-					echoCancellation: true,
-					noiseSuppression: true,
-					autoGainControl: true
-				}
-			});
-
-			const audioContext = new (window.AudioContext ||
-				(window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-
-			const source = audioContext.createMediaStreamSource(localStream);
-
-			const analyser = audioContext.createAnalyser();
-			analyser.fftSize = 512;
-
-			source.connect(analyser);
-
-			const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-			function detectVoice() {
-				analyser.getByteFrequencyData(dataArray);
-				let values = 0;
-
-				for (let i = 0; i < dataArray.length; i++) {
-					values += dataArray[i];
-				}
-
-				const average = values / dataArray.length;
-
-				if (average > 20) {
-					averageVoice = average;
-				} else {
-					averageVoice = 0;
-				}
-
-				requestAnimationFrame(detectVoice);
-			}
-
-			detectVoice();
-		} catch (err) {
-			console.error('Error accessing microphone:', err);
-		}
-	}
-
-	function playAudio(voiceId: string, stream: MediaStream) {
-		console.log('Playing audio for voiceId:', voiceId);
-		let otherId: string | undefined;
-		for (const [key, value] of Object.entries(others)) {
-			if ((value as Participant).voiceId === voiceId) {
-				otherId = key;
-				break;
-			}
-		}
-		if (!otherId) return;
-
-		const audio = new Audio();
-		audio.srcObject = stream;
-		audio.autoplay = true;
-		audio.play().catch(console.error);
-
-		const audioContext = new (window.AudioContext ||
-			(window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-
-		const source = audioContext.createMediaStreamSource(stream);
-
-		const analyser = audioContext.createAnalyser();
-		analyser.fftSize = 512;
-
-		source.connect(analyser);
-
-		const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-		function detectVoice() {
-			analyser.getByteFrequencyData(dataArray);
-			let values = 0;
-
-			for (let i = 0; i < dataArray.length; i++) {
-				values += dataArray[i];
-			}
-
-			const average = values / dataArray.length;
-
-			if (others[otherId!]) {
-				if (average > 20) {
-					others[otherId!].averageVoice = average;
-				} else {
-					others[otherId!].averageVoice = 0;
-				}
-			}
-
-			requestAnimationFrame(detectVoice);
-		}
-
-		detectVoice();
-		return audio;
-	}
-
-	function connectToPeer() {
-		// If a peer instance already exists, destroy it
-		if (peer && !peer.destroyed) {
-			peer.destroy();
-		}
-
-		const options = {
-			host: 'spectrum.utile.space',
-			port: 443,
-			path: '/peerjs',
-			secure: true, // if using HTTPS
-
-			config: {
-				iceServers: [
-					{ urls: 'stun:spectrum.utile.space:3478' },
-					{
-						urls: 'turn:spectrum.utile.space:3478',
-						username: 'testuser',
-						credential: 'testpassword'
-					}
-				]
-			}
-		};
-
-		peer = new Peer(options);
-
-		// Handle the 'open' event
-		peer.on('open', (id) => {
-			console.log(`Connected with ID: ${id}`);
-			peerId = id;
-			peerConnected = true;
-			// Proceed with establishing connections or calls
-		});
-
-		// Handle errors
-		peer.on('error', (err) => {
-			console.error('Peer error:', err);
-			if (err.type === 'unavailable-id') {
-				peerConnected = false;
-				// Retry after a delay if the ID is still considered in use
-				setTimeout(() => connectToPeer(), 1000);
-			} else if (err.type === 'peer-unavailable') {
-				console.log('Failed to connect with peer, trying again');
-				const match = err.message.match(/[0-9a-fA-F-]{36}$/);
-				if (match) {
-					const peerId = match[0];
-					console.log('Peer ID:', peerId);
-					peer.call(peerId, localStream!);
-				} else {
-					console.log('No peer ID found in error message.');
-				}
-			}
-		});
-
-		// Handle disconnection
-		peer.on('disconnected', () => {
-			peerConnected = false;
-			console.warn('Peer disconnected. Attempting to reconnect...');
-			peer.reconnect();
-		});
-
-		peer.on('call', (call) => {
-			call.answer(localStream);
-
-			console.log('RECEIVED CALL FROM', call.peer);
-			call.on('stream', (remoteStream) => {
-				const voiceId = call.peer;
-				const userId = voiceIdToUserId.get(voiceId);
-				const audio = playAudio(voiceId, remoteStream);
-				if (userId) others[userId].audio = audio;
-
-				if (connections.has(call.peer)) {
-					// kill previous connection
-					connections
-						.get(call.peer)
-						?.getTracks()
-						.forEach((element) => element.stop());
-				}
-
-				connections.set(call.peer, remoteStream);
-			});
-		});
-	}
-
 	onMount(() => {
-		connectToPeer();
+		voice.connect();
+		voice.setCallbacks({
+			resolveVoiceId: (voiceId) => {
+				for (const [key, other] of Object.entries(others)) {
+					if ((other as Participant).voiceId === voiceId) return key;
+				}
+				return undefined;
+			},
+			onAudio: (userId, audio) => {
+				if (others[userId]) others[userId].audio = audio;
+			},
+			onAverageVoice: (userId, avg) => {
+				if (others[userId]) others[userId].averageVoice = avg;
+			},
+			onStream: (userId, audio) => {
+				if (others[userId]) others[userId].audio = audio;
+			}
+		});
 		currentOpinion = 'notReplied';
 
 		spectrumId = page.params?.id;
@@ -886,8 +709,8 @@
 				if (otherUserId != userId) {
 					const voiceId = rpc.arguments[1].toString();
 					others[otherUserId].voiceId = voiceId;
-					voiceIdToUserId.set(voiceId, otherUserId);
-					if (localStream && peerId) attemptCallWithLimit(peer, voiceId, localStream, 10);
+					voice.mapVoiceId(voiceId, otherUserId);
+					voice.callPeerWithLimit(voiceId);
 				}
 			} else if (command == 'microphonemuted') {
 				const otherUserId = rpc.arguments[0];
@@ -939,25 +762,6 @@
 				if (otherUserId != userId) log(`${others[otherUserId].nickname}: ${message}`);
 				else log(`${nickname}: ${message}`);
 			}
-		}
-	}
-
-	function attemptCallWithLimit(
-		peer: Peer | undefined,
-		targetId: string,
-		localStream: MediaStream | undefined,
-		maxRetries: number = 5,
-		attempt: number = 1
-	) {
-		if (peer && localStream) {
-			//connections.set(targetId, peer.call(targetId, localStream));
-			peer.call(targetId, localStream);
-		} else if (attempt <= maxRetries) {
-			setTimeout(() => {
-				attemptCallWithLimit(peer, targetId, localStream, maxRetries, attempt + 1);
-			}, 1000); // Retry after 1 second
-		} else {
-			console.error(`Failed to establish peer connection to ${targetId} after maximum retries.`);
 		}
 	}
 
@@ -1067,8 +871,7 @@
 			delete others[key];
 		}
 		myCanvas.renderAll();
-		peer.disconnect();
-		connections.forEach((stream) => stream.getTracks().forEach((t) => t.stop()));
+		voice.disconnect();
 	}
 
 	const copied = () => {
@@ -1082,9 +885,9 @@
 
 		// Open microphone for first time, will trigger permission etc, and then call everybody we knew who had voiceId
 		if (!localStream && microphone) {
-			turnOnMicrophone().then(() => {
+			voice.enableMicrophone().then(() => {
 				for (const key in others) {
-					if (others[key].voiceId) attemptCallWithLimit(peer, others[key].voiceId, localStream, 10);
+					if (others[key].voiceId) voice.callPeerWithLimit(others[key].voiceId);
 				}
 			});
 		}
@@ -1092,9 +895,8 @@
 
 	function setVolume(userId: string, volume: number) {
 		if (!ENABLE_AUDIO) return;
-
 		others[userId].volume = volume;
-		if (others[userId].audio) others[userId].audio!.volume = volume / 100;
+		voice.setParticipantVolume(others[userId].audio, volume);
 	}
 </script>
 
