@@ -56,8 +56,8 @@ export const room = $state({
 	/** Chat/event history. */
 	logs: [] as Log[],
 
-	/** False when we have left the spectrum (stops RPC processing). */
-	listening: true,
+	/** True while in a spectrum session (gates RPC processing). */
+	listening: false,
 
 	/** Live stream channel type (youtube, twitch, tiktok). */
 	liveChannel: undefined as string | undefined,
@@ -88,12 +88,6 @@ export function leaveRoom() {
 	// Clear all participants
 	for (const key in room.others) {
 		delete room.others[key];
-	}
-}
-
-export function updateParticipant(colorHex: string, updates: Partial<Participant>) {
-	if (room.others[colorHex]) {
-		Object.assign(room.others[colorHex], updates);
 	}
 }
 

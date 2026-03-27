@@ -43,7 +43,13 @@
 	import { copy } from 'svelte-copy';
 	import { capitalize, lerp, pointInPolygon, stringToColorHex } from '$lib/utils';
 	import * as voice from '$lib/voice/index.svelte';
-	import { room, type Participant } from '$lib/spectrum/room.svelte';
+	import {
+		room,
+		joinRoom,
+		leaveRoom,
+		removeParticipant,
+		type Participant
+	} from '$lib/spectrum/room.svelte';
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
@@ -307,7 +313,7 @@
 		if (!room.userId) return false;
 		if (!room.nickname) room.nickname = 'Participant ' + (Math.floor(Math.random() * 100) + 1);
 
-		const pellet = newPellet(uid, room.nickname);
+		const pellet = newPellet(room.userId, room.nickname);
 
 		pellet.set({
 			top: (canvasWidth * originalHeight) / originalWidth / 2,
@@ -400,14 +406,14 @@
 	}
 
 	function deletePellet(otherUserId: string, keepUser: boolean = false) {
-		if (room.others[otherUserId].pellet) {
+		if (room.others[otherUserId]?.pellet) {
 			myCanvas.remove(room.others[otherUserId].pellet);
 			myCanvas.renderAll();
 			room.others[otherUserId].pellet = null;
 		}
 
 		if (!keepUser) {
-			delete room.others[otherUserId];
+			removeParticipant(otherUserId);
 		}
 	}
 
@@ -500,7 +506,6 @@
 		const now = new Date();
 		const formattedDate = now.toLocaleString('fr-FR');
 		room.logs.push({ message: `[${formattedDate}] ${message}`, type: type ?? 'message' });
-		room.logs = [...room.logs];
 		scrollToBottom();
 	}
 
@@ -593,8 +598,6 @@
 	}
 
 	function parseCommand(line: string) {
-		if (!room.listening) return;
-
 		const rpc = JSON.parse(line) as { procedure: string; arguments: string[] };
 
 		if (rpc.procedure) {
@@ -611,6 +614,14 @@
 			} else if (command == 'nack') {
 				// TODO: translate
 				notify.error('Désolé, erreur reçue: ' + rpc.arguments[0]);
+			} else if (command == 'spectrum') {
+				showJoinModal = false;
+				joinRoom(rpc.arguments[1], rpc.arguments[0], rpc.arguments[2], rpc.arguments[3] == 'true');
+				joinedSpectrum(rpc.arguments[1]);
+
+				log(m.log_you_joined_spectrum(), 'join');
+			} else if (!room.listening) {
+				return;
 			} else if (command == 'update') {
 				const otherUserId = rpc.arguments[0];
 				const coords = parseCoords(rpc.arguments[1]);
@@ -711,19 +722,9 @@
 				log(m.log_spectrum_connected({ liveChannel: capitalize(room.liveChannel) }));
 			} else if (command == 'microphoneunmuted') {
 				const otherUserId = rpc.arguments[0];
-				if (otherUserId != room.userId) {
+				if (otherUserId != room.userId && room.others[otherUserId]) {
 					room.others[otherUserId].microphone = true;
 				}
-			} else if (command == 'spectrum') {
-				showJoinModal = false;
-				room.userId = rpc.arguments[0];
-				room.nickname = rpc.arguments[2];
-				if (rpc.arguments[3] == 'true') {
-					room.adminModeOn = true;
-				}
-				joinedSpectrum(rpc.arguments[1]);
-
-				log(m.log_you_joined_spectrum(), 'join');
 			} else if (command == 'liveusermessage') {
 				let otherUserId;
 				switch (room.liveChannel) {
@@ -768,7 +769,7 @@
 	function onCreateSpectrum(nickname: string, initialClaim?: string) {
 		room.listening = true;
 		room.claim = initialClaim ?? '';
-		rpc('startspectrum', room.nickname);
+		rpc('startspectrum', nickname);
 		showCreateModal = false;
 		room.adminModeOn = true;
 		rpc('claim', room.claim);
@@ -846,16 +847,15 @@
 	}
 
 	function leaveSpectrum() {
-		room.listening = false;
 		rpc('leavespectrum');
 		spectrumId = undefined;
-		room.adminModeOn = false;
+		// Remove canvas objects before clearing store state
 		myCanvas.remove(myPellet);
 		for (const key in room.others) {
 			if (room.others[key].pellet) myCanvas.remove(room.others[key].pellet);
-			delete room.others[key];
 		}
 		myCanvas.renderAll();
+		leaveRoom();
 		voice.disconnect();
 	}
 
@@ -880,10 +880,10 @@
 		}
 	}
 
-	function setVolume(userId: string, volume: number) {
+	function setVolume(participantId: string, volume: number) {
 		if (!ENABLE_AUDIO) return;
-		room.others[room.userId].volume = volume;
-		voice.setParticipantVolume(room.others[room.userId].audio, volume);
+		room.others[participantId].volume = volume;
+		voice.setParticipantVolume(room.others[participantId].audio, volume);
 	}
 </script>
 
@@ -1146,8 +1146,7 @@
 												? m.mute_microphone()
 												: m.unmute_microphone()}
 										>
-											<!-- svelte-ignore a11y_click_events_have_key_events -->
-											<label
+											<button
 												class="swap indicator"
 												onclick={toggleMicrophone}
 												class:swap-active={voice.voiceState.microphone &&
@@ -1164,7 +1163,7 @@
 												{#if !voice.voiceState.peerConnected}
 													<span class="loading loading-spinner loading-xs indicator-item"></span>
 												{/if}
-											</label>
+											</button>
 										</div>
 									{/if}
 								</td>
@@ -1221,9 +1220,9 @@
 										</button>
 
 										<div class="dropdown-content bg-base-200 rounded-box w-48 p-4 shadow">
-											<label class="label">
+											<span class="label">
 												<span class="label-text">{m.volume_of({ name: other.nickname })}</span>
-											</label>
+											</span>
 											<input
 												type="range"
 												min="0"
