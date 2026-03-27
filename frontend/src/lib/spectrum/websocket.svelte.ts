@@ -1,12 +1,11 @@
 import { API_URL, DEBUG } from '$lib/env';
-import { writable } from 'svelte/store';
 
 const WS_URL = API_URL.replace('http://', 'ws://').replace('https://', 'wss://');
 
 let websocket: WebSocket;
 
 /** True while the WebSocket is disconnected and a reconnect attempt is pending. */
-export const reconnecting = writable(false);
+export let reconnecting = $state(false);
 
 export function startWebsocket(
 	onOpenCallback: () => void,
@@ -20,7 +19,7 @@ export function startWebsocket(
 	websocket.onclose = async function (evt) {
 		console.warn('Websocket connection lost: ' + evt.reason);
 
-		reconnecting.set(true);
+		reconnecting = true;
 
 		if (onCloseCallback) await onCloseCallback();
 
@@ -42,7 +41,7 @@ export function startWebsocket(
 	};
 
 	websocket.onopen = async function () {
-		reconnecting.set(false);
+		reconnecting = false;
 		if (onOpenCallback) await onOpenCallback();
 	};
 

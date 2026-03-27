@@ -41,7 +41,7 @@
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
 	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
 	import { ENABLE_AUDIO, HEADER_TITLE, LOGO_URL, LOGO_WIDTH, PUBLIC_URL } from '$lib/env';
-	import { startWebsocket, reconnecting } from '$lib/spectrum/websocket';
+	import { startWebsocket, reconnecting } from '$lib/spectrum/websocket.svelte';
 	import { Canvas, loadSVGFromURL, util } from 'fabric';
 	import { onMount, tick } from 'svelte';
 	import { copy } from 'svelte-copy';
@@ -1114,7 +1114,7 @@
 			<span class="px-4 py-2">
 				{#if !initialized}
 					<span class="loading loading-spinner loading-md text-success"></span> Loading...
-				{:else if $reconnecting}
+				{:else if reconnecting}
 					<span class="loading loading-spinner loading-sm text-warning"></span>
 					<span class="text-warning font-mono text-sm">Reconnecting...</span>
 				{:else}
