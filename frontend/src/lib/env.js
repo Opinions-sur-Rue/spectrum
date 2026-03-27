@@ -1,4 +1,6 @@
-export const DEBUG = import.meta.env.DEBUG ?? true;
+// VITE_DEBUG=true enables debug logging. Defaults to false.
+// (Vite only exposes env vars prefixed with VITE_ to the client bundle)
+export const DEBUG = import.meta.env.VITE_DEBUG === 'true';
 
 export const PUBLIC_VERSION = import.meta.env.VITE_VERSION ?? 'N.A';
 
