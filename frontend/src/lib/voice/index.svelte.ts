@@ -11,17 +11,13 @@ import { SvelteMap } from 'svelte/reactivity';
 // Reactive state (exported so the page can bind to them in templates)
 // ---------------------------------------------------------------------------
 
-/** Our PeerJS peer ID (available once connected). */
-export let peerId = $state<string | undefined>(undefined);
-
-/** True once the PeerJS connection is established. */
-export let peerConnected = $state(false);
-
-/** True when the microphone is active. */
-export let microphone = $state(false);
-
-/** Local microphone volume level (0-100), used for the voice indicator. */
-export let averageVoice = $state(0);
+/** Reactive voice state. Use voiceState.peerId etc. in templates. */
+export const voiceState = $state({
+	peerId: undefined as string | undefined,
+	peerConnected: false,
+	microphone: false,
+	averageVoice: 0
+});
 
 // ---------------------------------------------------------------------------
 // Internal state
@@ -86,14 +82,14 @@ export function connect() {
 
 	peer.on('open', (id) => {
 		console.log(`Voice: connected with ID: ${id}`);
-		peerId = id;
-		peerConnected = true;
+		voiceState.peerId = id;
+		voiceState.peerConnected = true;
 	});
 
 	peer.on('error', (err) => {
 		console.error('Voice: peer error', err);
 		if (err.type === 'unavailable-id') {
-			peerConnected = false;
+			voiceState.peerConnected = false;
 			setTimeout(() => connect(), 1000);
 		} else if (err.type === 'peer-unavailable') {
 			const match = err.message.match(/[0-9a-fA-F-]{36}$/);
@@ -104,7 +100,7 @@ export function connect() {
 	});
 
 	peer.on('disconnected', () => {
-		peerConnected = false;
+		voiceState.peerConnected = false;
 		console.warn('Voice: disconnected, reconnecting...');
 		peer?.reconnect();
 	});
@@ -160,12 +156,12 @@ export async function enableMicrophone() {
 		function detectVoice() {
 			analyser.getByteFrequencyData(data);
 			const avg = data.reduce((s, v) => s + v, 0) / data.length;
-			averageVoice = avg > 20 ? avg : 0;
+			voiceState.averageVoice = avg > 20 ? avg : 0;
 			requestAnimationFrame(detectVoice);
 		}
 		detectVoice();
 
-		microphone = true;
+		voiceState.microphone = true;
 	} catch (err) {
 		console.error('Voice: microphone error', err);
 	}
