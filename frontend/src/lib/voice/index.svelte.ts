@@ -170,13 +170,13 @@ export async function enableMicrophone() {
 /** Mute microphone tracks (keeps stream alive). */
 export function muteMicrophone() {
 	localStream?.getTracks().forEach((t) => (t.enabled = false));
-	microphone = false;
+	voiceState.microphone = false;
 }
 
 /** Unmute microphone tracks. */
 export function unmuteMicrophone() {
 	localStream?.getTracks().forEach((t) => (t.enabled = true));
-	microphone = true;
+	voiceState.microphone = true;
 }
 
 /** Call a remote peer by their PeerJS ID. */
