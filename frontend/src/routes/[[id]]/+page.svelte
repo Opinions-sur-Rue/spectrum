@@ -1309,7 +1309,13 @@
 							<div class="text-sm text-gray-500">
 								{#if ENABLE_AUDIO}
 									<label class="swap swap-flip">
-										<input type="checkbox" bind:checked={microphone} class="hidden" />
+										<input
+											type="checkbox"
+											checked={microphone}
+											onchange={() =>
+												microphone ? voice.muteMicrophone() : voice.enableMicrophone()}
+											class="hidden"
+										/>
 										<div class="swap-on">
 											<Fa icon={faMicrophone} />
 										</div>
