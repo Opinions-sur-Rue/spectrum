@@ -152,9 +152,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		}
 
 		roomID := user.Room()
-		err := c.hub.WithRoom(roomID, func(room *Room) error {
-			return room.Leave(user.Color)
-		})
+		err := c.hub.LeaveRoom(roomID, user.Color, user.UserID)
 		if err != nil {
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
 			c.send <- reply.Export()

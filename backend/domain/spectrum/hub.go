@@ -223,6 +223,27 @@ func (h *Hub) WithRoomRead(roomID string, fn func(room *Room)) {
 	}
 }
 
+// LeaveRoom removes a participant from a room and reassigns admin if needed.
+func (h *Hub) LeaveRoom(roomID string, color string, userID string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	room, ok := h.rooms[roomID]
+	if !ok {
+		return ErrRoomNotFound
+	}
+	wasAdmin := room.IsAdmin(userID)
+	if err := room.Leave(color); err != nil {
+		return err
+	}
+	if wasAdmin {
+		room.RemoveAdmin(userID)
+		if len(room.admins) == 0 && len(room.participants) > 0 {
+			h.reassignAdminLocked(roomID, room)
+		}
+	}
+	return nil
+}
+
 // AddRoom adds a new room under a write lock.
 func (h *Hub) AddRoom(roomID string, room *Room) {
 	h.mu.Lock()
@@ -395,7 +416,7 @@ func (h *Hub) reassignAdminLocked(roomID string, room *Room) {
 				"roomID": roomID,
 				"color":  color,
 				"userID": participant.UserID,
-			}).Info("Admin reassigned after disconnection")
+			}).Info("Admin reassigned")
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MADEADMIN, color)
 			h.messageRoomLocked(roomID, reply)
 		}
