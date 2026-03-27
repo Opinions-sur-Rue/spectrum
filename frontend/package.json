@@ -50,7 +50,7 @@
 		"vitest": "^3.2.4"
 	},
 	"dependencies": {
-		"@fortawesome/free-brands-svg-icons": "^7.1.0",
+		"@fortawesome/free-brands-svg-icons": "^7.2.0",
 		"@inlang/paraglide-js": "^2.15.1",
 		"fabric": "^7.2.0",
 		"peerjs": "^1.5.5"
