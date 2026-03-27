@@ -106,7 +106,12 @@ export function connect() {
 	});
 
 	peer.on('call', (call) => {
-		call.answer(localStream);
+		// Answer with localStream if mic is active, otherwise answer without stream (listen-only)
+		if (localStream) {
+			call.answer(localStream);
+		} else {
+			call.answer();
+		}
 		call.on('stream', (remoteStream) => {
 			const voiceId = call.peer;
 			const userId = callbacks?.resolveVoiceId(voiceId);
@@ -181,15 +186,15 @@ export function unmuteMicrophone() {
 
 /** Call a remote peer by their PeerJS ID. */
 export function callPeer(targetId: string) {
-	if (peer && localStream) {
-		peer.call(targetId, localStream);
+	if (peer) {
+		peer.call(targetId, localStream!);
 	}
 }
 
 /** Call with retries (for late-joining participants). */
 export function callPeerWithLimit(targetId: string, maxRetries = 5, attempt = 1) {
-	if (peer && localStream) {
-		peer.call(targetId, localStream);
+	if (peer && voiceState.peerConnected) {
+		peer.call(targetId, localStream!);
 	} else if (attempt <= maxRetries) {
 		setTimeout(() => callPeerWithLimit(targetId, maxRetries, attempt + 1), 1000);
 	} else {
