@@ -47,7 +47,8 @@ func Test_computeOutput(t *testing.T) {
 
 	for name, tc := range tt {
 		t.Run(name, func(t *testing.T) {
-			result := computeOutput(tc.acceptHeader, tc.reply, tc.plain)
+			result, err := computeOutput(tc.acceptHeader, tc.reply, tc.plain)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
