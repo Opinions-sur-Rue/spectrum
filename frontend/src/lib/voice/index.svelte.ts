@@ -131,8 +131,8 @@ export function connect() {
 export function disconnect() {
 	connections.forEach((stream) => stream.getTracks().forEach((t) => t.stop()));
 	peer?.disconnect();
-	peerConnected = false;
-	peerId = undefined;
+	voiceState.peerConnected = false;
+	voiceState.peerId = undefined;
 }
 
 /** Turn on the microphone and start sending audio. */
