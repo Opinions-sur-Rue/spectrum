@@ -217,7 +217,7 @@
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let svg: any;
-	let voiceIndicator = $derived(1 + averageVoice / 100);
+	let voiceIndicator = $derived(1 + voice.voiceState.averageVoice / 100);
 	let otherVoices = $derived.by(() => {
 		const voices: Record<string, number> = {};
 		for (const [key, other] of Object.entries(others)) {
