@@ -1,8 +1,4 @@
 <script lang="ts">
-	/* eslint-disable */
-	// @ts-nocheck
-	/* eslint svelte/no-at-html-tags: "off" */
-
 	import Header from '$lib/components/Header.svelte';
 	import {
 		faCirclePlus,
@@ -100,7 +96,19 @@
 	let moving = false;
 	const cells: any[] = [];
 	const cellsPoints: any[] = [];
-	const others: any = $state({});
+	interface Participant {
+		pellet: ReturnType<typeof newPellet> | null;
+		target?: { x: number; y: number };
+		nickname: string;
+		microphone: boolean;
+		volume: number;
+		voiceId?: string;
+		audio?: HTMLAudioElement;
+		averageVoice?: number;
+		validateOpinion?: ReturnType<typeof setTimeout>;
+	}
+
+	const others = $state<Record<string, Participant>>({});
 
 	let claim: string = $state('');
 	let scale: number;
@@ -529,11 +537,11 @@
 		setInterval(updateMyPellet, updateTick);
 	}
 
-	function initOtherPellet(userId: string, nickname: string, pictureUrl?: string) {
+	function initOtherPellet(userId: string, nickname: string) {
 		console.log('Initalizing Other Pellet: ' + userId);
 		log(m.log_joined_spectrum({ name: nickname }), 'join');
 
-		const pellet = newPellet(userId, nickname, pictureUrl);
+		const pellet = newPellet(userId, nickname);
 
 		pellet.set({
 			top: (canvasWidth * originalHeight) / originalWidth / 2,
@@ -584,7 +592,7 @@
 		if (others[otherUserId].pellet) {
 			myCanvas.remove(others[otherUserId].pellet);
 			myCanvas.renderAll();
-			delete others[otherUserId].pellet;
+			others[otherUserId].pellet = null;
 		}
 
 		if (!keepUser) {
@@ -629,6 +637,8 @@
 			if (!pellet) continue;
 			const currentX = pellet.left ?? 0;
 			const currentY = pellet.top ?? 0;
+
+			if (!target) continue;
 
 			pellet.set({
 				left: lerp(currentX, target.x * scale, t),
@@ -827,7 +837,7 @@
 
 				if (emoji === '🤚') {
 					handAnimation = true;
-					handUsername = otherUserId != userId ? others[otherUserId].nickname : nickname;
+					handUsername = otherUserId != userId ? others[otherUserId].nickname : (nickname ?? '');
 				}
 
 				requestAnimationFrame(() => (trigger = true)); // retrigger animation
@@ -947,7 +957,7 @@
 		}
 	}
 
-	let updateClaimLog: number | undefined;
+	let updateClaimLog: ReturnType<typeof setTimeout> | undefined;
 	let previousClaim: string | undefined;
 
 	function connectionLost() {
@@ -1042,7 +1052,7 @@
 		const userIdColor = stringToColorHex(liveUserId);
 
 		others[userIdColor] = {
-			pellet: initOtherPellet(userIdColor, liveUserNickname, liveUserPictureUrl),
+			pellet: initOtherPellet(userIdColor, liveUserNickname),
 			target: convertVoteToPosition(liveVotes.get(liveUserId)),
 			nickname: liveUserNickname,
 			microphone: false,
@@ -1088,7 +1098,7 @@
 		if (!ENABLE_AUDIO) return;
 
 		others[userId].volume = volume;
-		others[userId].audio.volume = volume / 100;
+		if (others[userId].audio) others[userId].audio!.volume = volume / 100;
 	}
 </script>
 
@@ -1392,7 +1402,7 @@
 									{#if ENABLE_AUDIO}
 										<label
 											class="swap swap-flip cursor-default"
-											class:swap-active={(other as any).microphone}
+											class:swap-active={other.microphone}
 										>
 											<div class="swap-on">
 												<Fa icon={faMicrophone} />
@@ -1402,7 +1412,7 @@
 											</div>
 										</label>
 									{/if}
-									<span class="text-sm"><b>{(other as any).nickname}</b></span>
+									<span class="text-sm"><b>{other.nickname}</b></span>
 								</td>
 								<td>
 									<div class="dropdown dropdown-hover dropdown-bottom dropdown-center">
@@ -1423,9 +1433,7 @@
 
 										<div class="dropdown-content bg-base-200 rounded-box w-48 p-4 shadow">
 											<label class="label">
-												<span class="label-text"
-													>{m.volume_of({ name: (other as any).nickname })}</span
-												>
+												<span class="label-text">{m.volume_of({ name: other.nickname })}</span>
 											</label>
 											<input
 												type="range"
@@ -1434,7 +1442,7 @@
 												value="100"
 												class="range range-xs"
 												oninput={(e) => {
-													setVolume(colorHex, +e.target?.value);
+													setVolume(colorHex, +(e.target as HTMLInputElement)?.value);
 												}}
 											/>
 										</div>
@@ -1537,13 +1545,13 @@
 							<!-- Participant info -->
 							<div class="flex-1">
 								<div class="truncate text-base font-bold">
-									{(other as any).nickname}
+									{other.nickname}
 								</div>
 								<div class="text-sm text-gray-500">
 									{#if ENABLE_AUDIO}
 										<label
 											class="swap swap-flip cursor-default"
-											class:swap-active={(other as any).microphone}
+											class:swap-active={other.microphone}
 										>
 											<div class="swap-on">
 												<Fa icon={faMicrophone} />
