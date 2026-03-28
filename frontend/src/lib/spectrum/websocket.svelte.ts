@@ -1,3 +1,5 @@
+import { SvelteMap } from 'svelte/reactivity';
+
 import { API_URL, DEBUG } from '$lib/env';
 
 const WS_URL = API_URL.replace('http://', 'ws://').replace('https://', 'wss://');
@@ -13,7 +15,7 @@ export const wsState = $state({ reconnecting: false });
 
 export type RpcHandler = (args: string[]) => void;
 
-const handlers = new Map<string, RpcHandler>();
+const handlers = new SvelteMap<string, RpcHandler>();
 
 /**
  * Register a handler for a specific RPC command.
@@ -53,10 +55,7 @@ function dispatch(line: string): void {
 // WebSocket lifecycle
 // ---------------------------------------------------------------------------
 
-export function startWebsocket(
-	onOpenCallback: () => void,
-	onCloseCallback: () => void
-) {
+export function startWebsocket(onOpenCallback: () => void, onCloseCallback: () => void) {
 	websocket = new WebSocket(WS_URL + '/spectrum/ws');
 
 	websocket.onclose = async function (evt) {
