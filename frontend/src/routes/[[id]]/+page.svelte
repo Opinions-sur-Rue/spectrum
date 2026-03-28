@@ -42,25 +42,18 @@
 		registerHandler,
 		unregisterHandler
 	} from '$lib/spectrum/websocket.svelte';
-	import { Canvas, loadSVGFromURL, util } from 'fabric';
 	import { onMount, onDestroy, tick, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { copy } from 'svelte-copy';
-	import { capitalize, lerp, pointInPolygon, stringToColorHex } from '$lib/utils';
+	import { capitalize, stringToColorHex } from '$lib/utils';
 	import * as voice from '$lib/voice/index.svelte';
-	import {
-		room,
-		joinRoom,
-		leaveRoom,
-		removeParticipant,
-		type Participant
-	} from '$lib/spectrum/room.svelte';
+	import { room, joinRoom, leaveRoom, type Participant } from '$lib/spectrum/room.svelte';
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { notify } from '$lib/utils/notify';
 	import AddLiveUserParticipantModal from '$lib/components/AddLiveUserParticipantModal.svelte';
-	import { newPellet } from '$lib/canvas/pellet';
+	import { canvasManager, originalWidth } from '$lib/canvas/manager.svelte';
 	import type { LiveUser } from '$lib/social';
 
 	// eslint-disable-next-line svelte/valid-prop-names-in-kit-pages
@@ -73,110 +66,19 @@
 		room.spectrumId = spectrumId;
 	});
 
-	const opinions = {
-		stronglyAgree: m.opinion_strongly_agree(),
-		agree: m.opinion_agree(),
-		slightlyAgree: m.opinion_slightly_agree(),
-		neutral: m.opinion_neutral(),
-		slightlyDisagree: m.opinion_slightly_disagree(),
-		disagree: m.opinion_disagree(),
-		stronglyDisagree: m.opinion_strongly_disagree(),
-		indifferent: m.opinion_indifferent(),
-		notReplied: m.opinion_not_replied()
-	};
-	type OpinionKey = keyof typeof opinions;
-	let currentOpinion: string = 'notReplied';
-	let previousOpinion: string = 'notReplied';
-
-	const originalWidth = 980;
-	const originalHeight = 735;
-
 	let canvasWidth: number = $state(originalWidth);
-
-	let myCanvas: Canvas;
-
-	const updateTick: number = 100;
 
 	let websocket: WebSocket;
 
-	let myPellet: ReturnType<typeof newPellet> | null = $state(null);
-	let moving = false;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const cells: any[] = [];
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const cellsPoints: any[] = [];
-	let scale: number;
+	// Expose myPellet from manager so the template can check its presence
+	let myPellet = $derived(canvasManager.myPellet);
 
 	let tbodyRef: HTMLDivElement | undefined; // Reference to tbody
 
-	function validateOpinion(otherUserId: string) {
-		const target = room.others[otherUserId].pellet;
-		if (!target) return;
-
-		for (let i = 0; i < cells.length; i++) {
-			const cell = cells[i];
-
-			if (pointInPolygon(cellsPoints[i], [target.left, target.top])) {
-				if (cell.id != 'notReplied') {
-					log(
-						m.log_opinion({
-							name: room.others[otherUserId].nickname,
-							opinion: opinions[cell.id as OpinionKey]
-						}),
-						'event'
-					);
-				}
-			}
-		}
-	}
-
 	$effect(() => {
 		if (canvasWidth) {
-			scale = canvasWidth / originalWidth;
-			if (myCanvas) {
-				myCanvas.setDimensions({ width: canvasWidth, height: scale * originalHeight });
-
-				svg.set({
-					originX: 'left',
-					originY: 'top',
-					scaleX: scale,
-					scaleY: scale,
-					left: (canvasWidth - svg.width! * scale) / 2,
-					top: 15 * scale
-				});
-
-				myPellet?.set({
-					scaleX: scale,
-					scaleY: scale
-				});
-
-				Object.keys(room.others).forEach((key: string) => {
-					if (room.others[key].pellet) {
-						room.others[key].pellet.set({
-							scaleX: scale,
-							scaleY: scale
-						});
-					}
-				});
-
-				myCanvas.requestRenderAll();
-
-				for (let i = 0; i < cells.length; i++) {
-					const cell = cells[i];
-					cellsPoints[i] = [];
-
-					for (let index = 0; index < cell.path.length - 2; index++) {
-						let pathPoint = cell.path[index];
-
-						let p = [
-							pathPoint[pathPoint.length - 2] * scale - 15 * scale,
-							pathPoint[pathPoint.length - 1] * scale - 10 * scale
-						];
-
-						cellsPoints[i].push(p);
-					}
-				}
-			}
+			const scale = canvasWidth / originalWidth;
+			canvasManager.setScale(scale, canvasWidth);
 		}
 	});
 
@@ -216,8 +118,6 @@
 		}
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let svg: any;
 	let voiceIndicator = $derived(1 + voice.voiceState.averageVoice / 100);
 	let otherVoices = $derived.by(() => {
 		const voices: Record<string, number> = {};
@@ -246,7 +146,7 @@
 				if (room.others[uid]) room.others[uid].audio = audio;
 			}
 		});
-		currentOpinion = 'notReplied';
+		canvasManager.setLogFn(log);
 
 		spectrumId = page.params?.id;
 		// RPC handlers — always active
@@ -276,14 +176,15 @@
 			const otherUserId = args[0];
 			const coords = parseCoords(args[1]);
 			const otherNickname = args[2];
-			if (otherUserId != room.userId) updatePellet(otherUserId, coords, otherNickname);
+			if (otherUserId != room.userId)
+				canvasManager.updatePellet(otherUserId, coords, otherNickname);
 		});
 		registerHandler('userleft', (args) => {
 			if (!room.listening) return;
 			const otherUserId = args[0];
 			if (otherUserId != room.userId) {
 				log(m.log_left_spectrum({ name: room.others[otherUserId].nickname }), 'leave');
-				deletePellet(otherUserId);
+				canvasManager.deletePellet(otherUserId);
 			} else {
 				log(m.log_you_left_spectrum(), 'leave');
 				notify.error(m.log_you_left_spectrum());
@@ -320,28 +221,23 @@
 			if (!room.listening) return;
 			const otherUserId = args[0];
 			if (otherUserId != room.userId) {
-				deletePellet(otherUserId, true);
+				canvasManager.deletePellet(otherUserId, true);
 				log(m.log_made_admin({ name: room.others[otherUserId].nickname }), 'event');
 			} else {
 				room.adminModeOn = true;
-				myCanvas.remove(myPellet);
-				myCanvas.renderAll();
-				myPellet = null;
+				canvasManager.removeMyPellet();
 				log(m.log_you_been_made_admin(), 'event');
 			}
 		});
 		registerHandler('newposition', (args) => {
 			if (!room.listening) return;
-			if (!myPellet) initPellet();
+			if (!canvasManager.myPellet) initPellet();
 			const coords = parseCoords(args[0]);
-			if (myPellet && coords) {
-				myPellet.left = coords.x * scale;
-				myPellet.top = coords.y * scale;
-				myPellet.setCoords();
-				myCanvas.renderAll();
+			if (canvasManager.myPellet && coords) {
+				canvasManager.setMyPelletPosition(coords.x, coords.y);
 				updateMyPellet(true);
 			}
-			moving = false;
+			canvasManager.stopMoving();
 		});
 		registerHandler('claim', (args) => {
 			if (!room.listening) return;
@@ -403,7 +299,8 @@
 			saveLiveUser(args[0], args[1], args[2]);
 			const coords = parseLiveSpectrum(args[0], args[3]);
 			const otherNickname = capitalize(room.liveChannel ?? '');
-			if (otherUserId != room.userId) updatePellet(otherUserId, coords, otherNickname);
+			if (otherUserId != room.userId)
+				canvasManager.updatePellet(otherUserId, coords, otherNickname);
 		});
 		registerHandler('chatmessage', (args) => {
 			if (!room.listening) return;
@@ -432,68 +329,9 @@
 			'chatmessage'
 		];
 
-		// Prepare Both Canvas
-		myCanvas = drawCanvas('spectrum');
-
-		myCanvas.on({
-			'object:moving': function () {
-				moving = true;
-			},
-			'object:modified': function () {
-				moving = false;
-
-				if (currentOpinion != 'notReplied' && currentOpinion != previousOpinion) {
-					log(m.log_your_opinion({ opinion: opinions[currentOpinion as OpinionKey] }), 'event');
-					previousOpinion = currentOpinion;
-				}
-			}
-		});
-
-		loadSVGFromURL(m.file_spectrum()).then(({ objects, options }) => {
-			// @ts-expect-error -- groupSVGElements return type not fully typed
-			svg = util.groupSVGElements(objects, options);
-
-			// Get canvas dimensions
-			const canvasWidth = myCanvas.getWidth();
-			const canvasHeight = myCanvas.getHeight();
-
-			// Calculate scaling factors
-			const scaleX = canvasWidth / svg.width!;
-			const scaleY = canvasHeight / svg.height!;
-			const scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
-
-			svg.set({
-				originX: 'left',
-				originY: 'top',
-				scaleX: scale,
-				scaleY: scale,
-				left: (canvasWidth - svg.width! * scale) / 2,
-				top: 15
-			});
-
-			svg.selectable = false;
-			svg.evented = false;
-
-			for (let i = 0; i <= 8; i++) {
-				cells.push(objects[i]);
-				const cell = cells[cells.length - 1];
-				cellsPoints[cells.length - 1] = [];
-
-				for (let index = 0; index < cell.path.length - 2; index++) {
-					let pathPoint = cell.path[index];
-
-					let p = [
-						pathPoint[pathPoint.length - 2] * cell.scaleX * scale - 15,
-						pathPoint[pathPoint.length - 1] * cell.scaleY * scale - 10
-					];
-
-					cellsPoints[cells.length - 1].push(p);
-				}
-			}
-
-			myCanvas.add(svg);
-			myCanvas.sendObjectToBack(svg);
-		});
+		// Prepare Canvas
+		canvasManager.drawCanvas('spectrum');
+		canvasManager.loadSVG();
 
 		// We're joining a spectrum
 		if (spectrumId) {
@@ -502,112 +340,7 @@
 	});
 
 	function initPellet() {
-		console.log('Initalizing Your Pellet');
-		if (!room.userId) return false;
-		if (!room.nickname) room.nickname = 'Participant ' + (Math.floor(Math.random() * 100) + 1);
-
-		const pellet = newPellet(room.userId, room.nickname);
-
-		pellet.set({
-			top: (canvasWidth * originalHeight) / originalWidth / 2,
-			left: canvasWidth / 2,
-			scaleX: scale,
-			scaleY: scale,
-			evented: true
-		});
-
-		myCanvas.add(pellet);
-		myPellet = pellet;
-
-		myCanvas.on({
-			'object:moving': function ({ target }) {
-				if (target != myPellet) return;
-
-				for (let i = 0; i < cells.length; i++) {
-					const cell = cells[i];
-
-					if (pointInPolygon(cellsPoints[i], [myPellet.left, myPellet.top])) {
-						cell.set({ fill: '#10b1b1' });
-						console.log(cell.id);
-						if (cell.id != currentOpinion) {
-							currentOpinion = cell.id;
-						}
-					} else {
-						if (cell.id == 'notReplied' || cell.id == 'indifferent') {
-							cell.set({ fill: '#ccc' });
-						} else {
-							cell.set({ fill: '#000002' });
-						}
-					}
-				}
-			}
-		});
-
-		setInterval(updateMyPellet, updateTick);
-	}
-
-	function initOtherPellet(userId: string, nickname: string) {
-		console.log('Initalizing Other Pellet: ' + userId);
-		log(m.log_joined_spectrum({ name: nickname }), 'join');
-
-		const pellet = newPellet(userId, nickname);
-
-		pellet.set({
-			top: (canvasWidth * originalHeight) / originalWidth / 2,
-			left: canvasWidth / 2
-		});
-
-		myCanvas.add(pellet);
-
-		return pellet;
-	}
-
-	function updatePellet(
-		otherUserId: string,
-		coords: { x: number; y: number } | null,
-		otherNickname: string
-	) {
-		// New user
-		if (!room.others[otherUserId]) {
-			room.others[otherUserId] = {
-				pellet:
-					coords && !isNaN(coords.x) && !isNaN(coords.y)
-						? initOtherPellet(otherUserId, otherNickname)
-						: null,
-				target: coords && !isNaN(coords.x) && !isNaN(coords.y) ? coords : undefined,
-				nickname: otherNickname,
-				microphone: false,
-				volume: 100
-			};
-		} else if (coords && !isNaN(coords.x) && !isNaN(coords.y)) {
-			// known user
-			room.others[otherUserId].target = coords;
-			if (room.others[otherUserId].nickname != otherNickname)
-				room.others[otherUserId].nickname = otherNickname;
-			if (!room.others[otherUserId].pellet)
-				room.others[otherUserId].pellet = initOtherPellet(otherUserId, otherNickname);
-		}
-
-		if (coords && (!isNaN(coords.x) || !isNaN(coords.y))) {
-			if (room.others[otherUserId].validateOpinion)
-				clearTimeout(room.others[otherUserId].validateOpinion);
-
-			room.others[otherUserId].validateOpinion = setTimeout(() => {
-				validateOpinion(otherUserId);
-			}, 500);
-		}
-	}
-
-	function deletePellet(otherUserId: string, keepUser: boolean = false) {
-		if (room.others[otherUserId]?.pellet) {
-			myCanvas.remove(room.others[otherUserId].pellet);
-			myCanvas.renderAll();
-			room.others[otherUserId].pellet = null;
-		}
-
-		if (!keepUser) {
-			removeParticipant(otherUserId);
-		}
+		canvasManager.initMyPellet(() => updateMyPellet());
 	}
 
 	function receivedClaim(c: string) {
@@ -637,51 +370,11 @@
 		websocket.send(json);
 	}
 
-	function animatePellets() {
-		const t = 0.2;
-
-		for (const uid of Object.keys(room.others)) {
-			const pellet = room.others[uid].pellet;
-			const target = room.others[uid].target;
-
-			if (!pellet) continue;
-			const currentX = pellet.left ?? 0;
-			const currentY = pellet.top ?? 0;
-
-			if (!target) continue;
-
-			pellet.set({
-				left: lerp(currentX, target.x * scale, t),
-				top: lerp(currentY, target.y * scale, t)
-			});
-		}
-
-		myCanvas.requestRenderAll();
-		requestAnimationFrame(animatePellets);
-	}
-
 	function updateMyPellet(force = false) {
-		if (moving || force)
-			rpc(
-				'myposition',
-				`${Math.round(myPellet.left / scale)},${Math.round(myPellet.top / scale)}`,
-				room.nickname ?? ''
-			);
-	}
-
-	function drawCanvas(id: string) {
-		// @ts-expect-error -- Canvas constructor options
-		const canvas = new Canvas(id);
-		canvas.hoverCursor = 'pointer';
-		canvas.selection = false;
-		canvas.targetFindTolerance = 2;
-		canvas.backgroundColor = 'white';
-
-		let canvasHeight = (canvasWidth * 600) / 800;
-
-		canvas.setDimensions({ width: canvasWidth, height: canvasHeight });
-
-		return canvas;
+		if (canvasManager.isMoving || force) {
+			const coords = canvasManager.getMyPelletCoords();
+			if (coords) rpc('myposition', `${coords.x},${coords.y}`, room.nickname ?? '');
+		}
 	}
 
 	let registeredCommands: string[] = [];
@@ -831,7 +524,7 @@
 			initPellet();
 		}
 
-		animatePellets();
+		canvasManager.animatePellets();
 	}
 
 	function makeAdmin(id: string) {
@@ -882,7 +575,7 @@
 		const userIdColor = stringToColorHex(liveUserId);
 
 		room.others[userIdColor] = {
-			pellet: initOtherPellet(userIdColor, liveUserNickname),
+			pellet: canvasManager.initOtherPellet(userIdColor, liveUserNickname),
 			target: convertVoteToPosition(liveVotes.get(liveUserId)),
 			nickname: liveUserNickname,
 			microphone: false,
@@ -894,11 +587,7 @@
 		rpc('leavespectrum');
 		spectrumId = undefined;
 		// Remove canvas objects before clearing store state
-		myCanvas.remove(myPellet);
-		for (const key in room.others) {
-			if (room.others[key].pellet) myCanvas.remove(room.others[key].pellet);
-		}
-		myCanvas.renderAll();
+		canvasManager.clearAllPellets();
 		leaveRoom();
 		voice.disconnect();
 	}
