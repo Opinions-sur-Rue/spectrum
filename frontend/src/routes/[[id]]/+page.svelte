@@ -61,6 +61,13 @@
 	// eslint-disable-next-line svelte/valid-prop-names-in-kit-pages
 	let { id: spectrumId }: { id: string | undefined } = $props();
 
+	// Keep room store in sync with the SvelteKit route param.
+	// spectrumId (prop) is the source of truth for the URL;
+	// room.spectrumId is used by other modules (voice callbacks etc.)
+	$effect(() => {
+		room.spectrumId = spectrumId;
+	});
+
 	const opinions = {
 		stronglyAgree: m.opinion_strongly_agree(),
 		agree: m.opinion_agree(),

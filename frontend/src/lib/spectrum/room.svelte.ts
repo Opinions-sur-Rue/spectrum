@@ -85,10 +85,7 @@ export function leaveRoom() {
 	room.listening = false;
 	room.liveChannel = undefined;
 	room.liveListening = false;
-	// Clear all participants
-	for (const key in room.others) {
-		delete room.others[key];
-	}
+	room.others = {};
 }
 
 export function removeParticipant(colorHex: string) {
