@@ -36,9 +36,14 @@
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
 	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
 	import { ENABLE_AUDIO, HEADER_TITLE, LOGO_URL, LOGO_WIDTH, PUBLIC_URL } from '$lib/env';
-	import { startWebsocket, wsState } from '$lib/spectrum/websocket.svelte';
+	import {
+		startWebsocket,
+		wsState,
+		registerHandler,
+		unregisterHandler
+	} from '$lib/spectrum/websocket.svelte';
 	import { Canvas, loadSVGFromURL, util } from 'fabric';
-	import { onMount, tick, untrack } from 'svelte';
+	import { onMount, onDestroy, tick, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { copy } from 'svelte-copy';
 	import { capitalize, lerp, pointInPolygon, stringToColorHex } from '$lib/utils';
@@ -244,7 +249,188 @@
 		currentOpinion = 'notReplied';
 
 		spectrumId = page.params?.id;
-		websocket = startWebsocket(signIn, parseCommand, connectionLost);
+		// RPC handlers — always active
+		registerHandler('ack', (args) => {
+			if (args[0] == 'signin') {
+				if (!room.initialized) room.initialized = true;
+				if (wasReconnecting) {
+					wasReconnecting = false;
+					log('✓ Reconnected', 'join');
+				}
+			}
+		});
+		registerHandler('nack', (args) => {
+			// TODO: translate
+			notify.error('Désolé, erreur reçue: ' + args[0]);
+		});
+		registerHandler('spectrum', (args) => {
+			showJoinModal = false;
+			joinRoom(args[1], args[0], args[2], args[3] == 'true');
+			joinedSpectrum(args[1]);
+			log(m.log_you_joined_spectrum(), 'join');
+		});
+
+		// RPC handlers — only active while listening
+		registerHandler('update', (args) => {
+			if (!room.listening) return;
+			const otherUserId = args[0];
+			const coords = parseCoords(args[1]);
+			const otherNickname = args[2];
+			if (otherUserId != room.userId) updatePellet(otherUserId, coords, otherNickname);
+		});
+		registerHandler('userleft', (args) => {
+			if (!room.listening) return;
+			const otherUserId = args[0];
+			if (otherUserId != room.userId) {
+				log(m.log_left_spectrum({ name: room.others[otherUserId].nickname }), 'leave');
+				deletePellet(otherUserId);
+			} else {
+				log(m.log_you_left_spectrum(), 'leave');
+				notify.error(m.log_you_left_spectrum());
+				leaveSpectrum();
+			}
+		});
+		registerHandler('receive', (args) => {
+			if (!room.listening) return;
+			const otherUserId = args[0];
+			if (otherUserId != room.userId) {
+				notify.info(room.others[otherUserId].nickname + ' a envoyé : ' + args[1], 5000);
+				log(
+					m.log_emoji_received({
+						name: room.others[otherUserId].nickname,
+						emoji: args[1]
+					}),
+					'event'
+				);
+			} else {
+				log(m.log_emoji_sent({ emoji: args[1] }), 'event');
+			}
+			trigger = false;
+			handAnimation = false;
+			handUsername = '';
+			emoji = args[1];
+			if (emoji === '🤚') {
+				handAnimation = true;
+				handUsername =
+					otherUserId != room.userId ? room.others[otherUserId].nickname : (room.nickname ?? '');
+			}
+			requestAnimationFrame(() => (trigger = true)); // retrigger animation
+		});
+		registerHandler('madeadmin', (args) => {
+			if (!room.listening) return;
+			const otherUserId = args[0];
+			if (otherUserId != room.userId) {
+				deletePellet(otherUserId, true);
+				log(m.log_made_admin({ name: room.others[otherUserId].nickname }), 'event');
+			} else {
+				room.adminModeOn = true;
+				myCanvas.remove(myPellet);
+				myCanvas.renderAll();
+				myPellet = null;
+				log(m.log_you_been_made_admin(), 'event');
+			}
+		});
+		registerHandler('newposition', (args) => {
+			if (!room.listening) return;
+			if (!myPellet) initPellet();
+			const coords = parseCoords(args[0]);
+			if (myPellet && coords) {
+				myPellet.left = coords.x * scale;
+				myPellet.top = coords.y * scale;
+				myPellet.setCoords();
+				myCanvas.renderAll();
+				updateMyPellet(true);
+			}
+			moving = false;
+		});
+		registerHandler('claim', (args) => {
+			if (!room.listening) return;
+			if (!room.adminModeOn || (room.adminModeOn && !claimFocus)) {
+				receivedClaim(args[0]);
+				clearTimeout(updateClaimLog);
+				updateClaimLog = setTimeout(() => {
+					if (room.claim) log(m.log_claim({ claim: room.claim }), 'claim');
+				}, 3000);
+			}
+		});
+		registerHandler('voicechat', (args) => {
+			if (!room.listening) return;
+			const otherUserId = args[0];
+			if (otherUserId != room.userId) {
+				const voiceId = args[1].toString();
+				voice.mapVoiceId(voiceId, otherUserId);
+				if (room.others[otherUserId]) room.others[otherUserId].voiceId = voiceId;
+				voice.callPeerWithLimit(voiceId);
+			}
+		});
+		registerHandler('microphonemuted', (args) => {
+			if (!room.listening) return;
+			const otherUserId = args[0];
+			if (otherUserId != room.userId && room.others[otherUserId]) {
+				room.others[otherUserId].microphone = false;
+			}
+		});
+		registerHandler('microphoneunmuted', (args) => {
+			if (!room.listening) return;
+			const otherUserId = args[0];
+			if (otherUserId != room.userId && room.others[otherUserId]) {
+				room.others[otherUserId].microphone = true;
+			}
+		});
+		registerHandler('listenning', (args) => {
+			if (!room.listening) return;
+			room.liveListening = true;
+			room.liveChannel = args[0];
+			log(m.log_spectrum_connected({ liveChannel: capitalize(room.liveChannel) }));
+		});
+		registerHandler('liveusermessage', (args) => {
+			if (!room.listening) return;
+			let otherUserId: string;
+			switch (room.liveChannel) {
+				case 'youtube':
+					otherUserId = 'ff0000';
+					break;
+				case 'tiktok':
+					otherUserId = '000000';
+					break;
+				case 'twitch':
+					otherUserId = '9146ff';
+					break;
+				default:
+					console.error('missing room.liveChannel');
+					return;
+			}
+			saveLiveUser(args[0], args[1], args[2]);
+			const coords = parseLiveSpectrum(args[0], args[3]);
+			const otherNickname = capitalize(room.liveChannel ?? '');
+			if (otherUserId != room.userId) updatePellet(otherUserId, coords, otherNickname);
+		});
+		registerHandler('chatmessage', (args) => {
+			if (!room.listening) return;
+			const otherUserId = args[0];
+			const message = args[1];
+			if (otherUserId != room.userId) log(`${room.others[otherUserId].nickname}: ${message}`);
+			else log(`${room.nickname}: ${message}`);
+		});
+
+		websocket = startWebsocket(signIn, connectionLost);
+		registeredCommands = [
+			'ack',
+			'nack',
+			'spectrum',
+			'update',
+			'userleft',
+			'receive',
+			'madeadmin',
+			'newposition',
+			'claim',
+			'voicechat',
+			'microphonemuted',
+			'microphoneunmuted',
+			'listenning',
+			'liveusermessage',
+			'chatmessage'
+		];
 
 		// Prepare Both Canvas
 		myCanvas = drawCanvas('spectrum');
@@ -498,6 +684,14 @@
 		return canvas;
 	}
 
+	let registeredCommands: string[] = [];
+
+	onDestroy(() => {
+		for (const command of registeredCommands) {
+			unregisterHandler(command);
+		}
+	});
+
 	let wasReconnecting = false;
 
 	function signIn() {
@@ -602,163 +796,6 @@
 		};
 
 		return position;
-	}
-
-	function parseCommand(line: string) {
-		const rpc = JSON.parse(line) as { procedure: string; arguments: string[] };
-
-		if (rpc.procedure) {
-			const command = rpc.procedure;
-
-			if (command == 'ack') {
-				if (rpc.arguments[0] == 'signin') {
-					if (!room.initialized) room.initialized = true;
-					if (wasReconnecting) {
-						wasReconnecting = false;
-						log('✓ Reconnected', 'join');
-					}
-				}
-			} else if (command == 'nack') {
-				// TODO: translate
-				notify.error('Désolé, erreur reçue: ' + rpc.arguments[0]);
-			} else if (command == 'spectrum') {
-				showJoinModal = false;
-				joinRoom(rpc.arguments[1], rpc.arguments[0], rpc.arguments[2], rpc.arguments[3] == 'true');
-				joinedSpectrum(rpc.arguments[1]);
-
-				log(m.log_you_joined_spectrum(), 'join');
-			} else if (!room.listening) {
-				return;
-			} else if (command == 'update') {
-				const otherUserId = rpc.arguments[0];
-				const coords = parseCoords(rpc.arguments[1]);
-				const otherNickname = rpc.arguments[2];
-				if (otherUserId != room.userId) updatePellet(otherUserId, coords, otherNickname);
-			} /*else if (command == 'joined') {
-				const otherUserId = rpc.arguments[0];
-				const otherNickname = rpc.arguments[1];
-				if (otherUserId != room.userId) initOtherPellet(otherUserId, otherNickname);
-			} */ else if (command == 'userleft') {
-				const otherUserId = rpc.arguments[0];
-				if (otherUserId != room.userId) {
-					log(m.log_left_spectrum({ name: room.others[otherUserId].nickname }), 'leave');
-					deletePellet(otherUserId);
-				} else {
-					log(m.log_you_left_spectrum(), 'leave');
-					notify.error(m.log_you_left_spectrum());
-					leaveSpectrum();
-				}
-			} else if (command == 'receive') {
-				const otherUserId = rpc.arguments[0];
-				if (otherUserId != room.userId) {
-					notify.info(room.others[otherUserId].nickname + ' a envoyé : ' + rpc.arguments[1], 5000);
-					log(
-						m.log_emoji_received({
-							name: room.others[otherUserId].nickname,
-							emoji: rpc.arguments[1]
-						}),
-						'event'
-					);
-				} else {
-					log(m.log_emoji_sent({ emoji: rpc.arguments[1] }), 'event');
-				}
-				trigger = false;
-				handAnimation = false;
-				handUsername = '';
-				emoji = rpc.arguments[1];
-
-				if (emoji === '🤚') {
-					handAnimation = true;
-					handUsername =
-						otherUserId != room.userId ? room.others[otherUserId].nickname : (room.nickname ?? '');
-				}
-
-				requestAnimationFrame(() => (trigger = true)); // retrigger animation
-			} else if (command == 'madeadmin') {
-				const otherUserId = rpc.arguments[0];
-				if (otherUserId != room.userId) {
-					deletePellet(otherUserId, true);
-					log(m.log_made_admin({ name: room.others[otherUserId].nickname }), 'event');
-				} else {
-					room.adminModeOn = true;
-					myCanvas.remove(myPellet);
-					myCanvas.renderAll();
-					myPellet = null;
-					log(m.log_you_been_made_admin(), 'event');
-				}
-			} else if (command == 'newposition') {
-				if (!myPellet) {
-					initPellet();
-				}
-
-				const coords = parseCoords(rpc.arguments[0]);
-
-				if (myPellet && coords) {
-					myPellet.left = coords.x * scale;
-					myPellet.top = coords.y * scale;
-					myPellet.setCoords();
-					myCanvas.renderAll();
-					updateMyPellet(true);
-				}
-				moving = false;
-			} else if (command == 'claim') {
-				if (!room.adminModeOn || (room.adminModeOn && !claimFocus)) {
-					receivedClaim(rpc.arguments[0]);
-
-					clearTimeout(updateClaimLog);
-					updateClaimLog = setTimeout(() => {
-						if (room.claim) log(m.log_claim({ claim: room.claim }), 'claim');
-					}, 3000);
-				}
-			} else if (command == 'voicechat') {
-				const otherUserId = rpc.arguments[0];
-				if (otherUserId != room.userId) {
-					const voiceId = rpc.arguments[1].toString();
-					voice.mapVoiceId(voiceId, otherUserId);
-					if (room.others[otherUserId]) room.others[otherUserId].voiceId = voiceId;
-					voice.callPeerWithLimit(voiceId);
-				}
-			} else if (command == 'microphonemuted') {
-				const otherUserId = rpc.arguments[0];
-				if (otherUserId != room.userId && room.others[otherUserId]) {
-					room.others[otherUserId].microphone = false;
-				}
-			} else if (command == 'listenning') {
-				room.liveListening = true;
-				room.liveChannel = rpc.arguments[0];
-				log(m.log_spectrum_connected({ liveChannel: capitalize(room.liveChannel) }));
-			} else if (command == 'microphoneunmuted') {
-				const otherUserId = rpc.arguments[0];
-				if (otherUserId != room.userId && room.others[otherUserId]) {
-					room.others[otherUserId].microphone = true;
-				}
-			} else if (command == 'liveusermessage') {
-				let otherUserId;
-				switch (room.liveChannel) {
-					case 'youtube':
-						otherUserId = 'ff0000';
-						break;
-					case 'tiktok':
-						otherUserId = '000000';
-						break;
-					case 'twitch':
-						otherUserId = '9146ff';
-						break;
-					default:
-						console.error('missing room.liveChannel');
-						return;
-				}
-				saveLiveUser(rpc.arguments[0], rpc.arguments[1], rpc.arguments[2]);
-				const coords = parseLiveSpectrum(rpc.arguments[0], rpc.arguments[3]);
-				const otherNickname = capitalize(room.liveChannel ?? '');
-				if (otherUserId != room.userId) updatePellet(otherUserId, coords, otherNickname);
-			} else if (command == 'chatmessage') {
-				const otherUserId = rpc.arguments[0];
-				const message = rpc.arguments[1];
-				if (otherUserId != room.userId) log(`${room.others[otherUserId].nickname}: ${message}`);
-				else log(`${room.nickname}: ${message}`);
-			}
-		}
 	}
 
 	let updateClaimLog: ReturnType<typeof setTimeout> | undefined;
