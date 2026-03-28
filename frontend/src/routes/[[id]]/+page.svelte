@@ -146,8 +146,6 @@
 				if (room.others[uid]) room.others[uid].audio = audio;
 			}
 		});
-		canvasManager.setLogFn(log);
-
 		spectrumId = page.params?.id;
 		// RPC handlers — always active
 		registerHandler('ack', (args) => {
@@ -383,6 +381,7 @@
 		for (const command of registeredCommands) {
 			unregisterHandler(command);
 		}
+		canvasManager.reset();
 	});
 
 	let wasReconnecting = false;
@@ -575,7 +574,7 @@
 		const userIdColor = stringToColorHex(liveUserId);
 
 		room.others[userIdColor] = {
-			pellet: canvasManager.initOtherPellet(userIdColor, liveUserNickname),
+			pellet: canvasManager.initOtherPellet(userIdColor, liveUserNickname, log),
 			target: convertVoteToPosition(liveVotes.get(liveUserId)),
 			nickname: liveUserNickname,
 			microphone: false,

@@ -51,21 +51,12 @@ class CanvasManager {
 	private _currentOpinion = 'notReplied';
 	private _previousOpinion = 'notReplied';
 	private _updateIntervalId: ReturnType<typeof setInterval> | null = null;
-	private _logFn: LogFn | null = null;
-
-	/** Wire up the page-level log function (includes scroll-to-bottom). */
-	setLogFn(fn: LogFn) {
-		this._logFn = fn;
-	}
+	private _rafId: number | null = null;
 
 	private _log(message: string, type?: string) {
-		if (this._logFn) {
-			this._logFn(message, type);
-		} else {
-			const now = new Date();
-			const formattedDate = now.toLocaleString('fr-FR');
-			room.logs.push({ message: `[${formattedDate}] ${message}`, type: type ?? 'message' });
-		}
+		const now = new Date();
+		const formattedDate = now.toLocaleString('fr-FR');
+		room.logs.push({ message: `[${formattedDate}] ${message}`, type: type ?? 'message' });
 	}
 
 	get isMoving() {
@@ -144,8 +135,8 @@ class CanvasManager {
 			for (let index = 0; index < cell.path.length - 2; index++) {
 				const pathPoint = cell.path[index];
 				const p = [
-					pathPoint[pathPoint.length - 2] * cell.scaleX * scale - 15,
-					pathPoint[pathPoint.length - 1] * cell.scaleY * scale - 10
+					pathPoint[pathPoint.length - 2] * scale - 15 * scale,
+					pathPoint[pathPoint.length - 1] * scale - 10 * scale
 				];
 				this._cellsPoints[this._cells.length - 1].push(p);
 			}
@@ -212,6 +203,8 @@ class CanvasManager {
 	initMyPellet(onUpdate: () => void): boolean {
 		console.log('Initializing Your Pellet');
 		if (!room.userId) return false;
+		this._currentOpinion = 'notReplied';
+		this._previousOpinion = 'notReplied';
 		if (!room.nickname) room.nickname = 'Participant ' + (Math.floor(Math.random() * 100) + 1);
 
 		const pellet = newPellet(room.userId, room.nickname);
@@ -257,6 +250,10 @@ class CanvasManager {
 	}
 
 	removeMyPellet() {
+		if (this._updateIntervalId !== null) {
+			clearInterval(this._updateIntervalId);
+			this._updateIntervalId = null;
+		}
 		if (this.myPellet) {
 			this._canvas?.remove(this.myPellet);
 			this._canvas?.renderAll();
@@ -284,9 +281,10 @@ class CanvasManager {
 	// Other participants' pellets
 	// ---------------------------------------------------------------------------
 
-	initOtherPellet(userId: string, nickname: string): Pellet {
+	initOtherPellet(userId: string, nickname: string, logFn?: LogFn): Pellet {
 		console.log('Initializing Other Pellet: ' + userId);
-		this._log(m.log_joined_spectrum({ name: nickname }), 'join');
+		if (logFn) logFn(m.log_joined_spectrum({ name: nickname }), 'join');
+		else this._log(m.log_joined_spectrum({ name: nickname }), 'join');
 
 		const pellet = newPellet(userId, nickname);
 		pellet.set({
@@ -338,15 +336,17 @@ class CanvasManager {
 		}
 	}
 
-	validateOpinion(otherUserId: string) {
+	validateOpinion(otherUserId: string, logFn?: LogFn) {
 		const target = room.others[otherUserId]?.pellet;
 		if (!target) return;
+
+		const log = logFn ?? this._log.bind(this);
 
 		for (let i = 0; i < this._cells.length; i++) {
 			const cell = this._cells[i];
 			if (pointInPolygon(this._cellsPoints[i], [target.left, target.top])) {
 				if (cell.id !== 'notReplied') {
-					this._log(
+					log(
 						m.log_opinion({
 							name: room.others[otherUserId].nickname,
 							opinion: getOpinionLabel(cell.id)
@@ -374,7 +374,12 @@ class CanvasManager {
 			});
 		}
 		this._canvas!.requestRenderAll();
-		requestAnimationFrame(() => this.animatePellets());
+		this._rafId = requestAnimationFrame(() => this.animatePellets());
+	}
+
+	stopAnimating() {
+		if (this._rafId !== null) cancelAnimationFrame(this._rafId);
+		this._rafId = null;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -383,6 +388,11 @@ class CanvasManager {
 
 	/** Remove all pellets from the canvas (call before leaveRoom). */
 	clearAllPellets() {
+		this.stopAnimating();
+		if (this._updateIntervalId !== null) {
+			clearInterval(this._updateIntervalId);
+			this._updateIntervalId = null;
+		}
 		this.removeMyPellet();
 		for (const key in room.others) {
 			if (room.others[key].pellet) {
@@ -390,6 +400,22 @@ class CanvasManager {
 			}
 		}
 		this._canvas?.renderAll();
+	}
+
+	/** Reset all state — call in onDestroy to avoid accumulation across SvelteKit navigations. */
+	reset() {
+		this.stopAnimating();
+		if (this._updateIntervalId !== null) {
+			clearInterval(this._updateIntervalId);
+			this._updateIntervalId = null;
+		}
+		this._cells = [];
+		this._cellsPoints = [];
+		this._svg = null;
+		this._canvas = null;
+		this._currentOpinion = 'notReplied';
+		this._previousOpinion = 'notReplied';
+		this.myPellet = null;
 	}
 }
 
