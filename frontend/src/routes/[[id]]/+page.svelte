@@ -329,7 +329,7 @@
 
 		// Prepare Canvas
 		canvasManager.drawCanvas('spectrum');
-		canvasManager.loadSVG();
+		canvasManager.loadSVG().catch(console.error);
 
 		// We're joining a spectrum
 		if (spectrumId) {

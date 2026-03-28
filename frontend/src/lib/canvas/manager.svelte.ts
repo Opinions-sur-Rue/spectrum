@@ -106,7 +106,13 @@ class CanvasManager {
 	}
 
 	async loadSVG() {
-		const { objects, options } = await loadSVGFromURL(m.file_spectrum());
+		let objects: unknown[], options: unknown;
+		try {
+			({ objects, options } = await loadSVGFromURL(m.file_spectrum()));
+		} catch (err) {
+			console.error('Failed to load SVG:', err);
+			return;
+		}
 		// @ts-expect-error -- groupSVGElements return type not fully typed
 		const svg = util.groupSVGElements(objects, options);
 
@@ -122,7 +128,7 @@ class CanvasManager {
 			scaleX: scale,
 			scaleY: scale,
 			left: (canvasWidth - svg.width! * scale) / 2,
-			top: 15
+			top: 15 * this._scale
 		});
 		svg.selectable = false;
 		svg.evented = false;
@@ -397,6 +403,7 @@ class CanvasManager {
 		for (const key in room.others) {
 			if (room.others[key].pellet) {
 				this._canvas?.remove(room.others[key].pellet);
+				room.others[key].pellet = null;
 			}
 		}
 		this._canvas?.renderAll();
@@ -404,6 +411,10 @@ class CanvasManager {
 
 	/** Reset all state — call in onDestroy to avoid accumulation across SvelteKit navigations. */
 	reset() {
+		if (this._canvas) {
+			this.clearAllPellets();
+			this.removeMyPellet();
+		}
 		this.stopAnimating();
 		if (this._updateIntervalId !== null) {
 			clearInterval(this._updateIntervalId);
@@ -412,6 +423,7 @@ class CanvasManager {
 		this._cells = [];
 		this._cellsPoints = [];
 		this._svg = null;
+		this._canvas?.dispose();
 		this._canvas = null;
 		this._currentOpinion = 'notReplied';
 		this._previousOpinion = 'notReplied';
