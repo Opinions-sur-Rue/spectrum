@@ -1,5 +1,3 @@
-import { SvelteMap } from 'svelte/reactivity';
-
 import { API_URL, DEBUG } from '$lib/env';
 
 const WS_URL = API_URL.replace('http://', 'ws://').replace('https://', 'wss://');
@@ -15,7 +13,8 @@ export const wsState = $state({ reconnecting: false });
 
 export type RpcHandler = (args: string[]) => void;
 
-const handlers = new SvelteMap<string, RpcHandler>();
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- not reactive state, internal dispatch table only
+const handlers = new Map<string, RpcHandler>();
 
 /**
  * Register a handler for a specific RPC command.

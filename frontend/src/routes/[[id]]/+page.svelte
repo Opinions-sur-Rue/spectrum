@@ -36,9 +36,14 @@
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
 	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
 	import { ENABLE_AUDIO, HEADER_TITLE, LOGO_URL, LOGO_WIDTH, PUBLIC_URL } from '$lib/env';
-	import { startWebsocket, wsState, registerHandler } from '$lib/spectrum/websocket.svelte';
+	import {
+		startWebsocket,
+		wsState,
+		registerHandler,
+		unregisterHandler
+	} from '$lib/spectrum/websocket.svelte';
 	import { Canvas, loadSVGFromURL, util } from 'fabric';
-	import { onMount, tick, untrack } from 'svelte';
+	import { onMount, onDestroy, tick, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { copy } from 'svelte-copy';
 	import { capitalize, lerp, pointInPolygon, stringToColorHex } from '$lib/utils';
@@ -409,6 +414,23 @@
 		});
 
 		websocket = startWebsocket(signIn, connectionLost);
+		registeredCommands = [
+			'ack',
+			'nack',
+			'spectrum',
+			'update',
+			'userleft',
+			'receive',
+			'madeadmin',
+			'newposition',
+			'claim',
+			'voicechat',
+			'microphonemuted',
+			'microphoneunmuted',
+			'listenning',
+			'liveusermessage',
+			'chatmessage'
+		];
 
 		// Prepare Both Canvas
 		myCanvas = drawCanvas('spectrum');
@@ -661,6 +683,14 @@
 
 		return canvas;
 	}
+
+	let registeredCommands: string[] = [];
+
+	onDestroy(() => {
+		for (const command of registeredCommands) {
+			unregisterHandler(command);
+		}
+	});
 
 	let wasReconnecting = false;
 
