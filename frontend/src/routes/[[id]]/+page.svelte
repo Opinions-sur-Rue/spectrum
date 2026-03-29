@@ -746,7 +746,7 @@
 
 			<footer class="flex flex-wrap items-center justify-center gap-4" class:p-4={spectrumId}>
 				{#if room.adminModeOn}
-					<div>
+					<div class="flex flex-wrap items-center gap-2">
 						<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={resetPositions}>
 							<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
 								{m.reset_positions()}</span
@@ -799,7 +799,7 @@
 				{/if}
 
 				{#if spectrumId}
-					<div>
+					<div class="flex items-center gap-2">
 						<div
 							class="dropdown dropdown-top dropdown-center"
 							style="font-style: normal; font-family: 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Emoji', sans-serif;"
