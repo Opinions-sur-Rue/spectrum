@@ -603,6 +603,7 @@
 	function leaveSpectrum() {
 		rpc('leavespectrum');
 		spectrumId = undefined;
+		myHandRaised = false;
 		// Remove canvas objects before clearing store state
 		canvasManager.clearAllPellets();
 		leaveRoom();
