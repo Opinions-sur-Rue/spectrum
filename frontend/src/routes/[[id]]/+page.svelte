@@ -434,8 +434,10 @@
 		return { x, y };
 	}
 
-	let liveVotes = new SvelteMap<string, number>();
-	let liveUsers = new SvelteMap<string, LiveUser>();
+	// eslint-disable-next-line svelte/no-unnecessary-state-wrap
+	let liveVotes = $state(new SvelteMap<string, number>());
+	// eslint-disable-next-line svelte/no-unnecessary-state-wrap
+	let liveUsers = $state(new SvelteMap<string, LiveUser>());
 
 	function saveLiveUser(
 		liveUserId: string,
