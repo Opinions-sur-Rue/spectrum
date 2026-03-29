@@ -20,6 +20,7 @@ export interface Participant {
 	audio?: HTMLAudioElement;
 	averageVoice?: number;
 	validateOpinion?: ReturnType<typeof setTimeout>;
+	handRaised: boolean;
 }
 
 export interface Log {

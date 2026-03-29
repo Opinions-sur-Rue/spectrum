@@ -210,8 +210,18 @@
 				handAnimation = true;
 				handUsername =
 					otherUserId != room.userId ? room.others[otherUserId].nickname : (room.nickname ?? '');
+				if (otherUserId !== room.userId && room.others[otherUserId]) {
+					room.others[otherUserId].handRaised = true;
+				}
 			}
 			requestAnimationFrame(() => (trigger = true)); // retrigger animation
+		});
+		registerHandler('handlowered', (args) => {
+			if (!room.listening) return;
+			const otherUserId = args[0];
+			if (room.others[otherUserId]) {
+				room.others[otherUserId].handRaised = false;
+			}
 		});
 		registerHandler('madeadmin', (args) => {
 			if (!room.listening) return;
@@ -314,6 +324,7 @@
 			'update',
 			'userleft',
 			'receive',
+			'handlowered',
 			'madeadmin',
 			'newposition',
 			'claim',
@@ -353,8 +364,16 @@
 		rpc('emoji', emojis[emojiIndex]);
 	}
 
-	function raiseHand() {
-		rpc('emoji', '🤚');
+	let myHandRaised = $state(false);
+
+	function toggleHand() {
+		if (myHandRaised) {
+			myHandRaised = false;
+			rpc('lowerhand');
+		} else {
+			myHandRaised = true;
+			rpc('emoji', '🤚');
+		}
 	}
 
 	function rpc(procedure: string, ...args: string[]) {
@@ -576,7 +595,8 @@
 			target: convertVoteToPosition(liveVotes.get(liveUserId)),
 			nickname: liveUserNickname,
 			microphone: false,
-			volume: 0
+			volume: 0,
+			handRaised: false
 		};
 	}
 
@@ -821,7 +841,10 @@
 								<li><button onclick={() => sendEmoji(6)}>🦝</button></li>
 							</ul>
 						</div>
-						<button class="btn btn-info rounded-lg px-4 py-2 font-mono" onclick={() => raiseHand()}
+						<button
+							class="btn btn-info rounded-lg px-4 py-2 font-mono"
+							class:btn-active={myHandRaised}
+							onclick={toggleHand}
 							>🤚<span class="hidden lg:!inline-block"> {m.raise_hand()}</span></button
 						>
 					</div>
@@ -922,7 +945,10 @@
 											<Fa icon={faMicrophoneSlash} />
 										</div>
 									</label>
-									<span class="text-sm"><b>{other.nickname}</b></span>
+									<span class="text-sm"
+										><b>{other.nickname}</b>{#if other.handRaised}
+											🤚{/if}</span
+									>
 								</td>
 								<td>
 									<div class="dropdown dropdown-hover dropdown-bottom dropdown-center">
