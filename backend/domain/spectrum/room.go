@@ -129,6 +129,7 @@ func (r *Room) SetAdmin(user *User) error {
 		return errors.New("room closed")
 	}
 	r.admins = append(r.admins, user.UserID)
+	user.SetLastPosition("")
 	return nil
 }
 
