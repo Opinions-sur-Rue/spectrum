@@ -35,7 +35,7 @@
 	import CreateSpectrumModal from '$lib/components/CreateSpectrumModal.svelte';
 	import JoinSpectrumModal from '$lib/components/JoinSpectrumModal.svelte';
 	import ConnectLiveModal from '$lib/components/ConnectLiveModal.svelte';
-	import { ENABLE_AUDIO, HEADER_TITLE, LOGO_URL, LOGO_WIDTH, PUBLIC_URL } from '$lib/env';
+	import { HEADER_TITLE, LOGO_URL, LOGO_WIDTH, PUBLIC_URL } from '$lib/env';
 	import {
 		startWebsocket,
 		wsState,
@@ -83,7 +83,7 @@
 	});
 
 	$effect(() => {
-		if (ENABLE_AUDIO && voice.voiceState.peerId && spectrumId) {
+		if (voice.voiceState.peerId && spectrumId) {
 			if (voice.voiceState.microphone) {
 				voice.unmuteMicrophone();
 				rpc('unmutedmymicrophone');
@@ -95,19 +95,17 @@
 	});
 
 	$effect(() => {
-		if (ENABLE_AUDIO) {
-			if (spectrumId && voice.voiceState.peerId && room.userId) {
-				rpc('myvoicechatid', voice.voiceState.peerId);
-				// Call all known peers as safety net (handles race conditions on first load)
-				// untrack prevents this effect from re-running on every others mutation
-				untrack(() => {
-					for (const key in room.others) {
-						if (room.others[key].voiceId) {
-							voice.callPeerWithLimit(room.others[key].voiceId!);
-						}
+		if (spectrumId && voice.voiceState.peerId && room.userId) {
+			rpc('myvoicechatid', voice.voiceState.peerId);
+			// Call all known peers as safety net (handles race conditions on first load)
+			// untrack prevents this effect from re-running on every others mutation
+			untrack(() => {
+				for (const key in room.others) {
+					if (room.others[key].voiceId) {
+						voice.callPeerWithLimit(room.others[key].voiceId!);
 					}
-				});
-			}
+				}
+			});
 		}
 	});
 
@@ -613,7 +611,6 @@
 	}
 
 	function setVolume(participantId: string, volume: number) {
-		if (!ENABLE_AUDIO) return;
 		room.others[participantId].volume = volume;
 		voice.setParticipantVolume(room.others[participantId].audio, volume);
 	}
@@ -871,33 +868,31 @@
 									>
 								</td>
 								<td>
-									{#if ENABLE_AUDIO}
-										<div
-											class="tooltip"
-											data-tip={voice.voiceState.microphone
-												? m.mute_microphone()
-												: m.unmute_microphone()}
+									<div
+										class="tooltip"
+										data-tip={voice.voiceState.microphone
+											? m.mute_microphone()
+											: m.unmute_microphone()}
+									>
+										<button
+											class="swap indicator"
+											onclick={toggleMicrophone}
+											class:swap-active={voice.voiceState.microphone &&
+												voice.voiceState.peerConnected}
 										>
-											<button
-												class="swap indicator"
-												onclick={toggleMicrophone}
-												class:swap-active={voice.voiceState.microphone &&
-													voice.voiceState.peerConnected}
+											<div class="swap-on btn btn-ghost btn-square rounded-xl">
+												<Fa icon={faMicrophone} />
+											</div>
+											<div
+												class="swap-off btn btn-square rounded-xl border-0 bg-red-500/20 text-red-500"
 											>
-												<div class="swap-on btn btn-ghost btn-square rounded-xl">
-													<Fa icon={faMicrophone} />
-												</div>
-												<div
-													class="swap-off btn btn-square rounded-xl border-0 bg-red-500/20 text-red-500"
-												>
-													<Fa icon={faMicrophoneSlash} />
-												</div>
-												{#if !voice.voiceState.peerConnected}
-													<span class="loading loading-spinner loading-xs indicator-item"></span>
-												{/if}
-											</button>
-										</div>
-									{/if}
+												<Fa icon={faMicrophoneSlash} />
+											</div>
+											{#if !voice.voiceState.peerConnected}
+												<span class="loading loading-spinner loading-xs indicator-item"></span>
+											{/if}
+										</button>
+									</div>
 								</td>
 							</tr>
 						{/if}
@@ -919,19 +914,14 @@
 									</div>
 								</td>
 								<td>
-									{#if ENABLE_AUDIO}
-										<label
-											class="swap swap-flip cursor-default"
-											class:swap-active={other.microphone}
-										>
-											<div class="swap-on">
-												<Fa icon={faMicrophone} />
-											</div>
-											<div class="swap-off text-red-500">
-												<Fa icon={faMicrophoneSlash} />
-											</div>
-										</label>
-									{/if}
+									<label class="swap swap-flip cursor-default" class:swap-active={other.microphone}>
+										<div class="swap-on">
+											<Fa icon={faMicrophone} />
+										</div>
+										<div class="swap-off text-red-500">
+											<Fa icon={faMicrophoneSlash} />
+										</div>
+									</label>
 									<span class="text-sm"><b>{other.nickname}</b></span>
 								</td>
 								<td>
@@ -1031,25 +1021,23 @@
 								>
 							</div>
 							<div class="text-sm text-gray-500">
-								{#if ENABLE_AUDIO}
-									<label class="swap swap-flip">
-										<input
-											type="checkbox"
-											checked={voice.voiceState.microphone}
-											onchange={() =>
-												voice.voiceState.microphone
-													? voice.muteMicrophone()
-													: voice.enableMicrophone()}
-											class="hidden"
-										/>
-										<div class="swap-on">
-											<Fa icon={faMicrophone} />
-										</div>
-										<div class="swap-off text-red-500">
-											<Fa icon={faMicrophoneSlash} />
-										</div>
-									</label>
-								{/if}
+								<label class="swap swap-flip">
+									<input
+										type="checkbox"
+										checked={voice.voiceState.microphone}
+										onchange={() =>
+											voice.voiceState.microphone
+												? voice.muteMicrophone()
+												: voice.enableMicrophone()}
+										class="hidden"
+									/>
+									<div class="swap-on">
+										<Fa icon={faMicrophone} />
+									</div>
+									<div class="swap-off text-red-500">
+										<Fa icon={faMicrophoneSlash} />
+									</div>
+								</label>
 							</div>
 						</div>
 					</div>
@@ -1078,19 +1066,14 @@
 									{other.nickname}
 								</div>
 								<div class="text-sm text-gray-500">
-									{#if ENABLE_AUDIO}
-										<label
-											class="swap swap-flip cursor-default"
-											class:swap-active={other.microphone}
-										>
-											<div class="swap-on">
-												<Fa icon={faMicrophone} />
-											</div>
-											<div class="swap-off text-red-500">
-												<Fa icon={faMicrophoneSlash} />
-											</div>
-										</label>
-									{/if}
+									<label class="swap swap-flip cursor-default" class:swap-active={other.microphone}>
+										<div class="swap-on">
+											<Fa icon={faMicrophone} />
+										</div>
+										<div class="swap-off text-red-500">
+											<Fa icon={faMicrophoneSlash} />
+										</div>
+									</label>
 								</div>
 							</div>
 						</div>
