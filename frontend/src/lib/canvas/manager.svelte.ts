@@ -311,7 +311,8 @@ class CanvasManager {
 				target: coords && !isNaN(coords.x) && !isNaN(coords.y) ? coords : undefined,
 				nickname: otherNickname,
 				microphone: false,
-				volume: 100
+				volume: 100,
+				handRaised: false
 			};
 		} else if (coords && !isNaN(coords.x) && !isNaN(coords.y)) {
 			room.others[otherUserId].target = coords;

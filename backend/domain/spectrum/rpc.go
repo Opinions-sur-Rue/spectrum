@@ -15,7 +15,7 @@ import (
 
 var (
 	newPositions   = []string{"431,582", "502,564", "503,623", "574,591", "416,553", "576,543"}
-	procedureRegex = regexp.MustCompile(`^(sendchatmessage|listen|disconnect|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick)$`)
+	procedureRegex = regexp.MustCompile(`^(sendchatmessage|listen|disconnect|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick|lowerhand)$`)
 )
 
 var (
@@ -44,6 +44,11 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 	case "emoji":
 		if user.IsInRoom() {
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_RECEIVE, user.Color, rpc.Arguments[0])
+			c.hub.MessageRoom(user.Room(), reply)
+		}
+	case "lowerhand":
+		if user.IsInRoom() {
+			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_HANDLOWERED, user.Color)
 			c.hub.MessageRoom(user.Room(), reply)
 		}
 	case "signin":
