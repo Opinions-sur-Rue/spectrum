@@ -10,7 +10,17 @@ vi.mock('fabric', () => ({
 	Canvas: vi.fn().mockImplementation(() => ({
 		setDimensions: vi.fn(),
 		on: vi.fn(),
-		requestRenderAll: vi.fn()
+		add: vi.fn(),
+		remove: vi.fn(),
+		renderAll: vi.fn(),
+		requestRenderAll: vi.fn(),
+		dispose: vi.fn(),
+		sendObjectToBack: vi.fn(),
+		getWidth: vi.fn().mockReturnValue(980),
+		hoverCursor: 'default',
+		selection: true,
+		targetFindTolerance: 0,
+		backgroundColor: ''
 	}))
 }));
 
