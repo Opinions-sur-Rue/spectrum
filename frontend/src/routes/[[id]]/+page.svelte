@@ -367,13 +367,14 @@
 	let myHandRaised = $state(false);
 
 	function toggleHand() {
+		const myId = room.userId;
 		if (myHandRaised) {
 			myHandRaised = false;
-			if (room.others[room.userId]) room.others[room.userId].handRaised = false;
+			if (myId && room.others[myId]) room.others[myId].handRaised = false;
 			rpc('lowerhand');
 		} else {
 			myHandRaised = true;
-			if (room.others[room.userId]) room.others[room.userId].handRaised = true;
+			if (myId && room.others[myId]) room.others[myId].handRaised = true;
 			rpc('emoji', '🤚');
 		}
 	}

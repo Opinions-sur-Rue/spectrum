@@ -72,7 +72,6 @@ class CanvasManager {
 	// ---------------------------------------------------------------------------
 
 	drawCanvas(id: string): Canvas {
-		// @ts-expect-error -- Canvas constructor options
 		const canvas = new Canvas(id);
 		canvas.hoverCursor = 'pointer';
 		canvas.selection = false;
