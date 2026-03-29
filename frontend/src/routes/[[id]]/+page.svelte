@@ -369,9 +369,11 @@
 	function toggleHand() {
 		if (myHandRaised) {
 			myHandRaised = false;
+			if (room.others[room.userId]) room.others[room.userId].handRaised = false;
 			rpc('lowerhand');
 		} else {
 			myHandRaised = true;
+			if (room.others[room.userId]) room.others[room.userId].handRaised = true;
 			rpc('emoji', '🤚');
 		}
 	}
@@ -511,6 +513,7 @@
 	let previousClaim: string | undefined;
 
 	function connectionLost() {
+		myHandRaised = false;
 		log(m.cannot_connect(), 'leave');
 		notify.error(m.cannot_connect());
 	}
