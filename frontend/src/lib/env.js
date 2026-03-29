@@ -12,6 +12,3 @@ export const PUBLIC_URL = import.meta.env.VITE_PUBLIC_URL ?? 'https://spectrum.o
 export const LOGO_URL = import.meta.env.VITE_LOGO_URL;
 export const LOGO_WIDTH = import.meta.env.VITE_LOGO_WIDTH ?? 128;
 export const HEADER_TITLE = import.meta.env.VITE_HEADER_TITLE;
-
-// Feature flag
-export const ENABLE_AUDIO = import.meta.env.VITE_ENABLE_AUDIO ?? false;
