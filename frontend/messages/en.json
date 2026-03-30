@@ -69,6 +69,7 @@
 	"placeholder_secret": "Enter the necessary secret to connect to the platform",
 	"placeholder_spectrum_id": "Enter the spectrum identifier you want to join",	
 	"raise_hand": "Raise Hand",
+	"lower_hand": "Lower Hand",
 	"reset_positions": "Reset Positions",
 	"search_participants": "Use the filter below to search for live user to add as participant",
 	"secret": "Secret",

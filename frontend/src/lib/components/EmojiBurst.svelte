@@ -2,6 +2,7 @@
 	export let emoji = '🎉';
 	export let trigger = false;
 	export let handAnimation = false;
+	export let lowerAnimation = false;
 	export let handUsername: string;
 
 	let show = false;
@@ -33,7 +34,11 @@
 {#if show}
 	<div class="emoji-burst-container">
 		<div class="burst-inner">
-			{#if !handAnimation}
+			{#if lowerAnimation}
+				<div class="hand-lowered">{emoji}</div>
+			{:else if handAnimation}
+				<div bind:this={element} class="hand-raised">{emoji}</div>
+			{:else}
 				<div class="big-emoji">{emoji}</div>
 
 				{#each particles as { id, angle, delay } (id)}
@@ -47,8 +52,6 @@
 						{emoji}
 					</div>
 				{/each}
-			{:else}
-				<div bind:this={element} class="hand-raised">{emoji}</div>
 			{/if}
 		</div>
 	</div>
@@ -123,6 +126,30 @@
 		100% {
 			opacity: 0;
 			transform: translate(-50%, -50%) scale(0.8);
+		}
+	}
+
+	.hand-lowered {
+		font-size: 12rem;
+		animation: lowerDown 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+		position: absolute;
+		top: 0;
+		left: 0;
+		transform: translate(-50%, -50%);
+		z-index: 100;
+	}
+
+	@keyframes lowerDown {
+		0% {
+			opacity: 1;
+			transform: translate(-50%, calc(-50vh + 6rem));
+		}
+		80% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+			transform: translate(-50%, calc(50vh + 6rem));
 		}
 	}
 

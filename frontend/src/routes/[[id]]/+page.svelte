@@ -204,6 +204,7 @@
 			}
 			trigger = false;
 			handAnimation = false;
+			lowerAnimation = false;
 			handUsername = '';
 			emoji = args[1];
 			if (emoji === '🤚') {
@@ -356,6 +357,7 @@
 
 	let trigger = $state(false);
 	let handAnimation = $state(false);
+	let lowerAnimation = $state(false);
 	let handUsername = $state('');
 	let emoji: string = $state('');
 
@@ -371,6 +373,13 @@
 		if (myHandRaised) {
 			myHandRaised = false;
 			if (myId && room.others[myId]) room.others[myId].handRaised = false;
+			// Lower hand animation — 🤚 slides down
+			emoji = '🤚';
+			trigger = false;
+			handAnimation = false;
+			lowerAnimation = true;
+			handUsername = '';
+			requestAnimationFrame(() => (trigger = true));
 			rpc('lowerhand');
 		} else {
 			myHandRaised = true;
@@ -651,7 +660,7 @@
 	bind:liveUsers
 	onSubmit={onAddLiveUserParticipant}
 />
-<EmojiBurst {emoji} {trigger} {handAnimation} {handUsername} />
+<EmojiBurst {emoji} {trigger} {handAnimation} {lowerAnimation} {handUsername} />
 
 {#if !streamerMode}
 	<Header subtitle={m.subtitle()} logo={LOGO_URL} logoWidth={LOGO_WIDTH} title={HEADER_TITLE}>
@@ -849,10 +858,13 @@
 							</ul>
 						</div>
 						<button
-							class="btn btn-info rounded-lg px-4 py-2 font-mono"
-							class:btn-active={myHandRaised}
+							class="btn rounded-lg px-4 py-2 font-mono"
+							class:btn-info={!myHandRaised}
+							class:btn-success={myHandRaised}
 							onclick={toggleHand}
-							>🤚<span class="hidden lg:!inline-block"> {m.raise_hand()}</span></button
+							>🤚<span class="hidden lg:!inline-block">
+								{myHandRaised ? m.lower_hand() : m.raise_hand()}</span
+							></button
 						>
 					</div>
 				{/if}
@@ -894,7 +906,9 @@
 								</td>
 								<td>
 									<span class="text-sm"
-										><b>{room.nickname}{room.adminModeOn ? '*' : ''}</b> ({m.yourself()})</span
+										><b>{room.nickname}{room.adminModeOn ? '*' : ''}</b>
+										({m.yourself()}){#if myHandRaised}
+											&nbsp;🤚{/if}</span
 									>
 								</td>
 								<td>
