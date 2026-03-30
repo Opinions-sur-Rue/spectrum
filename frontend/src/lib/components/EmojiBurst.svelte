@@ -34,7 +34,11 @@
 {#if show}
 	<div class="emoji-burst-container">
 		<div class="burst-inner">
-			{#if !handAnimation}
+			{#if lowerAnimation}
+				<div class="hand-lowered">{emoji}</div>
+			{:else if handAnimation}
+				<div bind:this={element} class="hand-raised">{emoji}</div>
+			{:else}
 				<div class="big-emoji">{emoji}</div>
 
 				{#each particles as { id, angle, delay } (id)}
@@ -48,10 +52,6 @@
 						{emoji}
 					</div>
 				{/each}
-			{:else if lowerAnimation}
-				<div class="hand-lowered">{emoji}</div>
-			{:else}
-				<div bind:this={element} class="hand-raised">{emoji}</div>
 			{/if}
 		</div>
 	</div>
