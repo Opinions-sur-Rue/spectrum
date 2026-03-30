@@ -372,7 +372,7 @@
 			myHandRaised = false;
 			if (myId && room.others[myId]) room.others[myId].handRaised = false;
 			// Brief animation to acknowledge the hand is lowered
-			emoji = '👇';
+			emoji = '🫳';
 			trigger = false;
 			handAnimation = false;
 			handUsername = '';
@@ -859,7 +859,7 @@
 							class:btn-info={!myHandRaised}
 							class:btn-warning={myHandRaised}
 							onclick={toggleHand}
-							>{myHandRaised ? '👇' : '🤚'}<span class="hidden lg:!inline-block">
+							>{myHandRaised ? '🫳' : '🤚'}<span class="hidden lg:!inline-block">
 								{myHandRaised ? m.lower_hand() : m.raise_hand()}</span
 							></button
 						>
