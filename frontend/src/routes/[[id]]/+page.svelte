@@ -856,7 +856,7 @@
 						</div>
 						<button
 							class="btn rounded-lg px-4 py-2 font-mono"
-							class:btn-info={!myHandRaised}
+							class:btn-success={!myHandRaised}
 							class:btn-warning={myHandRaised}
 							onclick={toggleHand}
 							>{myHandRaised ? '🫳' : '🤚'}<span class="hidden lg:!inline-block">
