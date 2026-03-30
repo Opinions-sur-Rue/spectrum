@@ -905,7 +905,7 @@
 									<span class="text-sm"
 										><b>{room.nickname}{room.adminModeOn ? '*' : ''}</b>
 										({m.yourself()}){#if myHandRaised}
-											🤚{/if}</span
+											&nbsp;🤚{/if}</span
 									>
 								</td>
 								<td>
