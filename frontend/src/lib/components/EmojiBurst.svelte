@@ -2,6 +2,7 @@
 	export let emoji = '🎉';
 	export let trigger = false;
 	export let handAnimation = false;
+	export let lowerAnimation = false;
 	export let handUsername: string;
 
 	let show = false;
@@ -47,6 +48,8 @@
 						{emoji}
 					</div>
 				{/each}
+			{:else if lowerAnimation}
+				<div class="hand-lowered">{emoji}</div>
 			{:else}
 				<div bind:this={element} class="hand-raised">{emoji}</div>
 			{/if}
@@ -123,6 +126,30 @@
 		100% {
 			opacity: 0;
 			transform: translate(-50%, -50%) scale(0.8);
+		}
+	}
+
+	.hand-lowered {
+		font-size: 12rem;
+		animation: lowerDown 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+		position: absolute;
+		top: 0;
+		left: 0;
+		transform: translate(-50%, -50%);
+		z-index: 100;
+	}
+
+	@keyframes lowerDown {
+		0% {
+			opacity: 1;
+			transform: translate(-50%, -50%);
+		}
+		60% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+			transform: translate(-50%, 80%);
 		}
 	}
 
