@@ -14,7 +14,9 @@
 		"lint": "prettier --check src e2e && eslint src",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test",
+		"cap:sync": "npm run build && npx cap sync android",
+		"cap:open": "npx cap open android"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.3",
@@ -51,6 +53,9 @@
 		"vitest": "^3.2.4"
 	},
 	"dependencies": {
+		"@capacitor/android": "^8.3.0",
+		"@capacitor/cli": "^8.3.0",
+		"@capacitor/core": "^8.3.0",
 		"@fortawesome/free-brands-svg-icons": "^7.2.0",
 		"@inlang/paraglide-js": "^2.15.1",
 		"fabric": "^7.2.0",
