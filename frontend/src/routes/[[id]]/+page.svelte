@@ -367,13 +367,14 @@
 	let myHandRaised = $state(false);
 
 	function toggleHand() {
+		const myId = room.userId;
 		if (myHandRaised) {
 			myHandRaised = false;
-			if (room.others[room.userId]) room.others[room.userId].handRaised = false;
+			if (myId && room.others[myId]) room.others[myId].handRaised = false;
 			rpc('lowerhand');
 		} else {
 			myHandRaised = true;
-			if (room.others[room.userId]) room.others[room.userId].handRaised = true;
+			if (myId && room.others[myId]) room.others[myId].handRaised = true;
 			rpc('emoji', '🤚');
 		}
 	}
@@ -433,8 +434,10 @@
 		return { x, y };
 	}
 
-	let liveVotes = new SvelteMap<string, number>();
-	let liveUsers = new SvelteMap<string, LiveUser>();
+	// eslint-disable-next-line svelte/no-unnecessary-state-wrap
+	let liveVotes = $state(new SvelteMap<string, number>());
+	// eslint-disable-next-line svelte/no-unnecessary-state-wrap
+	let liveUsers = $state(new SvelteMap<string, LiveUser>());
 
 	function saveLiveUser(
 		liveUserId: string,

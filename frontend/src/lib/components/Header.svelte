@@ -57,6 +57,7 @@
 			>
 				<Fa icon={faSignal} class="text-lg " />
 			</div>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<div tabindex="0" class="dropdown-content bg-base-100 rounded-box z-1 w-max shadow-sm">
 				<div class="stats">
 					<div class="stat">
@@ -75,10 +76,12 @@
 			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
 				<Fa icon={faFileCircleQuestion} class="text-lg" />
 			</div>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<div
 				tabindex="0"
 				class="card card-sm dropdown-content bg-base-100 rounded-box z-1 w-max shadow-sm"
 			>
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 				<div tabindex="0" class="card-body">
 					<h2 class="card-title">{m.info_do_you_have_a_moment()}</h2>
 					<p>
@@ -122,6 +125,7 @@
 			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
 				<Fa icon={faPalette} class="text-lg" />
 			</div>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<ul tabindex="0" class="dropdown-content bg-base-300 rounded-box z-1 w-52 p-2 shadow-2xl">
 				<li>
 					<input

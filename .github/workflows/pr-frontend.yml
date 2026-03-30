@@ -25,18 +25,18 @@ jobs:
         run: |
           npm run lint
 
-      - name: Svelte Check
-        working-directory: frontend
-        run: |
-          npm run check || exit 0
-
       - name: 🧪 Run tests 
         working-directory: frontend
         run: |
           npx playwright install
           npm run test
-      
+
       - name: 🛠 Build application
         working-directory: frontend
         run: |
           npm run build
+
+      - name: 🔎 Svelte Check
+        working-directory: frontend
+        run: |
+          npm run check
