@@ -371,6 +371,12 @@
 		if (myHandRaised) {
 			myHandRaised = false;
 			if (myId && room.others[myId]) room.others[myId].handRaised = false;
+			// Brief animation to acknowledge the hand is lowered
+			emoji = '👇';
+			trigger = false;
+			handAnimation = false;
+			handUsername = '';
+			requestAnimationFrame(() => (trigger = true));
 			rpc('lowerhand');
 		} else {
 			myHandRaised = true;
@@ -849,10 +855,13 @@
 							</ul>
 						</div>
 						<button
-							class="btn btn-info rounded-lg px-4 py-2 font-mono"
-							class:btn-active={myHandRaised}
+							class="btn rounded-lg px-4 py-2 font-mono"
+							class:btn-info={!myHandRaised}
+							class:btn-warning={myHandRaised}
 							onclick={toggleHand}
-							>🤚<span class="hidden lg:!inline-block"> {m.raise_hand()}</span></button
+							>{myHandRaised ? '👇' : '🤚'}<span class="hidden lg:!inline-block">
+								{myHandRaised ? m.lower_hand() : m.raise_hand()}</span
+							></button
 						>
 					</div>
 				{/if}
@@ -894,7 +903,9 @@
 								</td>
 								<td>
 									<span class="text-sm"
-										><b>{room.nickname}{room.adminModeOn ? '*' : ''}</b> ({m.yourself()})</span
+										><b>{room.nickname}{room.adminModeOn ? '*' : ''}</b>
+										({m.yourself()}){#if myHandRaised}
+											🤚{/if}</span
 									>
 								</td>
 								<td>
