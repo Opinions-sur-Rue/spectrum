@@ -142,14 +142,14 @@
 	@keyframes lowerDown {
 		0% {
 			opacity: 1;
-			transform: translate(-50%, -50%);
+			transform: translate(-50%, calc(-50vh + 6rem));
 		}
-		60% {
+		80% {
 			opacity: 1;
 		}
 		100% {
 			opacity: 0;
-			transform: translate(-50%, 80%);
+			transform: translate(-50%, calc(50vh + 6rem));
 		}
 	}
 
