@@ -862,7 +862,7 @@
 							class:btn-info={!myHandRaised}
 							class:btn-success={myHandRaised}
 							onclick={toggleHand}
-							>{myHandRaised ? '🫳' : '🤚'}<span class="hidden lg:!inline-block">
+							>🤚<span class="hidden lg:!inline-block">
 								{myHandRaised ? m.lower_hand() : m.raise_hand()}</span
 							></button
 						>
