@@ -23,7 +23,7 @@ jobs:
       - name: 🔍 Lint code
         working-directory: frontend
         run: |
-          npm run lint
+          npx prettier --check src e2e && npx eslint src --max-warnings 0
 
       - name: 🧪 Run tests 
         working-directory: frontend
@@ -39,4 +39,4 @@ jobs:
       - name: 🔎 Svelte Check
         working-directory: frontend
         run: |
-          npm run check
+          npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json --fail-on-warnings
