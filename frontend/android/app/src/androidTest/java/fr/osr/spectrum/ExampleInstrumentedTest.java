@@ -1,4 +1,4 @@
-package com.getcapacitor.myapp;
+package fr.osr.spectrum;
 
 import static org.junit.Assert.*;
 
@@ -18,9 +18,7 @@ public class ExampleInstrumentedTest {
 
     @Test
     public void useAppContext() throws Exception {
-        // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-
-        assertEquals("com.getcapacitor.app", appContext.getPackageName());
+        assertEquals("fr.osr.spectrum", appContext.getPackageName());
     }
 }
