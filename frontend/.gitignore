@@ -23,6 +23,12 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# Android Gradle build artifacts (keep android/ structure, ignore build outputs)
+.gradle/
+android/.gradle/
+android/app/build/
+android/build/
+
 # Paraglide
 src/lib/paraglide
 

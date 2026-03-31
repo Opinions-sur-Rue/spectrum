@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Spectrum</string>
+    <string name="title_activity_main">Spectrum</string>
+    <string name="package_name">fr.osr.spectrum</string>
+    <string name="custom_url_scheme">fr.osr.spectrum</string>
+</resources>
