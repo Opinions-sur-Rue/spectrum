@@ -1,11 +1,31 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
 interface SpectrumPluginInterface {
+	requestAudioPermission(): Promise<{ granted: boolean }>;
 	startAudioService(): Promise<void>;
 	stopAudioService(): Promise<void>;
 }
 
 const SpectrumPlugin = registerPlugin<SpectrumPluginInterface>('SpectrumPlugin');
+
+/**
+ * Request RECORD_AUDIO permission on Android.
+ * On web/iOS, falls back to the standard browser getUserMedia permission flow.
+ * Returns true if permission is granted.
+ */
+export async function requestAudioPermission(): Promise<boolean> {
+	if (Capacitor.getPlatform() !== 'android') {
+		// On web, permission is requested implicitly by getUserMedia — no action needed here
+		return true;
+	}
+	try {
+		const { granted } = await SpectrumPlugin.requestAudioPermission();
+		return granted;
+	} catch (e) {
+		console.warn('requestAudioPermission failed:', e);
+		return false;
+	}
+}
 
 /**
  * Start the Android foreground service that keeps audio alive in background.

@@ -52,7 +52,7 @@
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { notify } from '$lib/utils/notify';
-	import { startAudioForegroundService, stopAudioForegroundService } from '$lib/native/audio-service';
+	import { requestAudioPermission, startAudioForegroundService, stopAudioForegroundService } from '$lib/native/audio-service';
 	import AddLiveUserParticipantModal from '$lib/components/AddLiveUserParticipantModal.svelte';
 	import { canvasManager, originalWidth } from '$lib/canvas/manager.svelte';
 	import type { LiveUser } from '$lib/social';
@@ -634,11 +634,16 @@
 
 	let streamerMode = $state(false);
 
-	function toggleMicrophone() {
+	async function toggleMicrophone() {
 		if (voice.voiceState.microphone) {
 			voice.muteMicrophone();
 		} else if (!voice.getLocalStream()) {
-			// First activation — request mic permission then call all known participants
+			// First activation — request mic permission (Android) then enable
+			const granted = await requestAudioPermission();
+			if (!granted) {
+				notify.error(m.cannot_connect());
+				return;
+			}
 			voice.enableMicrophone().then(() => {
 				for (const key in room.others) {
 					if (room.others[key].voiceId) voice.callPeerWithLimit(room.others[key].voiceId!);
