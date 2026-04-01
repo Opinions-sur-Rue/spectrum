@@ -52,6 +52,7 @@
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { notify } from '$lib/utils/notify';
+	import { startAudioForegroundService, stopAudioForegroundService } from '$lib/native/audio-service';
 	import AddLiveUserParticipantModal from '$lib/components/AddLiveUserParticipantModal.svelte';
 	import { canvasManager, originalWidth } from '$lib/canvas/manager.svelte';
 	import type { LiveUser } from '$lib/social';
@@ -556,6 +557,7 @@
 		}
 
 		canvasManager.animatePellets();
+		startAudioForegroundService();
 	}
 
 	function makeAdmin(id: string) {
@@ -623,6 +625,7 @@
 		canvasManager.clearAllPellets();
 		leaveRoom();
 		voice.disconnect();
+		stopAudioForegroundService();
 	}
 
 	const copied = () => {
