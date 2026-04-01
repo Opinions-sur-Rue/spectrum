@@ -777,7 +777,9 @@
 	<div role="alert" class="alert alert-warning mx-4 my-2 flex flex-wrap items-center gap-2">
 		<span class="font-mono text-sm">{m.ejected_from_room()}</span>
 		<button onclick={rejoin} class="btn btn-sm btn-success">{m.rejoin_spectrum()}</button>
-		<button onclick={() => (showEjectedBanner = false)} class="btn btn-sm btn-ghost btn-circle">✕</button>
+		<button onclick={() => (showEjectedBanner = false)} class="btn btn-sm btn-ghost btn-circle"
+			>✕</button
+		>
 	</div>
 {/if}
 
