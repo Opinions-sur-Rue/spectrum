@@ -152,6 +152,11 @@
 				if (wasReconnecting) {
 					wasReconnecting = false;
 					log('✓ Reconnected', 'join');
+					if (savedRejoinSpectrumId) {
+						ejectionDetectTimer = setTimeout(() => {
+							showEjectedBanner = true;
+						}, 2000);
+					}
 				}
 			}
 		});
@@ -160,6 +165,13 @@
 			notify.error('Désolé, erreur reçue: ' + args[0]);
 		});
 		registerHandler('spectrum', (args) => {
+			if (ejectionDetectTimer) {
+				clearTimeout(ejectionDetectTimer);
+				ejectionDetectTimer = undefined;
+			}
+			savedRejoinSpectrumId = undefined;
+			savedRejoinNickname = undefined;
+			showEjectedBanner = false;
 			showJoinModal = false;
 			joinRoom(args[1], args[0], args[2], args[3] == 'true');
 			joinedSpectrum(args[1]);
@@ -414,6 +426,10 @@
 	});
 
 	let wasReconnecting = false;
+	let savedRejoinSpectrumId: string | undefined;
+	let savedRejoinNickname: string | undefined;
+	let showEjectedBanner = $state(false);
+	let ejectionDetectTimer: ReturnType<typeof setTimeout> | undefined;
 
 	function signIn() {
 		if (wsState.reconnecting) {
@@ -528,6 +544,20 @@
 		myHandRaised = false;
 		log(m.cannot_connect(), 'leave');
 		notify.error(m.cannot_connect());
+		if (room.listening && spectrumId && room.nickname) {
+			savedRejoinSpectrumId = spectrumId;
+			savedRejoinNickname = room.nickname;
+		}
+	}
+
+	function rejoin() {
+		if (!savedRejoinSpectrumId || !savedRejoinNickname) return;
+		const id = savedRejoinSpectrumId;
+		const nick = savedRejoinNickname;
+		savedRejoinSpectrumId = undefined;
+		savedRejoinNickname = undefined;
+		showEjectedBanner = false;
+		onJoinSpectrum(id, nick);
 	}
 
 	function resetPositions() {
@@ -740,6 +770,14 @@
 				class="btn btn-info btn-circle"><Fa icon={faSatelliteDish} /></button
 			>
 		</div>
+	</div>
+{/if}
+
+{#if showEjectedBanner}
+	<div role="alert" class="alert alert-warning mx-4 my-2 flex flex-wrap items-center gap-2">
+		<span class="font-mono text-sm">{m.ejected_from_room()}</span>
+		<button onclick={rejoin} class="btn btn-sm btn-success">{m.rejoin_spectrum()}</button>
+		<button onclick={() => (showEjectedBanner = false)} class="btn btn-sm btn-ghost btn-circle">✕</button>
 	</div>
 {/if}
 
