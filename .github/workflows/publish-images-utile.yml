@@ -120,7 +120,16 @@ jobs:
     steps:
       - name: Trigger 🚀 Deploy to utile website
         run: |
-          curl -X POST https://api.github.com/repos/SonnyAD/utile-compose/dispatches \
-          -H 'Accept: application/vnd.github.v3+json' \
-          -u 'Sonny:${{ secrets.CI_ACCESS_TOKEN }}' \
-          --data '{"event_type": "deploy-spectrum-${{ matrix.files }}", "client_payload": { "service": "spectrum-${{ matrix.files }}" }}'
+          response=$(curl -s -w "\n%{http_code}" -X POST https://api.github.com/repos/SonnyAD/utile-compose/dispatches \
+            -H 'Accept: application/vnd.github.v3+json' \
+            -u 'Sonny:${{ secrets.CI_ACCESS_TOKEN }}' \
+            --data '{"event_type": "deploy-spectrum-${{ matrix.files }}", "client_payload": { "service": "spectrum-${{ matrix.files }}" }}')
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+          echo "HTTP status: $status"
+          echo "Response body: $body"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "❌ Dispatch failed with HTTP $status"
+            exit 1
+          fi
+          echo "✅ Dispatch successful"

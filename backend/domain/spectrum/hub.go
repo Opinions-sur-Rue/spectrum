@@ -3,6 +3,8 @@ package spectrum
 import (
 	"context"
 	"errors"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -35,6 +37,10 @@ type Hub struct {
 	unregister chan *Client
 
 	context context.Context
+
+	// gracePeriodSeconds is how long a disconnected participant is kept in a room
+	// before being evicted. Configurable via SPECTRUM_GRACE_PERIOD_SECONDS (default: 60).
+	gracePeriodSeconds int64
 }
 
 var (
@@ -46,6 +52,12 @@ var (
 )
 
 func NewHub() *Hub {
+	gracePeriod := int64(60)
+	if envVal := os.Getenv("SPECTRUM_GRACE_PERIOD_SECONDS"); envVal != "" {
+		if parsed, err := strconv.ParseInt(envVal, 10, 64); err == nil && parsed > 0 {
+			gracePeriod = parsed
+		}
+	}
 	return &Hub{
 		messages:              make(chan *valueobjects.Message, 256),
 		Register:              make(chan *Client),
@@ -54,6 +66,7 @@ func NewHub() *Hub {
 		users:                 make(map[string]*User),
 		mappingUserIDToClient: make(map[string]*Client),
 		rooms:                 make(map[string]*Room),
+		gracePeriodSeconds:    gracePeriod,
 	}
 }
 
@@ -386,7 +399,7 @@ func (h *Hub) cleanupRoomLocked(roomID string, room *Room) {
 func (h *Hub) evictExpiredParticipants(room *Room) (deleted []string, toNotify []string, adminRemoved bool) {
 	now := time.Now().Unix()
 	for color, participant := range room.participants {
-		if participant.beginningGracePeriod+20 < now {
+		if participant.beginningGracePeriod+h.gracePeriodSeconds < now {
 			log.WithFields(log.Fields{
 				"color": color,
 				"grace": participant.beginningGracePeriod,
