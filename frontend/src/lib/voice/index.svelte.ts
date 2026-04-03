@@ -239,7 +239,8 @@ export async function replaceAudioTrackInActiveCalls() {
 
 	for (const [id, call] of activeCalls.entries()) {
 		try {
-			const peerConnection = (call as unknown as { peerConnection: RTCPeerConnection }).peerConnection;
+			const peerConnection = (call as unknown as { peerConnection: RTCPeerConnection })
+				.peerConnection;
 			if (!peerConnection) continue;
 			const sender = peerConnection.getSenders().find((s) => s.track?.kind === 'audio');
 			if (sender) {
