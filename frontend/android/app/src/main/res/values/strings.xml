@@ -4,4 +4,5 @@
     <string name="title_activity_main">Spectrum</string>
     <string name="package_name">fr.osr.spectrum</string>
     <string name="custom_url_scheme">fr.osr.spectrum</string>
+    <string name="voice_chat_active">Voice chat active</string>
 </resources>
