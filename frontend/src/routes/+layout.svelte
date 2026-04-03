@@ -11,7 +11,7 @@
 </svelte:head>
 
 <section>
-	<article class="p-2 md:m-4 lg:m-8">
+	<article class="p-1 md:m-4 lg:m-8">
 		<slot />
 	</article>
 	<ToastContainer />

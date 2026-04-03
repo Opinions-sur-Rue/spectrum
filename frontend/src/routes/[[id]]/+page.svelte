@@ -835,99 +835,109 @@
 				</label>
 			</header>
 
-			<div class="border-t p-0">
+			<div class="relative border-t p-0">
 				<canvas class="m-auto" id="spectrum"></canvas>
-			</div>
 
-			<footer class="flex flex-wrap items-center justify-center gap-4" class:p-4={spectrumId}>
-				{#if room.adminModeOn}
-					<div class="flex flex-wrap items-center gap-2">
-						<button class="btn btn-neutral rounded-lg px-4 py-2 font-mono" onclick={resetPositions}>
-							<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
-								{m.reset_positions()}</span
-							></button
-						>
-
-						<button
-							class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
-							class:btn-disabled={myPellet}
-							onclick={initPellet}
-							><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
-								{m.create_pellet()}</span
-							></button
-						>
-
-						<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
-							><Fa icon={faStop} /><span class="hidden lg:!inline-block">
-								{m.stop_spectrum()}</span
-							></button
-						>
-						{#if room.liveChannel && room.liveListening}
+				<footer
+					class="flex flex-wrap items-center justify-center gap-4"
+					class:p-4={spectrumId}
+					class:absolute={!room.showNeutralCircle}
+					class:bottom-0={!room.showNeutralCircle}
+					class:left-0={!room.showNeutralCircle}
+					class:right-0={!room.showNeutralCircle}
+				>
+					{#if room.adminModeOn}
+						<div class="flex flex-wrap items-center gap-2">
 							<button
-								class="btn btn-error rounded-lg px-4 py-2 font-mono"
-								onclick={() => {
-									rpc('disconnect');
-									room.liveChannel = undefined;
-								}}
-								><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
-									{m.disconnect_live()}</span
+								class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+								onclick={resetPositions}
+							>
+								<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
+									{m.reset_positions()}</span
 								></button
 							>
-						{:else if room.liveChannel}
-							<button class="btn btn-error rounded-lg px-4 py-2 font-mono"
-								><span class="loading loading-spinner loading-xs"></span><span
-									class="hidden lg:!inline-block"
+
+							<button
+								class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+								class:btn-disabled={myPellet}
+								onclick={initPellet}
+								><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
+									{m.create_pellet()}</span
+								></button
+							>
+
+							<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
+								><Fa icon={faStop} /><span class="hidden lg:!inline-block">
+									{m.stop_spectrum()}</span
+								></button
+							>
+							{#if room.liveChannel && room.liveListening}
+								<button
+									class="btn btn-error rounded-lg px-4 py-2 font-mono"
+									onclick={() => {
+										rpc('disconnect');
+										room.liveChannel = undefined;
+									}}
+									><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
+										{m.disconnect_live()}</span
+									></button
 								>
-									{m.connecting_live()}</span
-								></button
-							>
-						{:else}
-							<button
-								class="btn btn-error rounded-lg px-4 py-2 font-mono"
-								onclick={toggleConnectLiveModal}
-								><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
-									{m.connect_live()}</span
-								></button
-							>
-						{/if}
-					</div>
-				{/if}
-
-				{#if spectrumId}
-					<div class="flex items-center gap-2">
-						<div
-							class="dropdown dropdown-top dropdown-center"
-							style="font-style: normal; font-family: 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Emoji', sans-serif;"
-						>
-							<div tabindex="0" role="button" class="btn btn-warning rounded-lg font-mono">
-								😀 {m.emoji()}
-							</div>
-							<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-							<ul
-								tabindex="0"
-								class="dropdown-content menu bg-base-100 rounded-box z-1 w-14 items-center p-2 shadow-sm"
-							>
-								<li><button onclick={() => sendEmoji(0)}>😜</button></li>
-								<li><button onclick={() => sendEmoji(1)}>🤔</button></li>
-								<li><button onclick={() => sendEmoji(2)}>😵</button></li>
-								<li><button onclick={() => sendEmoji(3)}>🤯</button></li>
-								<li><button onclick={() => sendEmoji(4)}>🫣</button></li>
-								<li><button onclick={() => sendEmoji(5)}>🛟</button></li>
-								<li><button onclick={() => sendEmoji(6)}>🦝</button></li>
-							</ul>
+							{:else if room.liveChannel}
+								<button class="btn btn-error rounded-lg px-4 py-2 font-mono"
+									><span class="loading loading-spinner loading-xs"></span><span
+										class="hidden lg:!inline-block"
+									>
+										{m.connecting_live()}</span
+									></button
+								>
+							{:else}
+								<button
+									class="btn btn-error rounded-lg px-4 py-2 font-mono"
+									onclick={toggleConnectLiveModal}
+									><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
+										{m.connect_live()}</span
+									></button
+								>
+							{/if}
 						</div>
-						<button
-							class="btn rounded-lg px-4 py-2 font-mono"
-							class:btn-info={!myHandRaised}
-							class:btn-success={myHandRaised}
-							onclick={toggleHand}
-							>🤚<span class="hidden lg:!inline-block">
-								{myHandRaised ? m.lower_hand() : m.raise_hand()}</span
-							></button
-						>
-					</div>
-				{/if}
-			</footer>
+					{/if}
+
+					{#if spectrumId}
+						<div class="flex items-center gap-2">
+							<div
+								class="dropdown dropdown-top dropdown-center"
+								style="font-style: normal; font-family: 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Emoji', sans-serif;"
+							>
+								<div tabindex="0" role="button" class="btn btn-warning rounded-lg font-mono">
+									😀 {m.emoji()}
+								</div>
+								<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+								<ul
+									tabindex="0"
+									class="dropdown-content menu bg-base-100 rounded-box z-1 w-14 items-center p-2 shadow-sm"
+								>
+									<li><button onclick={() => sendEmoji(0)}>😜</button></li>
+									<li><button onclick={() => sendEmoji(1)}>🤔</button></li>
+									<li><button onclick={() => sendEmoji(2)}>😵</button></li>
+									<li><button onclick={() => sendEmoji(3)}>🤯</button></li>
+									<li><button onclick={() => sendEmoji(4)}>🫣</button></li>
+									<li><button onclick={() => sendEmoji(5)}>🛟</button></li>
+									<li><button onclick={() => sendEmoji(6)}>🦝</button></li>
+								</ul>
+							</div>
+							<button
+								class="btn rounded-lg px-4 py-2 font-mono"
+								class:btn-info={!myHandRaised}
+								class:btn-success={myHandRaised}
+								onclick={toggleHand}
+								>🤚<span class="hidden lg:!inline-block">
+									{myHandRaised ? m.lower_hand() : m.raise_hand()}</span
+								></button
+							>
+						</div>
+					{/if}
+				</footer>
+			</div>
 		</div>
 	</div>
 

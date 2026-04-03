@@ -5,9 +5,8 @@ import (
 	"math/rand"
 	"slices"
 
-	log "github.com/sirupsen/logrus"
-
 	"Opinions-sur-Rue/spectrum/domain/social"
+	log "github.com/sirupsen/logrus"
 )
 
 var generalColors = []string{
