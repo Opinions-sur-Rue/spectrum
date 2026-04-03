@@ -137,7 +137,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			user.SetColor(color)
 			user.SetRoom(roomID)
 
-			var roomShowNeutralCircle bool = true
+			var roomShowNeutralCircle = true
 			c.hub.WithRoomRead(roomID, func(room *Room) {
 				roomShowNeutralCircle = room.showNeutralCircle
 			})
