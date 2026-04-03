@@ -21,13 +21,18 @@ var generalColors = []string{
 }
 
 type Room struct {
-	id             string
-	topic          string
-	password       string
-	closed         bool
-	admins         []string
-	participants   map[string]*User
-	socialListener social.ChatListener
+	id                string
+	topic             string
+	password          string
+	closed            bool
+	admins            []string
+	participants      map[string]*User
+	socialListener    social.ChatListener
+	showNeutralCircle bool
+}
+
+func (r *Room) ShowNeutralCircle() bool {
+	return r.showNeutralCircle
 }
 
 func (r *Room) Join(newUser *User) error {

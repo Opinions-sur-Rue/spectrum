@@ -64,7 +64,10 @@ export const room = $state({
 	liveChannel: undefined as string | undefined,
 
 	/** True when a live stream is connected. */
-	liveListening: false
+	liveListening: false,
+
+	/** Whether the neutral circle (notReplied/indifferent zones) is shown on the canvas. */
+	showNeutralCircle: true
 });
 
 // ---------------------------------------------------------------------------

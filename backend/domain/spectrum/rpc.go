@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	newPositions   = []string{"431,582", "502,564", "503,623", "574,591", "416,553", "576,543"}
-	procedureRegex = regexp.MustCompile(`^(sendchatmessage|listen|disconnect|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick|lowerhand)$`)
+	newPositions    = []string{"431,582", "502,564", "503,623", "574,591", "416,553", "576,543"}
+	centerPositions = []string{"392,57", "484,59", "475,99", "401,100", "404,147", "468,149"}
+	procedureRegex  = regexp.MustCompile(`^(sendchatmessage|listen|disconnect|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick|lowerhand)$`)
 )
 
 var (
@@ -64,7 +65,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			roomID := user.currentRoomID
 			c.hub.WithRoomRead(roomID, func(room *Room) {
 				admin := slices.Contains(room.admins, c.userID)
-				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin))
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin), fmt.Sprintf("%t", room.showNeutralCircle))
 				c.send <- reply.Export()
 
 				for _, participant := range room.participants {
@@ -110,7 +111,13 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		user.SetColor(color)
 		user.SetNickname(rpc.Arguments[0])
 
-		reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[0], "true")
+		showNeutralCircle := len(rpc.Arguments) < 2 || rpc.Arguments[1] != "false"
+		_ = c.hub.WithRoom(roomID, func(room *Room) error {
+			room.showNeutralCircle = showNeutralCircle
+			return nil
+		})
+
+		reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[0], "true", fmt.Sprintf("%t", showNeutralCircle))
 		c.send <- reply.Export()
 	case "joinspectrum":
 		if user.IsInRoom() {
@@ -130,11 +137,21 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			user.SetColor(color)
 			user.SetRoom(roomID)
 
-			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[1], "false")
+			var roomShowNeutralCircle = true
+			c.hub.WithRoomRead(roomID, func(room *Room) {
+				roomShowNeutralCircle = room.showNeutralCircle
+			})
+
+			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[1], "false", fmt.Sprintf("%t", roomShowNeutralCircle))
 			c.send <- reply.Export()
 
-			reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, newPositions[rand.Intn(len(newPositions))%len(newPositions)])
-			c.hub.MessageUser(c.UserID(), c.UserID(), reply)
+			if roomShowNeutralCircle {
+				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, newPositions[rand.Intn(len(newPositions))])
+				c.hub.MessageUser(c.UserID(), c.UserID(), reply)
+			} else {
+				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, centerPositions[rand.Intn(len(centerPositions))])
+				c.hub.MessageUser(c.UserID(), c.UserID(), reply)
+			}
 
 			c.hub.WithRoomRead(roomID, func(room *Room) {
 				for _, participant := range room.participants {
@@ -194,11 +211,15 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			roomID := user.Room()
 			i := 0
 			c.hub.WithRoomRead(roomID, func(room *Room) {
+				positions := newPositions
+				if !room.showNeutralCircle {
+					positions = centerPositions
+				}
 				for _, u := range room.participants {
 					if slices.Contains(room.admins, u.UserID) {
 						continue
 					}
-					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, newPositions[i%len(newPositions)])
+					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, positions[i%len(positions)])
 					c.hub.MessageUser(c.UserID(), u.UserID, reply)
 					i++
 				}
