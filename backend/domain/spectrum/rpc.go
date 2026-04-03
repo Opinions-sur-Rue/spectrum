@@ -68,15 +68,17 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin), fmt.Sprintf("%t", room.showNeutralCircle))
 				c.send <- reply.Export()
 
-				if !room.participantsHidden || admin {
-					for _, participant := range room.participants {
-						adminUser := ""
-						if slices.Contains(room.admins, participant.UserID) {
-							adminUser = "*"
-						}
-						reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, participant.LastPosition(), participant.Nickname, adminUser)
-						c.send <- reply.Export()
+				for _, participant := range room.participants {
+					adminUser := ""
+					if slices.Contains(room.admins, participant.UserID) {
+						adminUser = "*"
 					}
+					pos := participant.LastPosition()
+					if room.participantsHidden && !admin {
+						pos = "N,A"
+					}
+					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, pos, participant.Nickname, adminUser)
+					c.send <- reply.Export()
 				}
 
 				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, room.Topic())
@@ -161,15 +163,17 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			}
 
 			c.hub.WithRoomRead(roomID, func(room *Room) {
-				if !room.participantsHidden || slices.Contains(room.admins, c.UserID()) {
-					for _, participant := range room.participants {
-						adminUser := ""
-						if slices.Contains(room.admins, participant.UserID) {
-							adminUser = "*"
-						}
-						reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, participant.LastPosition(), participant.Nickname, adminUser)
-						c.send <- reply.Export()
+				for _, participant := range room.participants {
+					adminUser := ""
+					if slices.Contains(room.admins, participant.UserID) {
+						adminUser = "*"
 					}
+					pos := participant.LastPosition()
+					if room.participantsHidden && !slices.Contains(room.admins, c.UserID()) {
+						pos = "N,A"
+					}
+					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, pos, participant.Nickname, adminUser)
+					c.send <- reply.Export()
 				}
 				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, room.Topic())
 				c.send <- reply.Export()
