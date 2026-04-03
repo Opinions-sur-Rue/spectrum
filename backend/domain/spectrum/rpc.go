@@ -177,6 +177,11 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 				}
 				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, room.Topic())
 				c.send <- reply.Export()
+
+				if room.participantsHidden && slices.Contains(room.admins, c.UserID()) {
+					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_PARTICIPANTSHIDDEN)
+					c.send <- reply.Export()
+				}
 			})
 		}
 	case "leavespectrum":
@@ -209,7 +214,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 				hidden = room.participantsHidden
 				if hidden {
 					for _, p := range room.participants {
-						if slices.Contains(room.admins, p.UserID) {
+						if slices.Contains(room.admins, p.UserID) && p.UserID != c.UserID() {
 							c.hub.MessageUser(c.UserID(), p.UserID, reply)
 						}
 					}
