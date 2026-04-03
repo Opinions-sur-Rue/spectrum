@@ -77,6 +77,8 @@
 	"secret": "Secret",
 	"send_chat": "Send a message to the chat",
 	"show_id": "Show ID",
+	"show_neutral_circle": "Show neutral circle",
+	"show_neutral_circle_tooltip": "When disabled, participants start at the center and the neutral circle is hidden",
 	"spectrum_id": "Spectrum Identifier",
 	"spectrum_in_progress": "Spectrum in progress",
 	"start_connection": "Start the connection",

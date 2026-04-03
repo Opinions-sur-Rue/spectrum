@@ -178,6 +178,7 @@
 			savedRejoinNickname = undefined;
 			showEjectedBanner = false;
 			showJoinModal = false;
+			room.showNeutralCircle = args[4] !== 'false';
 			joinRoom(args[1], args[0], args[2], args[3] == 'true');
 			joinedSpectrum(args[1]);
 			log(m.log_you_joined_spectrum(), 'join');
@@ -569,10 +570,10 @@
 		rpc('resetpositions');
 	}
 
-	function onCreateSpectrum(nickname: string, initialClaim?: string) {
+	function onCreateSpectrum(nickname: string, initialClaim?: string, showNeutralCircle: boolean = true) {
 		room.listening = true;
 		room.claim = initialClaim ?? '';
-		rpc('startspectrum', nickname);
+		rpc('startspectrum', nickname, showNeutralCircle.toString());
 		showCreateModal = false;
 		room.adminModeOn = true;
 		rpc('claim', room.claim);
@@ -585,6 +586,8 @@
 
 	function joinedSpectrum(id: string) {
 		spectrumId = id;
+
+		canvasManager.setNeutralCircleVisible(room.showNeutralCircle);
 
 		if (!room.adminModeOn) {
 			initPellet();

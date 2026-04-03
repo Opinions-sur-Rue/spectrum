@@ -64,7 +64,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			roomID := user.currentRoomID
 			c.hub.WithRoomRead(roomID, func(room *Room) {
 				admin := slices.Contains(room.admins, c.userID)
-				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin))
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin), fmt.Sprintf("%t", room.showNeutralCircle))
 				c.send <- reply.Export()
 
 				for _, participant := range room.participants {
@@ -110,7 +110,13 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		user.SetColor(color)
 		user.SetNickname(rpc.Arguments[0])
 
-		reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[0], "true")
+		showNeutralCircle := len(rpc.Arguments) < 2 || rpc.Arguments[1] != "false"
+		_ = c.hub.WithRoom(roomID, func(room *Room) error {
+			room.showNeutralCircle = showNeutralCircle
+			return nil
+		})
+
+		reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[0], "true", fmt.Sprintf("%t", showNeutralCircle))
 		c.send <- reply.Export()
 	case "joinspectrum":
 		if user.IsInRoom() {
@@ -130,11 +136,18 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			user.SetColor(color)
 			user.SetRoom(roomID)
 
-			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[1], "false")
+			var roomShowNeutralCircle bool = true
+			c.hub.WithRoomRead(roomID, func(room *Room) {
+				roomShowNeutralCircle = room.showNeutralCircle
+			})
+
+			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[1], "false", fmt.Sprintf("%t", roomShowNeutralCircle))
 			c.send <- reply.Export()
 
-			reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, newPositions[rand.Intn(len(newPositions))%len(newPositions)])
-			c.hub.MessageUser(c.UserID(), c.UserID(), reply)
+			if roomShowNeutralCircle {
+				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NEWPOSITION, newPositions[rand.Intn(len(newPositions))%len(newPositions)])
+				c.hub.MessageUser(c.UserID(), c.UserID(), reply)
+			}
 
 			c.hub.WithRoomRead(roomID, func(room *Room) {
 				for _, participant := range room.participants {

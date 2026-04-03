@@ -77,6 +77,8 @@
 	"secret": "Secret",
 	"send_chat": "Envoyer un message au chat",
 	"show_id": "Montrer l'identifiant",
+	"show_neutral_circle": "Afficher le cercle neutre",
+	"show_neutral_circle_tooltip": "Quand désactivé, les participants commencent au centre et le cercle neutre est masqué",
 	"spectrum_id": "Identifiant du Spectrum",
 	"spectrum_in_progress": "Spectrum en cours",
 	"start_connection": "Démarrer la connection",

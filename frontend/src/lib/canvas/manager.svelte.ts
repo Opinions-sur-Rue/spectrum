@@ -50,6 +50,7 @@ class CanvasManager {
 	private _moving = false;
 	private _currentOpinion = 'notReplied';
 	private _previousOpinion = 'notReplied';
+	private _showNeutralCircle = true;
 	private _updateIntervalId: ReturnType<typeof setInterval> | null = null;
 	private _rafId: number | null = null;
 
@@ -65,6 +66,16 @@ class CanvasManager {
 
 	stopMoving() {
 		this._moving = false;
+	}
+
+	setNeutralCircleVisible(show: boolean) {
+		this._showNeutralCircle = show;
+		for (const cell of this._cells) {
+			if (cell.id === 'notReplied' || cell.id === 'indifferent') {
+				cell.set({ opacity: show ? 1 : 0 });
+			}
+		}
+		this._canvas?.requestRenderAll();
 	}
 
 	// ---------------------------------------------------------------------------
@@ -232,13 +243,15 @@ class CanvasManager {
 
 				for (let i = 0; i < this._cells.length; i++) {
 					const cell = this._cells[i];
+					const isNeutralCell = cell.id === 'notReplied' || cell.id === 'indifferent';
+					if (!this._showNeutralCircle && isNeutralCell) continue;
 					if (pointInPolygon(this._cellsPoints[i], [this.myPellet!.left, this.myPellet!.top])) {
 						cell.set({ fill: '#10b1b1' });
 						if (cell.id !== this._currentOpinion) {
 							this._currentOpinion = cell.id;
 						}
 					} else {
-						if (cell.id === 'notReplied' || cell.id === 'indifferent') {
+						if (isNeutralCell) {
 							cell.set({ fill: '#ccc' });
 						} else {
 							cell.set({ fill: '#000002' });
@@ -350,6 +363,8 @@ class CanvasManager {
 
 		for (let i = 0; i < this._cells.length; i++) {
 			const cell = this._cells[i];
+			const isNeutralCell = cell.id === 'notReplied' || cell.id === 'indifferent';
+			if (!this._showNeutralCircle && isNeutralCell) continue;
 			if (pointInPolygon(this._cellsPoints[i], [target.left, target.top])) {
 				if (cell.id !== 'notReplied') {
 					log(
@@ -427,6 +442,7 @@ class CanvasManager {
 		this._canvas = null;
 		this._currentOpinion = 'notReplied';
 		this._previousOpinion = 'notReplied';
+		this._showNeutralCircle = true;
 		this.myPellet = null;
 	}
 }
