@@ -6,6 +6,10 @@ import { m } from '$lib/paraglide/messages.js';
 
 export const originalWidth = 980;
 export const originalHeight = 735;
+// Approximate height of the neutral circle area at the bottom of the canvas.
+// The notReplied zone is centred around y≈576 with radius ≈90 in original coords,
+// so its top edge sits near y≈490.  We clip the canvas there when the circle is hidden.
+const neutralCircleOffset = 245;
 const UPDATE_TICK = 100;
 
 type Pellet = ReturnType<typeof newPellet>;
@@ -74,6 +78,13 @@ class CanvasManager {
 			if (cell.id === 'notReplied' || cell.id === 'indifferent') {
 				cell.set({ opacity: show ? 1 : 0 });
 			}
+		}
+		if (this._canvas) {
+			const effectiveHeight = show ? originalHeight : originalHeight - neutralCircleOffset;
+			this._canvas.setDimensions({
+				width: this._canvasWidth,
+				height: this._scale * effectiveHeight
+			});
 		}
 		this._canvas?.requestRenderAll();
 	}
@@ -170,7 +181,10 @@ class CanvasManager {
 
 		if (!this._canvas) return;
 
-		this._canvas.setDimensions({ width: canvasWidth, height: scale * originalHeight });
+		const effectiveHeight = this._showNeutralCircle
+			? originalHeight
+			: originalHeight - neutralCircleOffset;
+		this._canvas.setDimensions({ width: canvasWidth, height: scale * effectiveHeight });
 
 		if (this._svg) {
 			this._svg.set({
@@ -283,6 +297,25 @@ class CanvasManager {
 		if (!this.myPellet) return;
 		this.myPellet.left = x * this._scale;
 		this.myPellet.top = y * this._scale;
+		this.myPellet.setCoords();
+		this._canvas?.renderAll();
+	}
+
+	/**
+	 * Resets the local pellet to a spawn position.
+	 * When the neutral circle is hidden the notReplied zone does not exist, so
+	 * participants are redirected to the canvas centre instead of the server-provided
+	 * notReplied coordinates.
+	 */
+	resetMyPelletPosition(x: number, y: number) {
+		if (!this.myPellet) return;
+		if (!this._showNeutralCircle) {
+			this.myPellet.left = this._canvasWidth / 2;
+			this.myPellet.top = (this._canvasWidth * originalHeight) / originalWidth / 2;
+		} else {
+			this.myPellet.left = x * this._scale;
+			this.myPellet.top = y * this._scale;
+		}
 		this.myPellet.setCoords();
 		this._canvas?.renderAll();
 	}

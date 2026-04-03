@@ -34,7 +34,10 @@
 				onclick={() => (toggle = false)}>✕</button
 			>
 		</form>
-		<form class="p-4" onsubmit={() => nickname && onSubmit(nickname, initialClaim, showNeutralCircle)}>
+		<form
+			class="p-4"
+			onsubmit={() => nickname && onSubmit(nickname, initialClaim, showNeutralCircle)}
+		>
 			<label
 				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
 				for="nickname2">{m.nickname()}</label
@@ -66,8 +69,8 @@
 				<label
 					class="label text-base-content cursor-pointer"
 					for="showNeutralCircle"
-					title={m.show_neutral_circle_tooltip()}
-				>{m.show_neutral_circle()}</label>
+					title={m.show_neutral_circle_tooltip()}>{m.show_neutral_circle()}</label
+				>
 			</div>
 			<div>
 				<button class="btn btn-success float-left" type="submit">{m.start_spectrum()}</button>

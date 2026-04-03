@@ -259,7 +259,7 @@
 			if (!canvasManager.myPellet) initPellet();
 			const coords = parseCoords(args[0]);
 			if (canvasManager.myPellet && coords) {
-				canvasManager.setMyPelletPosition(coords.x, coords.y);
+				canvasManager.resetMyPelletPosition(coords.x, coords.y);
 				updateMyPellet(true);
 			}
 			canvasManager.stopMoving();
@@ -570,7 +570,11 @@
 		rpc('resetpositions');
 	}
 
-	function onCreateSpectrum(nickname: string, initialClaim?: string, showNeutralCircle: boolean = true) {
+	function onCreateSpectrum(
+		nickname: string,
+		initialClaim?: string,
+		showNeutralCircle: boolean = true
+	) {
 		room.listening = true;
 		room.claim = initialClaim ?? '';
 		rpc('startspectrum', nickname, showNeutralCircle.toString());

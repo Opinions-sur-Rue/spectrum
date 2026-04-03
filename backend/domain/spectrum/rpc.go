@@ -8,9 +8,10 @@ import (
 	"regexp"
 	"slices"
 
+	log "github.com/sirupsen/logrus"
+
 	"Opinions-sur-Rue/spectrum/domain/social"
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
