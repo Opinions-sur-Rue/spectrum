@@ -67,7 +67,10 @@ export const room = $state({
 	liveListening: false,
 
 	/** Whether the neutral circle (notReplied/indifferent zones) is shown on the canvas. */
-	showNeutralCircle: true
+	showNeutralCircle: true,
+
+	/** True when the admin has hidden all participants from non-admins. */
+	participantsHidden: false
 });
 
 // ---------------------------------------------------------------------------

@@ -334,6 +334,19 @@
 			if (otherUserId != room.userId) log(`${room.others[otherUserId].nickname}: ${message}`);
 			else log(`${room.nickname}: ${message}`);
 		});
+		registerHandler('participantshidden', (_args) => {
+			if (!room.listening) return;
+			room.participantsHidden = true;
+			if (!room.adminModeOn) {
+				canvasManager.clearAllPellets();
+			}
+			log(m.log_participants_hidden(), 'event');
+		});
+		registerHandler('participantsshown', (_args) => {
+			if (!room.listening) return;
+			room.participantsHidden = false;
+			log(m.log_participants_shown(), 'event');
+		});
 
 		websocket = startWebsocket(signIn, connectionLost);
 		registeredCommands = [
@@ -352,7 +365,11 @@
 			'microphoneunmuted',
 			'listenning',
 			'liveusermessage',
-			'chatmessage'
+			'chatmessage',
+			'participantshidden',
+			'participantsshown',
+			'hideall',
+			'showall'
 		];
 
 		// Prepare Canvas
@@ -854,6 +871,17 @@
 							>
 								<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
 									{m.reset_positions()}</span
+								></button
+							>
+
+							<button
+								class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+								onclick={() => rpc(room.participantsHidden ? 'showall' : 'hideall')}
+							>
+								<Fa icon={room.participantsHidden ? faEye : faEyeSlash} /><span
+									class="hidden lg:!inline-block"
+								>
+									{room.participantsHidden ? m.show_participants() : m.hide_participants()}</span
 								></button
 							>
 
