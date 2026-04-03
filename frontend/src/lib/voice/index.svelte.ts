@@ -233,20 +233,33 @@ export function callPeerWithLimit(targetId: string, maxRetries = 10, attempt = 1
  * receive the real audio track instead of the silent placeholder.
  */
 export async function replaceAudioTrackInActiveCalls() {
-	if (!localStream) return;
+	if (!localStream) {
+		console.warn('Voice: replaceAudioTrackInActiveCalls — no localStream');
+		return;
+	}
 	const newTrack = localStream.getAudioTracks()[0];
-	if (!newTrack) return;
+	if (!newTrack) {
+		console.warn('Voice: replaceAudioTrackInActiveCalls — no audio track');
+		return;
+	}
+	console.log(`Voice: replacing track in ${activeCalls.size} active calls`);
 
-	for (const call of activeCalls.values()) {
+	for (const [id, call] of activeCalls.entries()) {
 		try {
 			const peerConnection = (call as unknown as { peerConnection: RTCPeerConnection }).peerConnection;
-			if (!peerConnection) continue;
-			const sender = peerConnection.getSenders().find((s) => s.track?.kind === 'audio');
+			if (!peerConnection) {
+				console.warn(`Voice: no peerConnection for call ${id}`);
+				continue;
+			}
+			const senders = peerConnection.getSenders();
+			const sender = senders.find((s) => s.track?.kind === 'audio');
+			console.log(`Voice: call ${id} — ${senders.length} senders, audio sender: ${!!sender}`);
 			if (sender) {
 				await sender.replaceTrack(newTrack);
+				console.log(`Voice: replaced track in call ${id}`);
 			}
 		} catch (e) {
-			console.warn('Voice: failed to replace track in call', e);
+			console.warn(`Voice: failed to replace track in call ${id}`, e);
 		}
 	}
 }
