@@ -51,6 +51,7 @@ class CanvasManager {
 	private _currentOpinion = 'notReplied';
 	private _previousOpinion = 'notReplied';
 	private _showNeutralCircle = true;
+	private _participantsHidden = false;
 	private _updateIntervalId: ReturnType<typeof setInterval> | null = null;
 	private _rafId: number | null = null;
 
@@ -66,6 +67,16 @@ class CanvasManager {
 
 	stopMoving() {
 		this._moving = false;
+	}
+
+	setParticipantsHiddenVisual(hidden: boolean) {
+		this._participantsHidden = hidden;
+		for (const uid of Object.keys(room.others)) {
+			const pellet = room.others[uid].pellet;
+			if (!pellet) continue;
+			pellet.set({ opacity: hidden ? 0.35 : 1 });
+		}
+		this._canvas?.requestRenderAll();
 	}
 
 	setNeutralCircleVisible(show: boolean) {
@@ -327,7 +338,8 @@ class CanvasManager {
 		const pellet = newPellet(userId, nickname);
 		pellet.set({
 			top: (this._canvasWidth * originalHeight) / originalWidth / 2,
-			left: this._canvasWidth / 2
+			left: this._canvasWidth / 2,
+			...(this._participantsHidden ? { opacity: 0.35 } : {})
 		});
 		this._canvas!.add(pellet);
 		return pellet;
@@ -463,6 +475,7 @@ class CanvasManager {
 		this._currentOpinion = 'notReplied';
 		this._previousOpinion = 'notReplied';
 		this._showNeutralCircle = true;
+		this._participantsHidden = false;
 		this.myPellet = null;
 	}
 }

@@ -341,12 +341,17 @@
 				for (const uid of Object.keys(room.others)) {
 					canvasManager.deletePellet(uid, true);
 				}
+			} else {
+				canvasManager.setParticipantsHiddenVisual(true);
 			}
 			log(m.log_participants_hidden(), 'event');
 		});
 		registerHandler('participantsshown', (_args) => {
 			if (!room.listening) return;
 			room.participantsHidden = false;
+			if (room.adminModeOn) {
+				canvasManager.setParticipantsHiddenVisual(false);
+			}
 			log(m.log_participants_shown(), 'event');
 		});
 
