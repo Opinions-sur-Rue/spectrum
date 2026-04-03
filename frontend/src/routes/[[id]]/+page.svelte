@@ -561,7 +561,6 @@
 		}
 
 		canvasManager.animatePellets();
-		startAudioForegroundService();
 	}
 
 	function makeAdmin(id: string) {
@@ -648,6 +647,8 @@
 				notify.error(m.cannot_connect());
 				return;
 			}
+			// Start foreground service AFTER permission is granted (Android 14+ requirement)
+			await startAudioForegroundService();
 			voice.enableMicrophone().then(() => {
 				for (const key in room.others) {
 					if (room.others[key].voiceId) voice.callPeerWithLimit(room.others[key].voiceId!);
