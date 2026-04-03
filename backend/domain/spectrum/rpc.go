@@ -68,17 +68,24 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin), fmt.Sprintf("%t", room.showNeutralCircle))
 				c.send <- reply.Export()
 
-				for _, participant := range room.participants {
-					adminUser := ""
-					if slices.Contains(room.admins, participant.UserID) {
-						adminUser = "*"
+				if !room.participantsHidden || admin {
+					for _, participant := range room.participants {
+						adminUser := ""
+						if slices.Contains(room.admins, participant.UserID) {
+							adminUser = "*"
+						}
+						reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, participant.LastPosition(), participant.Nickname, adminUser)
+						c.send <- reply.Export()
 					}
-					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, participant.LastPosition(), participant.Nickname, adminUser)
-					c.send <- reply.Export()
 				}
 
 				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, room.Topic())
 				c.send <- reply.Export()
+
+				if room.participantsHidden {
+					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_PARTICIPANTSHIDDEN)
+					c.send <- reply.Export()
+				}
 
 				if room.SocialListener() != nil {
 					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_LISTENNING, room.SocialListener().GetType())
@@ -154,13 +161,15 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			}
 
 			c.hub.WithRoomRead(roomID, func(room *Room) {
-				for _, participant := range room.participants {
-					adminUser := ""
-					if slices.Contains(room.admins, participant.UserID) {
-						adminUser = "*"
+				if !room.participantsHidden || slices.Contains(room.admins, c.UserID()) {
+					for _, participant := range room.participants {
+						adminUser := ""
+						if slices.Contains(room.admins, participant.UserID) {
+							adminUser = "*"
+						}
+						reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, participant.LastPosition(), participant.Nickname, adminUser)
+						c.send <- reply.Export()
 					}
-					reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, participant.Color, participant.LastPosition(), participant.Nickname, adminUser)
-					c.send <- reply.Export()
 				}
 				reply = valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, room.Topic())
 				c.send <- reply.Export()
@@ -422,20 +431,19 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			})
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_PARTICIPANTSSHOWN)
 			c.hub.MessageRoom(roomID, reply)
+			var updates []*valueobjects.MessageContent
 			c.hub.WithRoomRead(roomID, func(room *Room) {
 				for _, p := range room.participants {
 					adminUser := ""
 					if slices.Contains(room.admins, p.UserID) {
 						adminUser = "*"
 					}
-					updateReply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, p.Color, p.LastPosition(), p.Nickname, adminUser)
-					for _, recipient := range room.participants {
-						if !slices.Contains(room.admins, recipient.UserID) {
-							c.hub.MessageUser(c.UserID(), recipient.UserID, updateReply)
-						}
-					}
+					updates = append(updates, valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, p.Color, p.LastPosition(), p.Nickname, adminUser))
 				}
 			})
+			for _, update := range updates {
+				c.hub.MessageRoom(roomID, update)
+			}
 		}
 	default:
 		return ErrCommandNotRecognized

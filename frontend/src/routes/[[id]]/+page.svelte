@@ -338,7 +338,9 @@
 			if (!room.listening) return;
 			room.participantsHidden = true;
 			if (!room.adminModeOn) {
-				canvasManager.clearAllPellets();
+				for (const uid of Object.keys(room.others)) {
+					canvasManager.deletePellet(uid, true);
+				}
 			}
 			log(m.log_participants_hidden(), 'event');
 		});
@@ -367,9 +369,7 @@
 			'liveusermessage',
 			'chatmessage',
 			'participantshidden',
-			'participantsshown',
-			'hideall',
-			'showall'
+			'participantsshown'
 		];
 
 		// Prepare Canvas
