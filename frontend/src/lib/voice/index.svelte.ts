@@ -147,6 +147,8 @@ export function connect() {
 		// Without a stream, some browsers won't fire the 'stream' event for the remote side.
 		call.answer(localStream ?? getOutboundStream());
 		call.on('stream', (remoteStream) => _handleRemoteStream(call.peer, remoteStream));
+		// Store incoming calls so replaceAudioTrackInActiveCalls can update them too
+		activeCalls.set(`in:${call.peer}`, call);
 	});
 }
 
