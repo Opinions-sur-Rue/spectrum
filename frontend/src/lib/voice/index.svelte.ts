@@ -28,6 +28,8 @@ let localStream: MediaStream | undefined;
 let silentStream: MediaStream | undefined;
 const connections = new SvelteMap<string, MediaStream>();
 const voiceIdToUserId = new SvelteMap<string, string>();
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- internal map, not reactive state
+const activeCalls = new Map<string, ReturnType<Peer['call']>>();
 
 const getAudioContext = () =>
 	new (window.AudioContext ||
@@ -145,12 +147,15 @@ export function connect() {
 		// Without a stream, some browsers won't fire the 'stream' event for the remote side.
 		call.answer(localStream ?? getOutboundStream());
 		call.on('stream', (remoteStream) => _handleRemoteStream(call.peer, remoteStream));
+		// Store incoming calls so replaceAudioTrackInActiveCalls can update them too
+		activeCalls.set(`in:${call.peer}`, call);
 	});
 }
 
 /** Disconnect PeerJS and stop all streams. */
 export function disconnect() {
 	connections.forEach((stream) => stream.getTracks().forEach((t) => t.stop()));
+	activeCalls.clear();
 	peer?.disconnect();
 	voiceState.peerConnected = false;
 	voiceState.peerId = undefined;
@@ -205,6 +210,7 @@ export function callPeer(targetId: string) {
 	if (peer) {
 		const call = peer.call(targetId, getOutboundStream());
 		call.on('stream', (remoteStream) => _handleRemoteStream(targetId, remoteStream));
+		activeCalls.set(targetId, call);
 	}
 }
 
@@ -213,10 +219,36 @@ export function callPeerWithLimit(targetId: string, maxRetries = 10, attempt = 1
 	if (peer && voiceState.peerConnected) {
 		const call = peer.call(targetId, getOutboundStream());
 		call.on('stream', (remoteStream) => _handleRemoteStream(targetId, remoteStream));
+		activeCalls.set(targetId, call);
 	} else if (attempt <= maxRetries) {
 		setTimeout(() => callPeerWithLimit(targetId, maxRetries, attempt + 1), 1000);
 	} else {
 		console.error(`Voice: failed to call ${targetId} after ${maxRetries} retries`);
+	}
+}
+
+/**
+ * Replace the audio track in all active peer connections.
+ * Call this after enabling the microphone so existing connections
+ * receive the real audio track instead of the silent placeholder.
+ */
+export async function replaceAudioTrackInActiveCalls() {
+	if (!localStream) return;
+	const newTrack = localStream.getAudioTracks()[0];
+	if (!newTrack) return;
+
+	for (const [id, call] of activeCalls.entries()) {
+		try {
+			const peerConnection = (call as unknown as { peerConnection: RTCPeerConnection })
+				.peerConnection;
+			if (!peerConnection) continue;
+			const sender = peerConnection.getSenders().find((s) => s.track?.kind === 'audio');
+			if (sender) {
+				await sender.replaceTrack(newTrack);
+			}
+		} catch (e) {
+			console.warn(`Voice: failed to replace track in call ${id}`, e);
+		}
 	}
 }
 

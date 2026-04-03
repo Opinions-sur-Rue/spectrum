@@ -52,6 +52,11 @@
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { notify } from '$lib/utils/notify';
+	import {
+		requestAudioPermission,
+		startAudioForegroundService,
+		stopAudioForegroundService
+	} from '$lib/native/audio-service';
 	import AddLiveUserParticipantModal from '$lib/components/AddLiveUserParticipantModal.svelte';
 	import { canvasManager, originalWidth } from '$lib/canvas/manager.svelte';
 	import type { LiveUser } from '$lib/social';
@@ -653,6 +658,7 @@
 		canvasManager.clearAllPellets();
 		leaveRoom();
 		voice.disconnect();
+		stopAudioForegroundService();
 	}
 
 	const copied = () => {
@@ -661,15 +667,21 @@
 
 	let streamerMode = $state(false);
 
-	function toggleMicrophone() {
+	async function toggleMicrophone() {
 		if (voice.voiceState.microphone) {
 			voice.muteMicrophone();
 		} else if (!voice.getLocalStream()) {
-			// First activation — request mic permission then call all known participants
-			voice.enableMicrophone().then(() => {
-				for (const key in room.others) {
-					if (room.others[key].voiceId) voice.callPeerWithLimit(room.others[key].voiceId!);
-				}
+			// First activation — request mic permission (Android) then enable
+			const granted = await requestAudioPermission();
+			if (!granted) {
+				notify.error(m.cannot_connect());
+				return;
+			}
+			// Start foreground service AFTER permission is granted (Android 14+ requirement)
+			await startAudioForegroundService();
+			voice.enableMicrophone().then(async () => {
+				// Replace silent placeholder track with real mic in existing peer connections
+				await voice.replaceAudioTrackInActiveCalls();
 			});
 		} else {
 			voice.unmuteMicrophone();
