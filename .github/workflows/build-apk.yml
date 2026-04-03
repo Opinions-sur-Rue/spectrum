@@ -61,6 +61,6 @@ jobs:
       - name: 📤 Upload APK artifact
         uses: actions/upload-artifact@v7
         with:
-          name: spectrum-debug-apk
+          name: spectrum-debug-apk-${{ github.ref_name == 'main' && 'main' || github.event.pull_request.number }}
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
+          retention-days: ${{ github.ref_name == 'main' && 90 || 30 }}
