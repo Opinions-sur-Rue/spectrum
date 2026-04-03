@@ -649,7 +649,9 @@
 			}
 			// Start foreground service AFTER permission is granted (Android 14+ requirement)
 			await startAudioForegroundService();
-			voice.enableMicrophone().then(() => {
+			voice.enableMicrophone().then(async () => {
+				// Replace silent placeholder track with real mic in existing peer connections
+				await voice.replaceAudioTrackInActiveCalls();
 				for (const key in room.others) {
 					if (room.others[key].voiceId) voice.callPeerWithLimit(room.others[key].voiceId!);
 				}
