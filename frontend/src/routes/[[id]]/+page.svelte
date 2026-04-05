@@ -983,8 +983,18 @@
 				</label>
 			</header>
 
-			<div class="relative border-t p-0">
-				<canvas class="m-auto" id="spectrum"></canvas>
+			<div class="border-t p-0">
+				<div class="relative">
+					<canvas class="m-auto" id="spectrum"></canvas>
+
+					{#if showDragHint}
+						<div class="drag-hint pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2">
+							<span class="rounded-full bg-black/60 px-4 py-2 text-sm text-white">
+								{m.drag_hint()}
+							</span>
+						</div>
+					{/if}
+				</div>
 
 				{#if showDragHint}
 					<div class="drag-hint pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2">
