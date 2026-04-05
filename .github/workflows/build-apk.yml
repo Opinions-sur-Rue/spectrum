@@ -12,6 +12,9 @@ on:
       - 'frontend/**'
       - 'android/**'
 
+permissions:
+  contents: write
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest
@@ -64,3 +67,19 @@ jobs:
           name: spectrum-debug-apk-${{ github.ref_name == 'main' && 'main' || github.event.pull_request.number }}
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: ${{ github.ref_name == 'main' && 90 || 30 }}
+
+      - name: 🏷️ Update nightly release (main only)
+        if: github.ref_name == 'main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: "Nightly (debug APK)"
+          body: |
+            Debug APK auto-generated from the latest `main` commit.
+
+            **⚠️ This is a debug build — not for production use.**
+
+            Built from: ${{ github.sha }}
+            Date: ${{ github.event.head_commit.timestamp }}
+          prerelease: true
+          files: frontend/android/app/build/outputs/apk/debug/app-debug.apk
