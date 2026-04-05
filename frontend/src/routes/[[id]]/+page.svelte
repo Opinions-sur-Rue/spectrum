@@ -622,10 +622,21 @@
 		canvasManager.animatePellets();
 	}
 
-	function makeAdmin(id: string) {
-		if (!room.adminModeOn) return;
+	let makeAdminTargetId: string | undefined = $state();
+	const makeAdminModalId = 'makeadmin-confirm-modal';
 
-		rpc('makeadmin', id);
+	function promptMakeAdmin(id: string) {
+		if (!room.adminModeOn) return;
+		makeAdminTargetId = id;
+		const el = document.getElementById(makeAdminModalId);
+		if (el instanceof HTMLDialogElement) el.showModal();
+	}
+
+	function confirmMakeAdmin() {
+		if (makeAdminTargetId) rpc('makeadmin', makeAdminTargetId);
+		makeAdminTargetId = undefined;
+		const el = document.getElementById(makeAdminModalId);
+		if (el instanceof HTMLDialogElement) el.close();
 	}
 
 	let kickTargetId: string | undefined = $state();
@@ -733,6 +744,26 @@
 		voice.setParticipantVolume(room.others[participantId].audio, volume);
 	}
 </script>
+
+<dialog id={makeAdminModalId} class="modal">
+	<div class="modal-box">
+		<h3 class="mb-2 text-lg font-bold">{m.makeadmin_confirm_title()}</h3>
+		<p class="mb-6 text-sm">{m.makeadmin_confirm_body()}</p>
+		<div class="flex justify-end gap-2">
+			<button
+				class="btn btn-warning"
+				onclick={() => {
+					const el = document.getElementById(makeAdminModalId);
+					if (el instanceof HTMLDialogElement) el.close();
+				}}>{m.cancel()}</button
+			>
+			<button class="btn btn-amber" onclick={confirmMakeAdmin}>{m.confirm()}</button>
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button>{m.cancel()}</button>
+	</form>
+</dialog>
 
 <dialog id={kickModalId} class="modal">
 	<div class="modal-box">
@@ -1191,7 +1222,7 @@
 											<button
 												class="btn btn-square rounded-xl border-0 bg-amber-500/20 text-amber-500"
 												onclick={() => {
-													makeAdmin(colorHex);
+													promptMakeAdmin(colorHex);
 												}}><Fa icon={faLock} /></button
 											>
 										</div>

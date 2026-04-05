@@ -102,5 +102,7 @@
     "error_field_required": "Ce champ est obligatoire",
     "kick_confirm_title": "Retirer ce participant ?",
     "kick_confirm_body": "Cette action est irréversible. Le participant sera expulsé du spectrum.",
-    "confirm": "Confirmer"
+    "confirm": "Confirmer",
+    "makeadmin_confirm_title": "Rendre admin ce participant ?",
+    "makeadmin_confirm_body": "Cette action est irréversible. Le participant obtiendra les droits admin et ne pourra pas être rétrogradé."
 }
