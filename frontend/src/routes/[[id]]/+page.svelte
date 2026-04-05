@@ -346,6 +346,11 @@
 			}
 			log(m.log_participants_hidden(), 'event');
 		});
+		registerHandler('stopped', () => {
+			log(m.log_spectrum_stopped(), 'leave');
+			leaveSpectrum();
+		});
+
 		registerHandler('participantsshown', () => {
 			if (!room.listening) return;
 			room.participantsHidden = false;
@@ -374,7 +379,8 @@
 			'liveusermessage',
 			'chatmessage',
 			'participantshidden',
-			'participantsshown'
+			'participantsshown',
+			'stopped'
 		];
 
 		// Prepare Canvas
@@ -656,6 +662,19 @@
 		if (el instanceof HTMLDialogElement) el.close();
 	}
 
+	const stopModalId = 'stop-spectrum-confirm-modal';
+
+	function promptStopSpectrum() {
+		const el = document.getElementById(stopModalId);
+		if (el instanceof HTMLDialogElement) el.showModal();
+	}
+
+	function confirmStopSpectrum() {
+		rpc('stopspectrum');
+		const el = document.getElementById(stopModalId);
+		if (el instanceof HTMLDialogElement) el.close();
+	}
+
 	let showSpectrumId = $state(false);
 
 	let showJoinModal = $state(false);
@@ -744,6 +763,26 @@
 		voice.setParticipantVolume(room.others[participantId].audio, volume);
 	}
 </script>
+
+<dialog id={stopModalId} class="modal">
+	<div class="modal-box">
+		<h3 class="mb-2 text-lg font-bold">{m.stop_spectrum_confirm_title()}</h3>
+		<p class="mb-6 text-sm">{m.stop_spectrum_confirm_body()}</p>
+		<div class="flex justify-end gap-2">
+			<button
+				class="btn btn-warning"
+				onclick={() => {
+					const el = document.getElementById(stopModalId);
+					if (el instanceof HTMLDialogElement) el.close();
+				}}>{m.cancel()}</button
+			>
+			<button class="btn btn-error" onclick={confirmStopSpectrum}>{m.confirm()}</button>
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button>{m.cancel()}</button>
+	</form>
+</dialog>
 
 <dialog id={makeAdminModalId} class="modal">
 	<div class="modal-box">
@@ -971,7 +1010,9 @@
 							</div>
 
 							<div class="tooltip" data-tip={m.stop_spectrum()}>
-								<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
+								<button
+									class="btn btn-error rounded-lg px-4 py-2 font-mono"
+									onclick={promptStopSpectrum}
 									><Fa icon={faStop} /><span class="hidden lg:!inline-block">
 										{m.stop_spectrum()}</span
 									></button

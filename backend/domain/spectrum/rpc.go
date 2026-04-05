@@ -18,7 +18,7 @@ const PositionNA = "N,A"
 var (
 	newPositions    = []string{"431,582", "502,564", "503,623", "574,591", "416,553", "576,543"}
 	centerPositions = []string{"392,57", "484,59", "475,99", "401,100", "404,147", "468,149"}
-	procedureRegex  = regexp.MustCompile(`^(sendchatmessage|listen|disconnect|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick|lowerhand|hideall|showall)$`)
+	procedureRegex  = regexp.MustCompile(`^(sendchatmessage|listen|disconnect|mutedmymicrophone|unmutedmymicrophone|myvoicechatid|myposition|emoji|signin|nickname|voicechat|startspectrum|joinspectrum|leavespectrum|resetpositions|update|claim|makeadmin|microphoneunmute|microphonemute|kick|lowerhand|hideall|showall|stopspectrum)$`)
 )
 
 var (
@@ -454,6 +454,22 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			})
 			for _, update := range updates {
 				c.hub.MessageRoom(roomID, update)
+			}
+		}
+	case "stopspectrum":
+		if user.IsInRoom() {
+			roomID := user.Room()
+			room := c.hub.GetRoom(roomID)
+			if room == nil {
+				break
+			}
+			if !room.IsAdmin(c.UserID()) {
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, "not an admin")
+				c.send <- reply.Export()
+				break
+			}
+			if err := c.hub.StopRoom(roomID); err != nil {
+				log.Error(err.Error())
 			}
 		}
 	default:
