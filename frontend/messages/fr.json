@@ -97,5 +97,6 @@
     "unmute_microphone": "Allumer le micro",
     "volume_of": "Volume de {name}",
     "yourself": "Vous-même",
-    "platform": "Plate-forme"
+    "platform": "Plate-forme",
+    "error_nack": "Désolé, erreur reçue : {error}"
 }

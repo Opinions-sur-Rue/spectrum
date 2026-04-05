@@ -166,8 +166,7 @@
 			}
 		});
 		registerHandler('nack', (args) => {
-			// TODO: translate
-			notify.error('Désolé, erreur reçue: ' + args[0]);
+			notify.error(m.error_nack({ error: args[0] }));
 		});
 		registerHandler('spectrum', (args) => {
 			if (ejectionDetectTimer) {
