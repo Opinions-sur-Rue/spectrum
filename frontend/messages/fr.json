@@ -98,5 +98,6 @@
     "volume_of": "Volume de {name}",
     "yourself": "Vous-même",
     "platform": "Plate-forme",
-    "error_nack": "Désolé, erreur reçue : {error}"
+    "error_nack": "Désolé, erreur reçue : {error}",
+    "error_field_required": "Ce champ est obligatoire"
 }
