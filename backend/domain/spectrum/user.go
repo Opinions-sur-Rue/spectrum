@@ -45,7 +45,7 @@ func (u *User) LastPosition() string {
 		return u.lastPosition
 	}
 
-	return "N,A" // Not applicable
+	return PositionNA
 }
 
 func (u *User) SetLastVoiceId(lastVoiceId string) {
