@@ -7,6 +7,7 @@ All notable changes to **Spectrum** are documented in this file.
 ### Added
 - Admin can globally hide/show all participants on the canvas (#398, #405)
 - Configurable central neutral circle (#399, #402)
+- **Capacitor / Android APK** — native Android build with foreground audio service (#327, #386)
 - **Stop Spectrum** — any admin can now stop and delete a running spectrum room; all participants are ejected (#410, #442)
 - Confirmation dialog before kicking a participant (#411, #440)
 - Confirmation dialog before making a participant admin — action is irreversible (#412, #441)
@@ -48,7 +49,6 @@ First stable release of Spectrum.
 - **Localization** — English translation and language selector (#99)
 - **Theme selector** — light/dark mode support (#130)
 - **Streamer mode** — dedicated UI mode for live streaming setups
-- **Capacitor / Android APK** — native Android build with foreground audio service (#327, #386)
 - **WebSocket reconnection** — graceful reconnect on foreground return with user feedback (#329, #353, #389)
 - **Admin auto-reassign** — admin role reassigned automatically when current admin disconnects or last admin leaves (#300, #374)
 - **Graceful server shutdown** — clean SIGTERM/SIGINT handling (#343)
