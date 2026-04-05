@@ -98,5 +98,6 @@
     "volume_of": "Volume of {name}",
     "yourself": "Yourself",
     "platform": "Platform",
-    "error_nack": "Sorry, error received: {error}"
+    "error_nack": "Sorry, error received: {error}",
+    "error_field_required": "This field is required"
 }
