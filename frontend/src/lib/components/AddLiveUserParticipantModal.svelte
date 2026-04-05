@@ -18,7 +18,7 @@
 		const el = document.getElementById(modalId);
 		if (el instanceof HTMLDialogElement) {
 			if (toggle) {
-				el.show();
+				el.showModal();
 			} else {
 				el.close();
 			}
