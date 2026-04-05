@@ -20,8 +20,9 @@
 
 	const THEME_KEY = 'spectrum-theme';
 	let theme: 'light' | 'dark' = $state(
-		(typeof localStorage !== 'undefined' && (localStorage.getItem(THEME_KEY) as 'light' | 'dark')) ||
-		'light'
+		(typeof localStorage !== 'undefined' &&
+			(localStorage.getItem(THEME_KEY) as 'light' | 'dark')) ||
+			'light'
 	);
 
 	function setTheme(value: 'light' | 'dark') {
