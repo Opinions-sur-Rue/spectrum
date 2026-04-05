@@ -949,13 +949,25 @@
 									tabindex="0"
 									class="dropdown-content menu bg-base-100 rounded-box z-1 w-14 items-center p-2 shadow-sm"
 								>
-									<li><button onclick={() => sendEmoji(0)}>😜</button></li>
-									<li><button onclick={() => sendEmoji(1)}>🤔</button></li>
-									<li><button onclick={() => sendEmoji(2)}>😵</button></li>
-									<li><button onclick={() => sendEmoji(3)}>🤯</button></li>
-									<li><button onclick={() => sendEmoji(4)}>🫣</button></li>
-									<li><button onclick={() => sendEmoji(5)}>🛟</button></li>
-									<li><button onclick={() => sendEmoji(6)}>🦝</button></li>
+									<li aria-label="😜 Winking face with tongue">
+										<button onclick={() => sendEmoji(0)}>😜</button>
+									</li>
+									<li aria-label="🤔 Thinking face">
+										<button onclick={() => sendEmoji(1)}>🤔</button>
+									</li>
+									<li aria-label="😵 Dizzy face">
+										<button onclick={() => sendEmoji(2)}>😵</button>
+									</li>
+									<li aria-label="🤯 Exploding head">
+										<button onclick={() => sendEmoji(3)}>🤯</button>
+									</li>
+									<li aria-label="🫣 Face with peeking eye">
+										<button onclick={() => sendEmoji(4)}>🫣</button>
+									</li>
+									<li aria-label="🛟 Ring buoy">
+										<button onclick={() => sendEmoji(5)}>🛟</button>
+									</li>
+									<li aria-label="🦝 Raccoon"><button onclick={() => sendEmoji(6)}>🦝</button></li>
 								</ul>
 							</div>
 							<button
@@ -1241,8 +1253,9 @@
 			<div class="flex h-full flex-col overflow-hidden">
 				<div
 					class="max-h-[50vh] min-h-0 w-full flex-1 overflow-y-auto md:max-h-full"
-					role="listbox"
-					tabindex="0"
+					role="region"
+					aria-label="Activity log"
+					tabindex="-1"
 					bind:this={tbodyRef}
 					onmouseenter={() => (isHoveringHistory = true)}
 					onmouseleave={() => (isHoveringHistory = false)}
