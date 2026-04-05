@@ -870,67 +870,84 @@
 				>
 					{#if room.adminModeOn}
 						<div class="flex flex-wrap items-center gap-2">
-							<button
-								class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
-								onclick={resetPositions}
-							>
-								<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
-									{m.reset_positions()}</span
-								></button
-							>
-
-							<button
-								class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
-								onclick={() => rpc(room.participantsHidden ? 'showall' : 'hideall')}
-							>
-								<Fa icon={room.participantsHidden ? faEye : faEyeSlash} /><span
-									class="hidden lg:!inline-block"
-								>
-									{room.participantsHidden ? m.show_participants() : m.hide_participants()}</span
-								></button
-							>
-
-							<button
-								class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
-								class:btn-disabled={myPellet}
-								onclick={initPellet}
-								><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
-									{m.create_pellet()}</span
-								></button
-							>
-
-							<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
-								><Fa icon={faStop} /><span class="hidden lg:!inline-block">
-									{m.stop_spectrum()}</span
-								></button
-							>
-							{#if room.liveChannel && room.liveListening}
+							<div class="tooltip" data-tip={m.reset_positions()}>
 								<button
-									class="btn btn-error rounded-lg px-4 py-2 font-mono"
-									onclick={() => {
-										rpc('disconnect');
-										room.liveChannel = undefined;
-									}}
-									><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
-										{m.disconnect_live()}</span
+									class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+									onclick={resetPositions}
+								>
+									<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
+										{m.reset_positions()}</span
 									></button
 								>
-							{:else if room.liveChannel}
-								<button class="btn btn-error rounded-lg px-4 py-2 font-mono"
-									><span class="loading loading-spinner loading-xs"></span><span
+							</div>
+
+							<div
+								class="tooltip"
+								data-tip={room.participantsHidden ? m.show_participants() : m.hide_participants()}
+							>
+								<button
+									class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+									onclick={() => rpc(room.participantsHidden ? 'showall' : 'hideall')}
+								>
+									<Fa icon={room.participantsHidden ? faEye : faEyeSlash} /><span
 										class="hidden lg:!inline-block"
 									>
-										{m.connecting_live()}</span
+										{room.participantsHidden ? m.show_participants() : m.hide_participants()}</span
 									></button
 								>
-							{:else}
+							</div>
+
+							<div class="tooltip" data-tip={m.create_pellet()}>
 								<button
-									class="btn btn-error rounded-lg px-4 py-2 font-mono"
-									onclick={toggleConnectLiveModal}
-									><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
-										{m.connect_live()}</span
+									class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+									class:btn-disabled={myPellet}
+									onclick={initPellet}
+									><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
+										{m.create_pellet()}</span
 									></button
 								>
+							</div>
+
+							<div class="tooltip" data-tip={m.stop_spectrum()}>
+								<button class="btn btn-neutral btn-disabled rounded-lg px-4 py-2 font-mono"
+									><Fa icon={faStop} /><span class="hidden lg:!inline-block">
+										{m.stop_spectrum()}</span
+									></button
+								>
+							</div>
+							{#if room.liveChannel && room.liveListening}
+								<div class="tooltip" data-tip={m.disconnect_live()}>
+									<button
+										class="btn btn-error rounded-lg px-4 py-2 font-mono"
+										onclick={() => {
+											rpc('disconnect');
+											room.liveChannel = undefined;
+										}}
+										><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
+											{m.disconnect_live()}</span
+										></button
+									>
+								</div>
+							{:else if room.liveChannel}
+								<div class="tooltip" data-tip={m.connecting_live()}>
+									<button class="btn btn-error rounded-lg px-4 py-2 font-mono"
+										><span class="loading loading-spinner loading-xs"></span><span
+											class="hidden lg:!inline-block"
+										>
+											{m.connecting_live()}</span
+										></button
+									>
+								</div>
+							{:else}
+								<div class="tooltip" data-tip={m.connect_live()}>
+									<button
+										class="btn btn-error rounded-lg px-4 py-2 font-mono"
+										onclick={toggleConnectLiveModal}
+										><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
+											{m.connect_live()}</span
+										></button
+									>
+								</div>
 							{/if}
 						</div>
 					{/if}
