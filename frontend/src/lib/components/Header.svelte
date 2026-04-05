@@ -18,7 +18,18 @@
 	export let logoWidth: number = 64;
 	export let streamerMode: boolean = false;
 
-	let theme: 'light' | 'dark' = 'light';
+	const THEME_KEY = 'spectrum-theme';
+	let theme: 'light' | 'dark' = $state(
+		(typeof localStorage !== 'undefined' && (localStorage.getItem(THEME_KEY) as 'light' | 'dark')) ||
+		'light'
+	);
+
+	function setTheme(value: 'light' | 'dark') {
+		theme = value;
+		if (typeof localStorage !== 'undefined') {
+			localStorage.setItem(THEME_KEY, value);
+		}
+	}
 </script>
 
 <div class="header flex">
@@ -133,7 +144,7 @@
 						name="theme-dropdown"
 						class="theme-controller btn btn-sm btn-block btn-ghost w-full justify-start"
 						aria-label={m.theme_default()}
-						onclick={() => (theme = 'light')}
+						onclick={() => setTheme('light')}
 						value="lofi"
 					/>
 				</li>
@@ -143,7 +154,7 @@
 						name="theme-dropdown"
 						class="theme-controller btn btn-sm btn-block btn-ghost w-full justify-start"
 						aria-label={m.theme_light()}
-						onclick={() => (theme = 'light')}
+						onclick={() => setTheme('light')}
 						value="light"
 					/>
 				</li>
@@ -154,7 +165,7 @@
 						name="theme-dropdown"
 						class="theme-controller btn btn-sm btn-block btn-ghost w-full justify-start"
 						aria-label={m.theme_dark()}
-						onclick={() => (theme = 'dark')}
+						onclick={() => setTheme('dark')}
 						value="dark"
 					/>
 				</li>
