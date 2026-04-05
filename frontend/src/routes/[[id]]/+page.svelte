@@ -334,7 +334,7 @@
 			if (otherUserId != room.userId) log(`${room.others[otherUserId].nickname}: ${message}`);
 			else log(`${room.nickname}: ${message}`);
 		});
-		registerHandler('participantshidden', (_args) => {
+		registerHandler('participantshidden', () => {
 			if (!room.listening) return;
 			room.participantsHidden = true;
 			if (!room.adminModeOn) {
@@ -346,7 +346,7 @@
 			}
 			log(m.log_participants_hidden(), 'event');
 		});
-		registerHandler('participantsshown', (_args) => {
+		registerHandler('participantsshown', () => {
 			if (!room.listening) return;
 			room.participantsHidden = false;
 			if (room.adminModeOn) {
