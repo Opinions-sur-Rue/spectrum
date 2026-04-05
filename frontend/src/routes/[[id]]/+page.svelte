@@ -398,10 +398,16 @@
 	let showDragHint = $state(false);
 	let dragHintTimer: ReturnType<typeof setTimeout> | undefined;
 
+	function dragHintKey(id: string) {
+		return `spectrum-drag-hint-${id}`;
+	}
+
 	function initPellet() {
 		canvasManager.initMyPellet(() => updateMyPellet());
 		showDragHint = false;
 		clearTimeout(dragHintTimer);
+		// If already moved in a previous session for this spectrum, skip hint
+		if (spectrumId && localStorage.getItem(dragHintKey(spectrumId))) return;
 		dragHintTimer = setTimeout(() => {
 			if (!canvasManager.pelletMoved) showDragHint = true;
 		}, 4000);
@@ -411,6 +417,8 @@
 		if (canvasManager.pelletMoved) {
 			showDragHint = false;
 			clearTimeout(dragHintTimer);
+			// Persist that this user has moved in this spectrum
+			if (spectrumId) localStorage.setItem(dragHintKey(spectrumId), '1');
 		}
 	});
 
@@ -959,7 +967,7 @@
 				<label class="floating-label">
 					<InputFlex
 						name="claim"
-						placeholder={m.claim()}
+						placeholder={m.placeholder_claim()}
 						readonly={!room.adminModeOn}
 						bind:value={room.claim}
 						onfocusin={() => {
@@ -995,14 +1003,6 @@
 						</div>
 					{/if}
 				</div>
-
-				{#if showDragHint}
-					<div class="drag-hint pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2">
-						<span class="rounded-full bg-black/60 px-4 py-2 text-sm text-white">
-							{m.drag_hint()}
-						</span>
-					</div>
-				{/if}
 
 				<footer
 					class="flex flex-wrap items-center justify-center gap-4"
