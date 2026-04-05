@@ -167,9 +167,11 @@
 			}
 		});
 		registerHandler('nack', (args) => {
+			joiningSpectrum = false;
 			notify.error(m.error_nack({ error: args[0] }));
 		});
 		registerHandler('spectrum', (args) => {
+			joiningSpectrum = false;
 			if (ejectionDetectTimer) {
 				clearTimeout(ejectionDetectTimer);
 				ejectionDetectTimer = undefined;
@@ -611,8 +613,11 @@
 		rpc('claim', room.claim);
 	}
 
+	let joiningSpectrum = $state(false);
+
 	function onJoinSpectrum(spectrumId: string, nickname: string) {
 		room.listening = true;
+		joiningSpectrum = true;
 		rpc('joinspectrum', spectrumId, nickname);
 	}
 
@@ -825,7 +830,12 @@
 </dialog>
 
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
-<JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
+<JoinSpectrumModal
+	bind:toggle={showJoinModal}
+	onSubmit={onJoinSpectrum}
+	{spectrumId}
+	loading={joiningSpectrum}
+/>
 <ConnectLiveModal bind:toggle={showConnectLiveModal} onSubmit={onConnectLive} />
 <AddLiveUserParticipantModal
 	bind:toggle={showAddLiveUserParticipantModal}
