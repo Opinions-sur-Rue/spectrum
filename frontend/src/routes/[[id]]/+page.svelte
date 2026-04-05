@@ -395,9 +395,24 @@
 		}
 	});
 
+	let showDragHint = $state(false);
+	let dragHintTimer: ReturnType<typeof setTimeout> | undefined;
+
 	function initPellet() {
 		canvasManager.initMyPellet(() => updateMyPellet());
+		showDragHint = false;
+		clearTimeout(dragHintTimer);
+		dragHintTimer = setTimeout(() => {
+			if (!canvasManager.pelletMoved) showDragHint = true;
+		}, 4000);
 	}
+
+	$effect(() => {
+		if (canvasManager.pelletMoved) {
+			showDragHint = false;
+			clearTimeout(dragHintTimer);
+		}
+	});
 
 	function receivedClaim(c: string) {
 		room.claim = c.replace(/^(\|\|)+|(\|\|)+$/g, '');
@@ -971,6 +986,14 @@
 			<div class="relative border-t p-0">
 				<canvas class="m-auto" id="spectrum"></canvas>
 
+				{#if showDragHint}
+					<div class="drag-hint pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2">
+						<span class="rounded-full bg-black/60 px-4 py-2 text-sm text-white">
+							{m.drag_hint()}
+						</span>
+					</div>
+				{/if}
+
 				<footer
 					class="flex flex-wrap items-center justify-center gap-4"
 					class:p-4={spectrumId}
@@ -1458,5 +1481,30 @@
 
 	.swap-active {
 		opacity: 1;
+	}
+
+	.drag-hint {
+		animation:
+			drag-hint-fadein 0.6s ease forwards,
+			drag-hint-blink 1.2s ease 0.8s 3;
+	}
+
+	@keyframes drag-hint-fadein {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	@keyframes drag-hint-blink {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.3;
+		}
 	}
 </style>

@@ -49,6 +49,7 @@ class CanvasManager {
 	private _scale = 1;
 	private _canvasWidth = originalWidth;
 	private _moving = false;
+	pelletMoved = $state(false);
 	private _currentOpinion = 'notReplied';
 	private _previousOpinion = 'notReplied';
 	private _showNeutralCircle = true;
@@ -113,6 +114,7 @@ class CanvasManager {
 		canvas.on({
 			'object:moving': () => {
 				this._moving = true;
+				this.pelletMoved = true;
 			},
 			'object:modified': () => {
 				this._moving = false;
@@ -244,6 +246,7 @@ class CanvasManager {
 		if (!room.userId) return false;
 		this._currentOpinion = 'notReplied';
 		this._previousOpinion = 'notReplied';
+		this.pelletMoved = false;
 		if (!room.nickname) room.nickname = 'Participant ' + (Math.floor(Math.random() * 100) + 1);
 
 		const pellet = newPellet(room.userId, room.nickname);
