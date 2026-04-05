@@ -1,27 +1,28 @@
 <script lang="ts">
-	export let emoji = '🎉';
-	export let trigger = false;
-	export let handAnimation = false;
-	export let lowerAnimation = false;
-	export let handUsername: string;
+	interface Props {
+		emoji: string;
+		trigger: boolean;
+		handAnimation: boolean;
+		lowerAnimation: boolean;
+		handUsername: string;
+	}
 
-	let show = false;
-	let element: HTMLDivElement;
+	let { emoji, trigger, handAnimation, lowerAnimation, handUsername }: Props = $props();
+
+	let show = $state(false);
+	let element: HTMLDivElement | undefined = $state();
 	let timeout: ReturnType<typeof setTimeout> | undefined;
 
-	$: if (trigger) {
-		if (timeout) clearTimeout(timeout);
-
-		show = true;
-		timeout = setTimeout(() => {
-			// eslint-disable-next-line svelte/infinite-reactive-loop
-			show = false;
-			// eslint-disable-next-line svelte/infinite-reactive-loop
-			trigger = false;
-		}, 1600);
-
-		if (handAnimation) element?.setAttribute('data-username', handUsername);
-	}
+	$effect(() => {
+		if (trigger) {
+			if (timeout) clearTimeout(timeout);
+			show = true;
+			if (handAnimation && element) element.setAttribute('data-username', handUsername);
+			timeout = setTimeout(() => {
+				show = false;
+			}, 1600);
+		}
+	});
 
 	const particleCount = 20;
 	const particles = Array.from({ length: particleCount }, (_, i) => ({
@@ -172,7 +173,7 @@
 
 	.particle {
 		position: absolute;
-		font-size: 3rem; /* 🔍 twice bigger */
+		font-size: 3rem;
 		top: 0;
 		left: 0;
 		transform: translate(-50%, -50%);

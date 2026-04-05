@@ -905,7 +905,7 @@
 
 			{#if room.initialized && spectrumId}
 				<button
-					class="btn btn-success rounded-lg px-4 py-2"
+					class="btn btn-sm btn-success sm:btn-md rounded-lg"
 					use:copy={{
 						text: PUBLIC_URL + '/' + spectrumId,
 						onCopy() {
@@ -913,24 +913,27 @@
 						}
 					}}
 				>
-					<Fa icon={faCopy} />
-					{m.copy_link()}
+					<Fa icon={faCopy} /><span class="hidden sm:inline">&nbsp;{m.copy_link()}</span>
 				</button>
 				<button
 					onclick={() => {
 						streamerMode = true;
 					}}
-					class="btn btn-info rounded-lg px-4 py-2"
-					><Fa icon={faSatelliteDish} /> {m.streamer_mode()}</button
+					class="btn btn-sm btn-info sm:btn-md rounded-lg"
+					><Fa icon={faSatelliteDish} /><span class="hidden sm:inline"
+						>&nbsp;{m.streamer_mode()}</span
+					></button
 				>
-				<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
-					><Fa icon={faPersonWalkingArrowRight} /> {m.leave_spectrum()}</button
+				<button onclick={leaveSpectrum} class="btn btn-sm btn-warning sm:btn-md rounded-lg"
+					><Fa icon={faPersonWalkingArrowRight} /><span class="hidden sm:inline"
+						>&nbsp;{m.leave_spectrum()}</span
+					></button
 				>
 			{:else if room.initialized && !spectrumId}
-				<button onclick={toggleCreateModal} class="btn btn-success rounded-lg px-4 py-2"
+				<button onclick={toggleCreateModal} class="btn btn-sm btn-success sm:btn-md rounded-lg"
 					><Fa icon={faPlayCircle} /> {m.start_spectrum()}</button
 				>
-				<button onclick={toggleJoinModal} class="btn btn-neutral rounded-lg px-4 py-2"
+				<button onclick={toggleJoinModal} class="btn btn-sm btn-neutral sm:btn-md rounded-lg"
 					><Fa icon={faRightFromBracket} /> {m.join_spectrum()}</button
 				>
 			{/if}
@@ -986,7 +989,7 @@
 							}
 						}}
 						minFontSize={12}
-						maxFontSize={24}
+						maxFontSize={canvasWidth < 480 ? 16 : 24}
 					/>
 					<span class="font-bold"><Fa icon={faMapPin} /> {m.claim()}</span>
 				</label>

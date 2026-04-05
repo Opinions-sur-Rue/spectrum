@@ -33,22 +33,27 @@
 </script>
 
 <div class="header flex">
-	<h1 class="flex-none font-mono text-2xl">
+	<h1 class="flex-none font-mono text-xl sm:text-2xl">
 		{#if logo}
-			<img src={logo} alt="Spectrum" width={logoWidth} style="display: inline;" />
+			<img src={logo} alt="Spectrum" width={logoWidth} class="inline w-8 sm:w-auto" />
 		{:else}
-			<img src={`./logo-${theme}.png`} alt="Spectrum" width={logoWidth} style="display: inline;" />
+			<img
+				src={`./logo-${theme}.png`}
+				alt="Spectrum"
+				width={logoWidth}
+				class="inline w-8 sm:w-auto"
+			/>
 		{/if}<span class="ml-1">{title}</span>
 	</h1>
 
 	<div class="flex-1 p-2">
 		{#if subtitle}
 			{#if logo && title}
-				<p class="mt-2 text-center font-thin italic">
+				<p class="mt-2 hidden text-center font-thin italic sm:block">
 					{subtitle}
 				</p>
 			{:else if logo}
-				<p class="mt-2 ml-6 text-sm font-thin italic">
+				<p class="mt-2 ml-6 hidden text-sm font-thin italic sm:block">
 					{subtitle}
 				</p>
 			{/if}
