@@ -257,6 +257,26 @@ func (h *Hub) LeaveRoom(roomID string, color string, userID string) error {
 	return nil
 }
 
+// StopRoom broadcasts RPC_STOPPED to all participants and deletes the room.
+func (h *Hub) StopRoom(roomID string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	room, ok := h.rooms[roomID]
+	if !ok {
+		return ErrRoomNotFound
+	}
+	content := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_STOPPED)
+	for _, p := range room.participants {
+		h.messages <- valueobjects.NewServiceMessage(p.UserID, content.Export())
+		if u, ok := h.users[p.UserID]; ok {
+			u.SetRoom("")
+			u.SetColor("")
+		}
+	}
+	delete(h.rooms, roomID)
+	return nil
+}
+
 // AddRoom adds a new room under a write lock.
 func (h *Hub) AddRoom(roomID string, room *Room) {
 	h.mu.Lock()

@@ -32,6 +32,7 @@ const (
 	RPC_HANDLOWERED        = "handlowered"
 	RPC_PARTICIPANTSHIDDEN = "participantshidden"
 	RPC_PARTICIPANTSSHOWN  = "participantsshown"
+	RPC_STOPPED            = "stopped"
 )
 
 func NewMessageContent(procedure string) *MessageContent {

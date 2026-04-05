@@ -104,5 +104,8 @@
     "kick_confirm_body": "This action is irreversible. The participant will be removed from the spectrum.",
     "confirm": "Confirm",
     "makeadmin_confirm_title": "Make this participant admin?",
-    "makeadmin_confirm_body": "This action is irreversible. The participant will be granted admin rights and cannot be demoted."
+    "makeadmin_confirm_body": "This action is irreversible. The participant will be granted admin rights and cannot be demoted.",
+    "stop_spectrum_confirm_title": "Stop the spectrum?",
+    "stop_spectrum_confirm_body": "This action is irreversible. All participants will be removed and the spectrum will be deleted.",
+    "log_spectrum_stopped": "The spectrum was stopped by an admin"
 }
