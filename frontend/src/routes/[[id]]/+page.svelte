@@ -628,10 +628,21 @@
 		rpc('makeadmin', id);
 	}
 
-	function kick(id: string) {
-		if (!room.adminModeOn) return;
+	let kickTargetId: string | undefined = $state();
+	const kickModalId = 'kick-confirm-modal';
 
-		rpc('kick', id);
+	function promptKick(id: string) {
+		if (!room.adminModeOn) return;
+		kickTargetId = id;
+		const el = document.getElementById(kickModalId);
+		if (el instanceof HTMLDialogElement) el.showModal();
+	}
+
+	function confirmKick() {
+		if (kickTargetId) rpc('kick', kickTargetId);
+		kickTargetId = undefined;
+		const el = document.getElementById(kickModalId);
+		if (el instanceof HTMLDialogElement) el.close();
 	}
 
 	let showSpectrumId = $state(false);
@@ -722,6 +733,26 @@
 		voice.setParticipantVolume(room.others[participantId].audio, volume);
 	}
 </script>
+
+<dialog id={kickModalId} class="modal">
+	<div class="modal-box">
+		<h3 class="mb-2 text-lg font-bold">{m.kick_confirm_title()}</h3>
+		<p class="mb-6 text-sm">{m.kick_confirm_body()}</p>
+		<div class="flex justify-end gap-2">
+			<button
+				class="btn btn-warning"
+				onclick={() => {
+					const el = document.getElementById(kickModalId);
+					if (el instanceof HTMLDialogElement) el.close();
+				}}>{m.cancel()}</button
+			>
+			<button class="btn btn-error" onclick={confirmKick}>{m.confirm()}</button>
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button>{m.cancel()}</button>
+	</form>
+</dialog>
 
 <CreateSpectrumModal bind:toggle={showCreateModal} onSubmit={onCreateSpectrum} />
 <JoinSpectrumModal bind:toggle={showJoinModal} onSubmit={onJoinSpectrum} {spectrumId} />
@@ -1152,7 +1183,7 @@
 											<button
 												class="btn btn-square rounded-xl border-0 bg-orange-500/20 text-orange-500"
 												onclick={() => {
-													kick(colorHex);
+													promptKick(colorHex);
 												}}><Fa icon={faUserSlash} /></button
 											>
 										</div>
