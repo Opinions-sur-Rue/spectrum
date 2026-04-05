@@ -959,7 +959,7 @@
 				<label class="floating-label">
 					<InputFlex
 						name="claim"
-						placeholder={m.claim()}
+						placeholder={m.placeholder_claim()}
 						readonly={!room.adminModeOn}
 						bind:value={room.claim}
 						onfocusin={() => {

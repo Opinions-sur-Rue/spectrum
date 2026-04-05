@@ -108,5 +108,6 @@
     "stop_spectrum_confirm_title": "Stop the spectrum?",
     "stop_spectrum_confirm_body": "This action is irreversible. All participants will be removed and the spectrum will be deleted.",
     "log_spectrum_stopped": "The spectrum was stopped by an admin",
-    "drag_hint": "👆 Drag your dot to position yourself"
+    "drag_hint": "👆 Drag your dot to position yourself",
+    "placeholder_claim": "Enter the spectrum claim here"
 }

@@ -33,7 +33,7 @@
 </script>
 
 <div class="header flex">
-	<h1 class="flex-none font-mono text-4xl">
+	<h1 class="flex-none font-mono text-2xl">
 		{#if logo}
 			<img src={logo} alt="Spectrum" width={logoWidth} style="display: inline;" />
 		{:else}
@@ -41,7 +41,7 @@
 		{/if}<span class="ml-1">{title}</span>
 	</h1>
 
-	<div class="flex-1 p-4">
+	<div class="flex-1 p-2">
 		{#if subtitle}
 			{#if logo && title}
 				<p class="mt-2 text-center font-thin italic">
@@ -57,7 +57,7 @@
 	</div>
 
 	<ul
-		class="menu menu-horizontal bg-base-100 rounded-box mt-10 h-min max-h-min"
+		class="menu menu-horizontal bg-base-100 rounded-box mt-0 h-min max-h-min"
 		class:hidden={streamerMode}
 	>
 		<li class="dropdown dropdown-end tooltip hidden" data-tip="Signal">
