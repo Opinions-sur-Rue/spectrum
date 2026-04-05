@@ -19,11 +19,10 @@
 	export let streamerMode: boolean = false;
 
 	const THEME_KEY = 'spectrum-theme';
-	let theme: 'light' | 'dark' = $state(
+	let theme: 'light' | 'dark' =
 		(typeof localStorage !== 'undefined' &&
 			(localStorage.getItem(THEME_KEY) as 'light' | 'dark')) ||
-			'light'
-	);
+		'light';
 
 	function setTheme(value: 'light' | 'dark') {
 		theme = value;
