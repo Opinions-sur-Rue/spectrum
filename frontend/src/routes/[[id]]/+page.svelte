@@ -51,6 +51,7 @@
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
 	import { m } from '$lib/paraglide/messages.js';
+	import { getLocale } from '$lib/paraglide/runtime';
 	import { notify } from '$lib/utils/notify';
 	import {
 		requestAudioPermission,
@@ -469,7 +470,7 @@
 
 	function log(message: string, type?: string) {
 		const now = new Date();
-		const formattedDate = now.toLocaleString('fr-FR');
+		const formattedDate = now.toLocaleString(getLocale());
 		room.logs.push({ message: `[${formattedDate}] ${message}`, type: type ?? 'message' });
 		scrollToBottom();
 	}
