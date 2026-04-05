@@ -40,7 +40,7 @@
 		>
 			<label
 				class="label text-base-content block font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
-				for="platform">Plate-forme</label
+				for="platform">{m.platform()}</label
 			>
 			<select class="select mb-6 block" id="platform" bind:value={channel}>
 				<option disabled selected>{m.pick_platform()}</option>
