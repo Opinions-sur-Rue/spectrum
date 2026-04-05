@@ -3,6 +3,7 @@ import { lerp, pointInPolygon } from '$lib/utils';
 import { room, removeParticipant } from '$lib/spectrum/room.svelte';
 import { newPellet } from '$lib/canvas/pellet';
 import { m } from '$lib/paraglide/messages.js';
+import { getLocale } from '$lib/paraglide/runtime';
 
 export const originalWidth = 980;
 export const originalHeight = 735;
@@ -57,7 +58,7 @@ class CanvasManager {
 
 	private _log(message: string, type?: string) {
 		const now = new Date();
-		const formattedDate = now.toLocaleString('fr-FR');
+		const formattedDate = now.toLocaleString(getLocale());
 		room.logs.push({ message: `[${formattedDate}] ${message}`, type: type ?? 'message' });
 	}
 
