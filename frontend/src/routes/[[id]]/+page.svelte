@@ -72,7 +72,8 @@
 		room.spectrumId = spectrumId;
 	});
 
-	let canvasWidth: number = $state(originalWidth);
+	let canvasWidth: number = $state(0);
+	let canvasInitialized = false;
 
 	let websocket: WebSocket;
 
@@ -85,6 +86,12 @@
 		if (canvasWidth) {
 			const scale = canvasWidth / originalWidth;
 			canvasManager.setScale(scale, canvasWidth);
+			if (!canvasInitialized) {
+				canvasInitialized = true;
+				canvasManager.drawCanvas('spectrum');
+				canvasManager.loadSVG().catch(console.error);
+				if (spectrumId) toggleJoinModal();
+			}
 		}
 	});
 
@@ -385,14 +392,8 @@
 			'stopped'
 		];
 
-		// Prepare Canvas
-		canvasManager.drawCanvas('spectrum');
-		canvasManager.loadSVG().catch(console.error);
-
-		// We're joining a spectrum
-		if (spectrumId) {
-			toggleJoinModal();
-		}
+		// Canvas is drawn in the $effect watching canvasWidth
+		// to ensure correct dimensions from the start
 	});
 
 	let showDragHint = $state(false);
