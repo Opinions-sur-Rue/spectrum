@@ -1240,7 +1240,7 @@
 			<div class="flex h-full flex-col overflow-hidden">
 				<div
 					class="max-h-[50vh] min-h-0 w-full flex-1 overflow-y-auto md:max-h-full"
-					role="listbox"
+					role="log"
 					tabindex="0"
 					bind:this={tbodyRef}
 					onmouseenter={() => (isHoveringHistory = true)}
