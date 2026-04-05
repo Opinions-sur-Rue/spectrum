@@ -949,31 +949,38 @@
 									tabindex="0"
 									class="dropdown-content menu bg-base-100 rounded-box z-1 w-14 items-center p-2 shadow-sm"
 								>
-									<li aria-label="😜 Winking face with tongue">
-										<button onclick={() => sendEmoji(0)}>😜</button>
+									<li>
+										<button aria-label="😜 Winking face with tongue" onclick={() => sendEmoji(0)}
+											>😜</button
+										>
 									</li>
-									<li aria-label="🤔 Thinking face">
-										<button onclick={() => sendEmoji(1)}>🤔</button>
+									<li>
+										<button aria-label="🤔 Thinking face" onclick={() => sendEmoji(1)}>🤔</button>
 									</li>
-									<li aria-label="😵 Dizzy face">
-										<button onclick={() => sendEmoji(2)}>😵</button>
+									<li>
+										<button aria-label="😵 Dizzy face" onclick={() => sendEmoji(2)}>😵</button>
 									</li>
-									<li aria-label="🤯 Exploding head">
-										<button onclick={() => sendEmoji(3)}>🤯</button>
+									<li>
+										<button aria-label="🤯 Exploding head" onclick={() => sendEmoji(3)}>🤯</button>
 									</li>
-									<li aria-label="🫣 Face with peeking eye">
-										<button onclick={() => sendEmoji(4)}>🫣</button>
+									<li>
+										<button aria-label="🫣 Face with peeking eye" onclick={() => sendEmoji(4)}
+											>🫣</button
+										>
 									</li>
-									<li aria-label="🛟 Ring buoy">
-										<button onclick={() => sendEmoji(5)}>🛟</button>
+									<li>
+										<button aria-label="🛟 Ring buoy" onclick={() => sendEmoji(5)}>🛟</button>
 									</li>
-									<li aria-label="🦝 Raccoon"><button onclick={() => sendEmoji(6)}>🦝</button></li>
+									<li>
+										<button aria-label="🦝 Raccoon" onclick={() => sendEmoji(6)}>🦝</button>
+									</li>
 								</ul>
 							</div>
 							<button
 								class="btn rounded-lg px-4 py-2 font-mono"
 								class:btn-info={!myHandRaised}
 								class:btn-success={myHandRaised}
+								aria-label={myHandRaised ? m.lower_hand() : m.raise_hand()}
 								onclick={toggleHand}
 								>🤚<span class="hidden lg:!inline-block">
 									{myHandRaised ? m.lower_hand() : m.raise_hand()}</span
