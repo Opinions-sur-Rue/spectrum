@@ -1254,7 +1254,7 @@
 					class="max-h-[50vh] min-h-0 w-full flex-1 overflow-y-auto md:max-h-full"
 					role="region"
 					aria-label="Activity log"
-					tabindex="0"
+					tabindex="-1"
 					bind:this={tbodyRef}
 					onmouseenter={() => (isHoveringHistory = true)}
 					onmouseleave={() => (isHoveringHistory = false)}
