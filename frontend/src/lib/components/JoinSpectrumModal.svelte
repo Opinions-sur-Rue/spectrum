@@ -79,7 +79,7 @@
 				<div class="mb-4"></div>
 			{/if}
 			<div>
-				<button class="btn btn-success float-left" type="submit">{m.join()}</button>
+				<button class="btn btn-neutral float-left" type="submit">{m.join()}</button>
 				<button class="btn btn-warning float-right" onclick={() => (toggle = false)} type="button"
 					>{m.cancel()}</button
 				>
