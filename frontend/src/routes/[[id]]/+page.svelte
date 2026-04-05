@@ -927,10 +927,10 @@
 					><Fa icon={faPersonWalkingArrowRight} /> {m.leave_spectrum()}</button
 				>
 			{:else if room.initialized && !spectrumId}
-				<button onclick={toggleCreateModal} class="btn btn-success rounded-lg px-4 py-2"
+				<button onclick={toggleCreateModal} class="btn btn-sm btn-success sm:btn-md rounded-lg"
 					><Fa icon={faPlayCircle} /> {m.start_spectrum()}</button
 				>
-				<button onclick={toggleJoinModal} class="btn btn-neutral rounded-lg px-4 py-2"
+				<button onclick={toggleJoinModal} class="btn btn-sm btn-neutral sm:btn-md rounded-lg"
 					><Fa icon={faRightFromBracket} /> {m.join_spectrum()}</button
 				>
 			{/if}
