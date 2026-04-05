@@ -1250,7 +1250,7 @@
 									>
 								</td>
 								<td>
-									<div class="dropdown dropdown-hover dropdown-bottom dropdown-center">
+									<div class="dropdown dropdown-click dropdown-bottom dropdown-center">
 										<button
 											tabindex="0"
 											class="btn btn-square rounded-xl border-0 bg-yellow-500/20 text-yellow-500"
@@ -1266,7 +1266,11 @@
 											{/if}
 										</button>
 
-										<div class="dropdown-content bg-base-200 rounded-box w-48 p-4 shadow">
+										<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+										<div
+											tabindex="0"
+											class="dropdown-content bg-base-200 rounded-box w-48 p-4 shadow"
+										>
 											<span class="label">
 												<span class="label-text">{m.volume_of({ name: other.nickname })}</span>
 											</span>
