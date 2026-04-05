@@ -1022,6 +1022,8 @@
 										<div
 											class="status status-lg"
 											style="background: #{room.userId}; color: #{room.userId}; transform: scale({voiceIndicator})"
+											role="img"
+											aria-label={room.nickname}
 										></div>
 									</div>
 								</td>
@@ -1075,6 +1077,8 @@
 											style="background: #{colorHex}; color: #{colorHex}; transform: scale({otherVoices[
 												colorHex
 											]})"
+											role="img"
+											aria-label={other.nickname}
 										></div>
 									</div>
 								</td>
@@ -1178,6 +1182,8 @@
 								<div
 									class="status status-xl"
 									style="background: #{room.userId}; color: #{room.userId}; transform: scale({voiceIndicator})"
+									role="img"
+									aria-label={room.nickname}
 								></div>
 							</div>
 						</div>
@@ -1225,6 +1231,8 @@
 										style="background: #{colorHex}; color: #{colorHex}; transform: scale({otherVoices[
 											colorHex
 										]})"
+										role="img"
+										aria-label={other.nickname}
 									></div>
 								</div>
 							</div>
