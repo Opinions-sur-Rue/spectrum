@@ -57,7 +57,7 @@
 		"@capacitor/android": "^8.3.0",
 		"@capacitor/core": "^8.3.0",
 		"@fortawesome/free-brands-svg-icons": "^7.2.0",
-		"@inlang/paraglide-js": "^2.15.1",
+		"@inlang/paraglide-js": "^2.15.2",
 		"fabric": "^7.2.0",
 		"peerjs": "^1.5.5"
 	}
