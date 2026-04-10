@@ -139,9 +139,15 @@ class CanvasManager {
 
 	async loadSVG(sliceCount = 7) {
 		const knownCellIds = new Set([
-			'disagree', 'slightlyDisagree', 'stronglyDisagree',
-			'neutral', 'slightlyAgree', 'agree', 'stronglyAgree',
-			'indifferent', 'notReplied'
+			'disagree',
+			'slightlyDisagree',
+			'stronglyDisagree',
+			'neutral',
+			'slightlyAgree',
+			'agree',
+			'stronglyAgree',
+			'indifferent',
+			'notReplied'
 		]);
 
 		// Skip reload if already loaded with the same slice count

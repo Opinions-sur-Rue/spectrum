@@ -3,7 +3,12 @@
 
 	interface ModalProps {
 		toggle: boolean;
-		onSubmit: (nickname: string, initialClaim?: string, showNeutralCircle?: boolean, sliceCount?: number) => void;
+		onSubmit: (
+			nickname: string,
+			initialClaim?: string,
+			showNeutralCircle?: boolean,
+			sliceCount?: number
+		) => void;
 	}
 
 	let { toggle = $bindable(false), onSubmit }: ModalProps = $props();
@@ -66,7 +71,9 @@
 			{/if}
 
 			<!-- Séparateur configuration -->
-			<div class="divider text-base-content/60 text-sm font-semibold">{m.spectrum_configuration()}</div>
+			<div class="divider text-base-content/60 text-sm font-semibold">
+				{m.spectrum_configuration()}
+			</div>
 
 			<!-- Claim initial -->
 			<label class="label text-base-content font-bold" for="claim">{m.initial_claim()}</label>
@@ -83,23 +90,11 @@
 				<label class="label text-base-content font-bold">{m.spectrum_slices()}</label>
 				<div class="flex gap-4">
 					<label class="label text-base-content cursor-pointer gap-2">
-						<input
-							class="radio"
-							type="radio"
-							name="sliceCount"
-							value={3}
-							bind:group={sliceCount}
-						/>
+						<input class="radio" type="radio" name="sliceCount" value={3} bind:group={sliceCount} />
 						3
 					</label>
 					<label class="label text-base-content cursor-pointer gap-2">
-						<input
-							class="radio"
-							type="radio"
-							name="sliceCount"
-							value={7}
-							bind:group={sliceCount}
-						/>
+						<input class="radio" type="radio" name="sliceCount" value={7} bind:group={sliceCount} />
 						7
 					</label>
 				</div>
