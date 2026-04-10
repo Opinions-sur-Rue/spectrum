@@ -90,7 +90,6 @@
 				canvasInitialized = true;
 				canvasManager.drawCanvas('spectrum');
 				canvasManager.loadSVG().catch(console.error);
-				if (spectrumId) toggleJoinModal();
 			}
 		}
 	});
@@ -395,6 +394,9 @@
 
 		// Canvas is drawn in the $effect watching canvasWidth
 		// to ensure correct dimensions from the start
+
+		// Open join modal immediately if joining via URL
+		if (spectrumId) toggleJoinModal();
 	});
 
 	let showDragHint = $state(false);
