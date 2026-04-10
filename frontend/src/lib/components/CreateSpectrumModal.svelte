@@ -44,9 +44,10 @@
 			>
 		</form>
 		<form class="p-4" onsubmit={handleSubmit}>
+			<!-- Pseudo -->
 			<label
 				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
-				for="nickname2">{m.nickname()}</label
+				for="nickname2">{m.your_nickname()}</label
 			>
 			<input
 				class="input mb-1 block w-full"
@@ -58,10 +59,15 @@
 				id="nickname2"
 			/>
 			{#if errors.nickname}
-				<p class="text-error mb-3 text-sm">{m.error_field_required()}</p>
+				<p class="text-error mb-4 text-sm">{m.error_field_required()}</p>
 			{:else}
 				<div class="mb-4"></div>
 			{/if}
+
+			<!-- Séparateur configuration -->
+			<div class="divider text-base-content/60 text-sm font-semibold">{m.spectrum_configuration()}</div>
+
+			<!-- Claim initial -->
 			<label class="label text-base-content font-bold" for="claim">{m.initial_claim()}</label>
 			<input
 				class="input mb-4 block w-full"
@@ -70,19 +76,8 @@
 				id="claim"
 				bind:value={initialClaim}
 			/>
-			<div class="mb-4 flex items-center gap-2">
-				<input
-					class="checkbox"
-					type="checkbox"
-					id="showNeutralCircle"
-					bind:checked={showNeutralCircle}
-				/>
-				<label
-					class="label text-base-content cursor-pointer"
-					for="showNeutralCircle"
-					title={m.show_neutral_circle_tooltip()}>{m.show_neutral_circle()}</label
-				>
-			</div>
+
+			<!-- Nombre de cases -->
 			<div class="mb-4">
 				<label class="label text-base-content font-bold">{m.spectrum_slices()}</label>
 				<div class="flex gap-4">
@@ -108,6 +103,22 @@
 					</label>
 				</div>
 			</div>
+
+			<!-- Cercle pas répondu -->
+			<div class="mb-6 flex items-center gap-2">
+				<input
+					class="checkbox"
+					type="checkbox"
+					id="showNeutralCircle"
+					bind:checked={showNeutralCircle}
+				/>
+				<label
+					class="label text-base-content cursor-pointer"
+					for="showNeutralCircle"
+					title={m.show_neutral_circle_tooltip()}>{m.show_neutral_circle()}</label
+				>
+			</div>
+
 			<div>
 				<button class="btn btn-success float-left" type="submit">{m.start_spectrum()}</button>
 				<button class="btn btn-warning float-right" type="button" onclick={() => (toggle = false)}

@@ -53,6 +53,8 @@
     "mute_microphone": "Mute Microphone",
     "mute": "Mute",
     "nickname": "Nickname",
+    "your_nickname": "Your Nickname",
+    "spectrum_configuration": "Spectrum Configuration",
     "no_spectrum": "No Spectrum in progress",
     "notify_link_copied": "Link copied into the clipboard!",
     "opinion_strongly_agree": "Strongly agree",
