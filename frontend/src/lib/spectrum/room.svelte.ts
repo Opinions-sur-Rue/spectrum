@@ -69,6 +69,9 @@ export const room = $state({
 	/** Whether the neutral circle (notReplied/indifferent zones) is shown on the canvas. */
 	showNeutralCircle: true,
 
+	/** Number of spectrum slices (3 or 7). */
+	sliceCount: 7,
+
 	/** True when the admin has hidden all participants from non-admins. */
 	participantsHidden: false
 });
@@ -92,6 +95,7 @@ export function leaveRoom() {
 	room.listening = false;
 	room.liveChannel = undefined;
 	room.liveListening = false;
+	room.sliceCount = 7;
 	room.others = {};
 }
 

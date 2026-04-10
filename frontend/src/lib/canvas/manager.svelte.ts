@@ -54,6 +54,8 @@ class CanvasManager {
 	private _previousOpinion = 'notReplied';
 	private _showNeutralCircle = true;
 	private _participantsHidden = false;
+	private _loadedSliceCount = 0;
+	private _loadingGeneration = 0;
 	private _updateIntervalId: ReturnType<typeof setInterval> | null = null;
 	private _rafId: number | null = null;
 
@@ -135,14 +137,45 @@ class CanvasManager {
 		return canvas;
 	}
 
-	async loadSVG() {
-		let objects: unknown[], options: unknown;
+	async loadSVG(sliceCount = 7) {
+		const knownCellIds = new Set([
+			'disagree',
+			'slightlyDisagree',
+			'stronglyDisagree',
+			'neutral',
+			'slightlyAgree',
+			'agree',
+			'stronglyAgree',
+			'indifferent',
+			'notReplied'
+		]);
+
+		// Skip reload if already loaded with the same slice count
+		if (this._svg && this._loadedSliceCount === sliceCount) return;
+
+		// Bump generation — any in-flight load with a different sliceCount is now stale
+		const generation = ++this._loadingGeneration;
+
+		// Remove old SVG before loading the new one
+		if (this._svg) {
+			this._canvas?.remove(this._svg);
+			this._svg = null;
+			this._cells = [];
+			this._cellsPoints = [];
+		}
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let objects: any[], options: unknown;
 		try {
-			({ objects, options } = await loadSVGFromURL(m.file_spectrum()));
+			const url = sliceCount === 3 ? m.file_spectrum_3() : m.file_spectrum();
+			({ objects, options } = await loadSVGFromURL(url));
 		} catch (err) {
 			console.error('Failed to load SVG:', err);
 			return;
 		}
+
+		// Another loadSVG call was made while we were awaiting — discard this result
+		if (generation !== this._loadingGeneration) return;
 		// @ts-expect-error -- groupSVGElements return type not fully typed
 		const svg = util.groupSVGElements(objects, options);
 
@@ -163,8 +196,9 @@ class CanvasManager {
 		svg.selectable = false;
 		svg.evented = false;
 
-		for (let i = 0; i <= 8; i++) {
-			this._cells.push(objects[i]);
+		for (const obj of objects) {
+			if (!obj || !obj.id || !knownCellIds.has(obj.id)) continue;
+			this._cells.push(obj);
 			const cell = this._cells[this._cells.length - 1];
 			this._cellsPoints[this._cells.length - 1] = [];
 
@@ -179,6 +213,7 @@ class CanvasManager {
 		}
 
 		this._svg = svg;
+		this._loadedSliceCount = sliceCount;
 		this._canvas!.add(svg);
 		this._canvas!.sendObjectToBack(svg);
 
@@ -221,6 +256,7 @@ class CanvasManager {
 		for (let i = 0; i < this._cells.length; i++) {
 			const cell = this._cells[i];
 			this._cellsPoints[i] = [];
+			if (!cell?.path) continue;
 
 			for (let index = 0; index < cell.path.length - 2; index++) {
 				const pathPoint = cell.path[index];
@@ -474,6 +510,8 @@ class CanvasManager {
 		this._cells = [];
 		this._cellsPoints = [];
 		this._svg = null;
+		this._loadedSliceCount = 0;
+		this._loadingGeneration = 0;
 		this._canvas?.dispose();
 		this._canvas = null;
 		this._currentOpinion = 'notReplied';

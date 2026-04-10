@@ -89,8 +89,7 @@
 			if (!canvasInitialized) {
 				canvasInitialized = true;
 				canvasManager.drawCanvas('spectrum');
-				canvasManager.loadSVG().catch(console.error);
-				if (spectrumId) toggleJoinModal();
+				canvasManager.loadSVG(room.sliceCount).catch(console.error);
 			}
 		}
 	});
@@ -188,6 +187,7 @@
 			showEjectedBanner = false;
 			showJoinModal = false;
 			room.showNeutralCircle = args[4] !== 'false';
+			room.sliceCount = args[5] ? parseInt(args[5]) : 7;
 			joinRoom(args[1], args[0], args[2], args[3] == 'true');
 			joinedSpectrum(args[1]);
 			log(m.log_you_joined_spectrum(), 'join');
@@ -394,6 +394,9 @@
 
 		// Canvas is drawn in the $effect watching canvasWidth
 		// to ensure correct dimensions from the start
+
+		// Open join modal immediately if joining via URL
+		if (spectrumId) toggleJoinModal();
 	});
 
 	let showDragHint = $state(false);
@@ -561,31 +564,48 @@
 	function convertVoteToPosition(vote?: number) {
 		let position;
 
-		switch (vote) {
-			case -3:
-				position = { x: 98, y: 399 };
-				break;
-			case -2:
-				position = { x: 157, y: 251 };
-				break;
-			case -1:
-				position = { x: 292, y: 127 };
-				break;
-			case 0:
-				position = { x: 475, y: 78 };
-				break;
-			case 1:
-				position = { x: 659, y: 123 };
-				break;
-			case 2:
-				position = { x: 771, y: 250 };
-				break;
-			case 3:
-				position = { x: 832, y: 408 };
-				break;
-			default:
-				position = { x: 467, y: 424 };
-				break;
+		if (room.sliceCount === 3) {
+			switch (vote) {
+				case -1:
+					position = { x: 98, y: 399 };
+					break;
+				case 0:
+					position = { x: 475, y: 78 };
+					break;
+				case 1:
+					position = { x: 832, y: 408 };
+					break;
+				default:
+					position = { x: 467, y: 424 };
+					break;
+			}
+		} else {
+			switch (vote) {
+				case -3:
+					position = { x: 98, y: 399 };
+					break;
+				case -2:
+					position = { x: 157, y: 251 };
+					break;
+				case -1:
+					position = { x: 292, y: 127 };
+					break;
+				case 0:
+					position = { x: 475, y: 78 };
+					break;
+				case 1:
+					position = { x: 659, y: 123 };
+					break;
+				case 2:
+					position = { x: 771, y: 250 };
+					break;
+				case 3:
+					position = { x: 832, y: 408 };
+					break;
+				default:
+					position = { x: 467, y: 424 };
+					break;
+			}
 		}
 
 		const randomOffsetSize = 40;
@@ -627,11 +647,13 @@
 	function onCreateSpectrum(
 		nickname: string,
 		initialClaim?: string,
-		showNeutralCircle: boolean = true
+		showNeutralCircle: boolean = true,
+		sliceCount: number = 7
 	) {
 		room.listening = true;
 		room.claim = initialClaim ?? '';
-		rpc('startspectrum', nickname, showNeutralCircle.toString());
+		room.sliceCount = sliceCount;
+		rpc('startspectrum', nickname, showNeutralCircle.toString(), sliceCount.toString());
 		showCreateModal = false;
 		room.adminModeOn = true;
 		rpc('claim', room.claim);
@@ -648,6 +670,7 @@
 	function joinedSpectrum(id: string) {
 		spectrumId = id;
 
+		canvasManager.loadSVG(room.sliceCount).catch(console.error);
 		canvasManager.setNeutralCircleVisible(room.showNeutralCircle);
 
 		if (!room.adminModeOn) {

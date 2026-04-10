@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"regexp"
 	"slices"
+	"strconv"
 
 	"Opinions-sur-Rue/spectrum/domain/social"
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
@@ -67,7 +68,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			roomID := user.currentRoomID
 			c.hub.WithRoomRead(roomID, func(room *Room) {
 				admin := slices.Contains(room.admins, c.userID)
-				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin), fmt.Sprintf("%t", room.showNeutralCircle))
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin), fmt.Sprintf("%t", room.showNeutralCircle), fmt.Sprintf("%d", room.SliceCount()))
 				c.send <- reply.Export()
 
 				for _, participant := range room.participants {
@@ -123,12 +124,19 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		user.SetNickname(rpc.Arguments[0])
 
 		showNeutralCircle := len(rpc.Arguments) < 2 || rpc.Arguments[1] != "false"
+		sliceCount := 7
+		if len(rpc.Arguments) >= 3 {
+			if n, err := strconv.Atoi(rpc.Arguments[2]); err == nil && (n == 3 || n == 7) {
+				sliceCount = n
+			}
+		}
 		_ = c.hub.WithRoom(roomID, func(room *Room) error {
 			room.showNeutralCircle = showNeutralCircle
+			room.sliceCount = sliceCount
 			return nil
 		})
 
-		reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[0], "true", fmt.Sprintf("%t", showNeutralCircle))
+		reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[0], "true", fmt.Sprintf("%t", showNeutralCircle), fmt.Sprintf("%d", sliceCount))
 		c.send <- reply.Export()
 	case "joinspectrum":
 		if user.IsInRoom() {
@@ -149,11 +157,13 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			user.SetRoom(roomID)
 
 			var roomShowNeutralCircle = true
+			var roomSliceCount = 7
 			c.hub.WithRoomRead(roomID, func(room *Room) {
 				roomShowNeutralCircle = room.showNeutralCircle
+				roomSliceCount = room.SliceCount()
 			})
 
-			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[1], "false", fmt.Sprintf("%t", roomShowNeutralCircle))
+			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, color, roomID, rpc.Arguments[1], "false", fmt.Sprintf("%t", roomShowNeutralCircle), fmt.Sprintf("%d", roomSliceCount))
 			c.send <- reply.Export()
 
 			if roomShowNeutralCircle {
