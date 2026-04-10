@@ -921,7 +921,7 @@
 							</div>
 						</span>
 					{:else}
-						{m.no_spectrum()}
+						<span class="text-sm sm:text-base">{m.no_spectrum()}</span>
 					{/if}
 				{/if}
 			</span>
