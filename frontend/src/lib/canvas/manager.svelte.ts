@@ -1,4 +1,4 @@
-import { Canvas, loadSVGFromURL, util } from 'fabric';
+import { Canvas, FabricObject, loadSVGFromURL, util } from 'fabric';
 import { lerp, pointInPolygon } from '$lib/utils';
 import { room, removeParticipant } from '$lib/spectrum/room.svelte';
 import { newPellet } from '$lib/canvas/pellet';
@@ -164,7 +164,7 @@ class CanvasManager {
 			this._cellsPoints = [];
 		}
 
-		let objects: Array<{ id?: string; path?: Array<Array<number>> }>, options: unknown;
+		let objects: (FabricObject | null)[], options: unknown;
 		try {
 			const url = sliceCount === 3 ? m.file_spectrum_3() : m.file_spectrum();
 			({ objects, options } = await loadSVGFromURL(url));
@@ -196,7 +196,7 @@ class CanvasManager {
 		svg.evented = false;
 
 		for (const obj of objects) {
-			if (!knownCellIds.has(obj.id)) continue;
+			if (!obj || !obj.id || !knownCellIds.has(obj.id)) continue;
 			this._cells.push(obj);
 			const cell = this._cells[this._cells.length - 1];
 			this._cellsPoints[this._cells.length - 1] = [];
