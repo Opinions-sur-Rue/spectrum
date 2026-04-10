@@ -164,7 +164,7 @@ class CanvasManager {
 			this._cellsPoints = [];
 		}
 
-		let objects: unknown[], options: unknown;
+		let objects: Array<{ id?: string; path?: Array<Array<number>> }>, options: unknown;
 		try {
 			const url = sliceCount === 3 ? m.file_spectrum_3() : m.file_spectrum();
 			({ objects, options } = await loadSVGFromURL(url));
@@ -195,7 +195,6 @@ class CanvasManager {
 		svg.selectable = false;
 		svg.evented = false;
 
-		// @ts-expect-error -- objects elements not fully typed
 		for (const obj of objects) {
 			if (!knownCellIds.has(obj.id)) continue;
 			this._cells.push(obj);
