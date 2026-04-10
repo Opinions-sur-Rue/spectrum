@@ -68,7 +68,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			roomID := user.currentRoomID
 			c.hub.WithRoomRead(roomID, func(room *Room) {
 				admin := slices.Contains(room.admins, c.userID)
-				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin), fmt.Sprintf("%t", room.showNeutralCircle))
+				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_SPECTRUM, user.Color, roomID, user.Nickname, fmt.Sprintf("%t", admin), fmt.Sprintf("%t", room.showNeutralCircle), fmt.Sprintf("%d", room.SliceCount()))
 				c.send <- reply.Export()
 
 				for _, participant := range room.participants {
