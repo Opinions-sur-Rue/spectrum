@@ -55,6 +55,7 @@ class CanvasManager {
 	private _showNeutralCircle = true;
 	private _participantsHidden = false;
 	private _loadedSliceCount = 0;
+	private _loadingGeneration = 0;
 	private _updateIntervalId: ReturnType<typeof setInterval> | null = null;
 	private _rafId: number | null = null;
 
@@ -146,6 +147,9 @@ class CanvasManager {
 		// Skip reload if already loaded with the same slice count
 		if (this._svg && this._loadedSliceCount === sliceCount) return;
 
+		// Bump generation — any in-flight load with a different sliceCount is now stale
+		const generation = ++this._loadingGeneration;
+
 		// Remove old SVG before loading the new one
 		if (this._svg) {
 			this._canvas?.remove(this._svg);
@@ -162,6 +166,9 @@ class CanvasManager {
 			console.error('Failed to load SVG:', err);
 			return;
 		}
+
+		// Another loadSVG call was made while we were awaiting — discard this result
+		if (generation !== this._loadingGeneration) return;
 		// @ts-expect-error -- groupSVGElements return type not fully typed
 		const svg = util.groupSVGElements(objects, options);
 
@@ -498,6 +505,7 @@ class CanvasManager {
 		this._cellsPoints = [];
 		this._svg = null;
 		this._loadedSliceCount = 0;
+		this._loadingGeneration = 0;
 		this._canvas?.dispose();
 		this._canvas = null;
 		this._currentOpinion = 'notReplied';
