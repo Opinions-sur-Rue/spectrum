@@ -135,10 +135,25 @@ class CanvasManager {
 		return canvas;
 	}
 
-	async loadSVG() {
+	async loadSVG(sliceCount = 7) {
+		const knownCellIds = new Set([
+			'disagree', 'slightlyDisagree', 'stronglyDisagree',
+			'neutral', 'slightlyAgree', 'agree', 'stronglyAgree',
+			'indifferent', 'notReplied'
+		]);
+
+		// Remove old SVG if reloading with a different slice count
+		if (this._svg) {
+			this._canvas?.remove(this._svg);
+			this._svg = null;
+			this._cells = [];
+			this._cellsPoints = [];
+		}
+
 		let objects: unknown[], options: unknown;
 		try {
-			({ objects, options } = await loadSVGFromURL(m.file_spectrum()));
+			const url = sliceCount === 3 ? m.file_spectrum_3() : m.file_spectrum();
+			({ objects, options } = await loadSVGFromURL(url));
 		} catch (err) {
 			console.error('Failed to load SVG:', err);
 			return;
@@ -163,8 +178,10 @@ class CanvasManager {
 		svg.selectable = false;
 		svg.evented = false;
 
-		for (let i = 0; i <= 8; i++) {
-			this._cells.push(objects[i]);
+		// @ts-expect-error -- objects elements not fully typed
+		for (const obj of objects) {
+			if (!knownCellIds.has(obj.id)) continue;
+			this._cells.push(obj);
 			const cell = this._cells[this._cells.length - 1];
 			this._cellsPoints[this._cells.length - 1] = [];
 
@@ -221,6 +238,7 @@ class CanvasManager {
 		for (let i = 0; i < this._cells.length; i++) {
 			const cell = this._cells[i];
 			this._cellsPoints[i] = [];
+			if (!cell?.path) continue;
 
 			for (let index = 0; index < cell.path.length - 2; index++) {
 				const pathPoint = cell.path[index];

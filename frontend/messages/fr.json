@@ -17,6 +17,8 @@
     "emoji": "Emoji",
     "error_no_websocket_connection": "Impossible de se connecter au serveur de spectrum",
     "file_spectrum": "/spectrum.svg",
+    "file_spectrum_3": "/spectrum_3.svg",
+    "spectrum_slices": "Nombre de cases",
     "hide_id": "Cacher l'identifiant",
     "id": "Identifiant",
     "info_definition": "Définition",

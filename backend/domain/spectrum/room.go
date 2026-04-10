@@ -29,11 +29,19 @@ type Room struct {
 	participants       map[string]*User
 	socialListener     social.ChatListener
 	showNeutralCircle  bool
+	sliceCount         int
 	participantsHidden bool
 }
 
 func (r *Room) ShowNeutralCircle() bool {
 	return r.showNeutralCircle
+}
+
+func (r *Room) SliceCount() int {
+	if r.sliceCount == 0 {
+		return 7
+	}
+	return r.sliceCount
 }
 
 func (r *Room) Join(newUser *User) error {

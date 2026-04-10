@@ -3,7 +3,7 @@
 
 	interface ModalProps {
 		toggle: boolean;
-		onSubmit: (nickname: string, initialClaim?: string, showNeutralCircle?: boolean) => void;
+		onSubmit: (nickname: string, initialClaim?: string, showNeutralCircle?: boolean, sliceCount?: number) => void;
 	}
 
 	let { toggle = $bindable(false), onSubmit }: ModalProps = $props();
@@ -24,12 +24,13 @@
 	let nickname: string | undefined = $state();
 	let initialClaim: string | undefined = $state();
 	let showNeutralCircle: boolean = $state(true);
+	let sliceCount: number = $state(7);
 	let errors = $state({ nickname: false });
 
 	function handleSubmit() {
 		errors.nickname = !nickname?.trim();
 		if (!errors.nickname) {
-			onSubmit(nickname!, initialClaim, showNeutralCircle);
+			onSubmit(nickname!, initialClaim, showNeutralCircle, sliceCount);
 		}
 	}
 </script>
@@ -81,6 +82,31 @@
 					for="showNeutralCircle"
 					title={m.show_neutral_circle_tooltip()}>{m.show_neutral_circle()}</label
 				>
+			</div>
+			<div class="mb-4">
+				<label class="label text-base-content font-bold">{m.spectrum_slices()}</label>
+				<div class="flex gap-4">
+					<label class="label text-base-content cursor-pointer gap-2">
+						<input
+							class="radio"
+							type="radio"
+							name="sliceCount"
+							value={7}
+							bind:group={sliceCount}
+						/>
+						7
+					</label>
+					<label class="label text-base-content cursor-pointer gap-2">
+						<input
+							class="radio"
+							type="radio"
+							name="sliceCount"
+							value={3}
+							bind:group={sliceCount}
+						/>
+						3
+					</label>
+				</div>
 			</div>
 			<div>
 				<button class="btn btn-success float-left" type="submit">{m.start_spectrum()}</button>
