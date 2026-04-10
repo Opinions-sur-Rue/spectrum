@@ -89,7 +89,7 @@
 			if (!canvasInitialized) {
 				canvasInitialized = true;
 				canvasManager.drawCanvas('spectrum');
-				canvasManager.loadSVG().catch(console.error);
+				canvasManager.loadSVG(room.sliceCount).catch(console.error);
 			}
 		}
 	});
