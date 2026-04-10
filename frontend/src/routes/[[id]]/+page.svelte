@@ -650,6 +650,7 @@
 	) {
 		room.listening = true;
 		room.claim = initialClaim ?? '';
+		room.sliceCount = sliceCount;
 		rpc('startspectrum', nickname, showNeutralCircle.toString(), sliceCount.toString());
 		showCreateModal = false;
 		room.adminModeOn = true;

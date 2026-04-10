@@ -91,20 +91,20 @@
 							class="radio"
 							type="radio"
 							name="sliceCount"
-							value={7}
+							value={3}
 							bind:group={sliceCount}
 						/>
-						7
+						3
 					</label>
 					<label class="label text-base-content cursor-pointer gap-2">
 						<input
 							class="radio"
 							type="radio"
 							name="sliceCount"
-							value={3}
+							value={7}
 							bind:group={sliceCount}
 						/>
-						3
+						7
 					</label>
 				</div>
 			</div>
