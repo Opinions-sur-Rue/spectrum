@@ -95,6 +95,7 @@ export function leaveRoom() {
 	room.listening = false;
 	room.liveChannel = undefined;
 	room.liveListening = false;
+	room.sliceCount = 7;
 	room.others = {};
 }
 
