@@ -54,6 +54,7 @@ class CanvasManager {
 	private _previousOpinion = 'notReplied';
 	private _showNeutralCircle = true;
 	private _participantsHidden = false;
+	private _loadedSliceCount = 0;
 	private _updateIntervalId: ReturnType<typeof setInterval> | null = null;
 	private _rafId: number | null = null;
 
@@ -142,7 +143,10 @@ class CanvasManager {
 			'indifferent', 'notReplied'
 		]);
 
-		// Remove old SVG if reloading with a different slice count
+		// Skip reload if already loaded with the same slice count
+		if (this._svg && this._loadedSliceCount === sliceCount) return;
+
+		// Remove old SVG before loading the new one
 		if (this._svg) {
 			this._canvas?.remove(this._svg);
 			this._svg = null;
@@ -196,6 +200,7 @@ class CanvasManager {
 		}
 
 		this._svg = svg;
+		this._loadedSliceCount = sliceCount;
 		this._canvas!.add(svg);
 		this._canvas!.sendObjectToBack(svg);
 
@@ -492,6 +497,7 @@ class CanvasManager {
 		this._cells = [];
 		this._cellsPoints = [];
 		this._svg = null;
+		this._loadedSliceCount = 0;
 		this._canvas?.dispose();
 		this._canvas = null;
 		this._currentOpinion = 'notReplied';
