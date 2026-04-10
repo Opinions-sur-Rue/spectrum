@@ -27,7 +27,8 @@
 	let sliceCount: number = $state(7);
 	let errors = $state({ nickname: false });
 
-	function handleSubmit() {
+	function handleSubmit(e: Event) {
+		e.preventDefault();
 		errors.nickname = !nickname?.trim();
 		if (!errors.nickname) {
 			onSubmit(nickname!, initialClaim, showNeutralCircle, sliceCount);
