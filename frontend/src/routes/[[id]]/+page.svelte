@@ -893,8 +893,8 @@
 
 {#if !streamerMode}
 	<Header subtitle={m.subtitle()} logo={LOGO_URL} logoWidth={LOGO_WIDTH} title={HEADER_TITLE}>
-		<div class="items-left justify-left mt-8 ml-0 flex flex-wrap gap-4 font-mono">
-			<span class="px-4 py-2">
+		<div class="items-left justify-left mt-2 ml-0 flex flex-wrap gap-2 font-mono sm:mt-6 sm:gap-4">
+			<span class="px-2 py-1 sm:px-4 sm:py-2">
 				{#if !room.initialized}
 					<span class="loading loading-spinner loading-md text-success"></span> Loading...
 				{:else if wsState.reconnecting}
@@ -954,10 +954,10 @@
 				>
 			{:else if room.initialized && !spectrumId}
 				<button onclick={toggleCreateModal} class="btn btn-sm btn-success sm:btn-md rounded-lg"
-					><Fa icon={faPlayCircle} /> {m.start_spectrum()}</button
+					><Fa icon={faPlayCircle} /><span class="hidden sm:inline">&nbsp;{m.start_spectrum()}</span></button
 				>
 				<button onclick={toggleJoinModal} class="btn btn-sm btn-neutral sm:btn-md rounded-lg"
-					><Fa icon={faRightFromBracket} /> {m.join_spectrum()}</button
+					><Fa icon={faRightFromBracket} /><span class="hidden sm:inline">&nbsp;{m.join_spectrum()}</span></button
 				>
 			{/if}
 		</div>

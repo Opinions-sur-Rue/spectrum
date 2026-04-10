@@ -35,13 +35,13 @@
 <div class="header flex">
 	<h1 class="flex-none font-mono text-xl sm:text-2xl">
 		{#if logo}
-			<img src={logo} alt="Spectrum" width={logoWidth} class="inline w-8 sm:w-auto" />
+			<img src={logo} alt="Spectrum" width={logoWidth} class="inline w-14 sm:w-auto" />
 		{:else}
 			<img
 				src={`./logo-${theme}.png`}
 				alt="Spectrum"
 				width={logoWidth}
-				class="inline w-8 sm:w-auto"
+				class="inline w-14 sm:w-auto"
 			/>
 		{/if}<span class="ml-1">{title}</span>
 	</h1>
