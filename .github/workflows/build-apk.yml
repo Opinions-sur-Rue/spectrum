@@ -70,7 +70,7 @@ jobs:
 
       - name: 🏷️ Update nightly release (main only)
         if: github.ref_name == 'main'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: latest-debug
           name: "Latest Debug APK"
