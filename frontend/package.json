@@ -54,7 +54,7 @@
 		"vitest": "^3.2.4"
 	},
 	"dependencies": {
-		"@capacitor/android": "^8.3.0",
+		"@capacitor/android": "^8.3.1",
 		"@capacitor/core": "^8.3.0",
 		"@fortawesome/free-brands-svg-icons": "^7.2.0",
 		"@inlang/paraglide-js": "^2.15.3",
