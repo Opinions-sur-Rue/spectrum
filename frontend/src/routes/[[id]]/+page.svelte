@@ -439,6 +439,7 @@
 	function sendEmoji(emojiIndex: number) {
 		const emojis = ['😜', '🤔', '😵', '🤯', '🫣', '🛟', '🦝'];
 		rpc('emoji', emojis[emojiIndex]);
+		(document.activeElement as HTMLElement | null)?.blur();
 	}
 
 	let myHandRaised = $state(false);
@@ -892,73 +893,74 @@
 <EmojiBurst {emoji} {trigger} {handAnimation} {lowerAnimation} {handUsername} />
 
 {#if !streamerMode}
-	<Header subtitle={m.subtitle()} logo={LOGO_URL} logoWidth={LOGO_WIDTH} title={HEADER_TITLE}>
-		<div class="items-left justify-left mt-8 ml-0 flex flex-wrap gap-4 font-mono">
-			<span class="px-4 py-2">
-				{#if !room.initialized}
-					<span class="loading loading-spinner loading-md text-success"></span> Loading...
-				{:else if wsState.reconnecting}
-					<span class="loading loading-spinner loading-sm text-warning"></span>
-					<span class="text-warning font-mono text-sm">Reconnecting...</span>
-				{:else}
-					<div class="inline-grid *:[grid-area:1/1]">
-						<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>
-					</div>
-					{#if spectrumId}
-						<span class="inline-flex items-center">
-							{m.spectrum_in_progress()} &mdash; {m.id()}=<b
-								>{showSpectrumId ? spectrumId : 'OSR-****'}</b
-							>
-							<div
-								class="tooltip inline-block align-baseline"
-								data-tip={showSpectrumId ? m.hide_id() : m.show_id()}
-							>
-								<label class="swap">
-									<input type="checkbox" class="hidden" bind:checked={showSpectrumId} />
-									<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faEye} /></div>
-									<div class="swap-off btn btn-ghost btn-circle"><Fa icon={faEyeSlash} /></div>
-								</label>
-							</div>
-						</span>
+	<div class="relative z-30 flex-none">
+		<Header
+			subtitle={m.subtitle()}
+			logo={LOGO_URL}
+			logoWidth={LOGO_WIDTH}
+			title={HEADER_TITLE}
+			forceDarkLogo={room.initialized && !spectrumId}
+		>
+			<div class="ml-0 flex flex-wrap items-center justify-start gap-2 font-mono sm:gap-4">
+				<span class="px-2 py-1 sm:px-4 sm:py-2">
+					{#if !room.initialized}
+						<span class="loading loading-spinner loading-md text-success"></span> Loading...
+					{:else if wsState.reconnecting}
+						<span class="loading loading-spinner loading-sm text-warning"></span>
+						<span class="text-warning font-mono text-sm">Reconnecting...</span>
 					{:else}
-						{m.no_spectrum()}
+						<div class="inline-grid *:[grid-area:1/1]">
+							<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>
+						</div>
+						{#if spectrumId}
+							<span class="inline-flex items-center text-xs sm:text-base">
+								<span class="hidden sm:inline">{m.spectrum_in_progress()} &mdash;&nbsp;</span
+								>{m.id()}=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b>
+								<div
+									class="tooltip inline-block align-baseline"
+									data-tip={showSpectrumId ? m.hide_id() : m.show_id()}
+								>
+									<label class="swap">
+										<input type="checkbox" class="hidden" bind:checked={showSpectrumId} />
+										<div class="swap-on btn btn-ghost btn-circle"><Fa icon={faEye} /></div>
+										<div class="swap-off btn btn-ghost btn-circle"><Fa icon={faEyeSlash} /></div>
+									</label>
+								</div>
+							</span>
+						{/if}
 					{/if}
-				{/if}
-			</span>
+				</span>
 
-			{#if room.initialized && spectrumId}
-				<button
-					class="btn btn-success rounded-lg px-4 py-2"
-					use:copy={{
-						text: PUBLIC_URL + '/' + spectrumId,
-						onCopy() {
-							copied();
-						}
-					}}
-				>
-					<Fa icon={faCopy} />
-					{m.copy_link()}
-				</button>
-				<button
-					onclick={() => {
-						streamerMode = true;
-					}}
-					class="btn btn-info rounded-lg px-4 py-2"
-					><Fa icon={faSatelliteDish} /> {m.streamer_mode()}</button
-				>
-				<button onclick={leaveSpectrum} class="btn btn-warning float-right rounded-lg px-4 py-2"
-					><Fa icon={faPersonWalkingArrowRight} /> {m.leave_spectrum()}</button
-				>
-			{:else if room.initialized && !spectrumId}
-				<button onclick={toggleCreateModal} class="btn btn-success rounded-lg px-4 py-2"
-					><Fa icon={faPlayCircle} /> {m.start_spectrum()}</button
-				>
-				<button onclick={toggleJoinModal} class="btn btn-neutral rounded-lg px-4 py-2"
-					><Fa icon={faRightFromBracket} /> {m.join_spectrum()}</button
-				>
-			{/if}
-		</div>
-	</Header>
+				{#if room.initialized && spectrumId}
+					<button
+						class="btn btn-sm btn-success sm:btn-md rounded-lg"
+						use:copy={{
+							text: PUBLIC_URL + '/' + spectrumId,
+							onCopy() {
+								copied();
+							}
+						}}
+					>
+						<Fa icon={faCopy} /><span class="hidden sm:inline">&nbsp;{m.copy_link()}</span>
+					</button>
+					<button
+						onclick={() => {
+							streamerMode = true;
+						}}
+						class="btn btn-sm btn-info sm:btn-md hidden rounded-lg sm:inline-flex"
+						><Fa icon={faSatelliteDish} /><span class="hidden sm:inline"
+							>&nbsp;{m.streamer_mode()}</span
+						></button
+					>
+					<button onclick={leaveSpectrum} class="btn btn-sm btn-warning sm:btn-md rounded-lg"
+						><Fa icon={faPersonWalkingArrowRight} /><span class="hidden sm:inline"
+							>&nbsp;{m.leave_spectrum()}</span
+						></button
+					>
+				{/if}
+			</div>
+		</Header>
+	</div>
 {:else}
 	<div class="fixed top-5 right-[2rem] z-1000">
 		<div class="tooltip tooltip-left" data-tip="Quitter mode streamer">
@@ -983,15 +985,19 @@
 {/if}
 
 <div
-	class="relative mt-8 grid h-full grid-cols-1 justify-items-start gap-4 md:h-[50vh] md:grid-cols-[2fr_1fr]"
+	class="relative mt-2 grid grid-cols-1 justify-items-start gap-2 md:mt-8 md:h-[50vh] md:grid-cols-[2fr_1fr] md:gap-4"
 >
-	<div class="flex h-max w-full">
-		<div class="card bg-base-100 h-max w-full shadow-sm" bind:clientWidth={canvasWidth}>
+	<div class="flex h-max w-full md:h-full">
+		<div class="card bg-base-100 h-max w-full shadow-sm md:h-full" bind:clientWidth={canvasWidth}>
 			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
 					<InputFlex
 						name="claim"
-						placeholder={m.placeholder_claim()}
+						placeholder={!spectrumId
+							? m.no_spectrum()
+							: room.adminModeOn
+								? m.placeholder_claim()
+								: m.no_claim_yet()}
 						readonly={!room.adminModeOn}
 						bind:value={room.claim}
 						onfocusin={() => {
@@ -1009,7 +1015,7 @@
 							}
 						}}
 						minFontSize={12}
-						maxFontSize={24}
+						maxFontSize={canvasWidth < 480 ? 16 : 24}
 					/>
 					<span class="font-bold"><Fa icon={faMapPin} /> {m.claim()}</span>
 				</label>
@@ -1029,7 +1035,7 @@
 				</div>
 
 				<footer
-					class="flex flex-wrap items-center justify-center gap-4"
+					class="flex flex-wrap items-center justify-center gap-4 pt-0"
 					class:p-4={spectrumId}
 					class:absolute={!room.showNeutralCircle}
 					class:bottom-0={!room.showNeutralCircle}
@@ -1076,15 +1082,6 @@
 								>
 							</div>
 
-							<div class="tooltip" data-tip={m.stop_spectrum()}>
-								<button
-									class="btn btn-error rounded-lg px-4 py-2 font-mono"
-									onclick={promptStopSpectrum}
-									><Fa icon={faStop} /><span class="hidden lg:!inline-block">
-										{m.stop_spectrum()}</span
-									></button
-								>
-							</div>
 							{#if room.liveChannel && room.liveListening}
 								<div class="tooltip" data-tip={m.disconnect_live()}>
 									<button
@@ -1119,6 +1116,16 @@
 									>
 								</div>
 							{/if}
+
+							<div class="tooltip" data-tip={m.stop_spectrum()}>
+								<button
+									class="btn btn-error rounded-lg px-4 py-2 font-mono"
+									onclick={promptStopSpectrum}
+									><Fa icon={faStop} /><span class="hidden lg:!inline-block">
+										{m.stop_spectrum()}</span
+									></button
+								>
+							</div>
 						</div>
 					{/if}
 
@@ -1180,10 +1187,10 @@
 		</div>
 	</div>
 
-	<div class="flex min-h-0 flex-col overflow-hidden">
+	<div class="flex flex-col md:min-h-0 md:overflow-hidden">
 		{#if !streamerMode}
 			<div
-				class="card bg-base-100 card-border border-base-300 from-base-content/5 mb-4 flex-none bg-linear-to-bl to-50% font-mono shadow-sm"
+				class="card bg-base-100 card-border border-base-300 from-base-content/5 order-2 mb-4 flex-none bg-linear-to-bl to-50% font-mono shadow-sm md:order-1"
 			>
 				<table class="table">
 					<colgroup>
@@ -1450,15 +1457,15 @@
 		{/if}
 		<div
 			id="history"
-			class="card bg-base-100 card-border border-base-300 from-base-content/5 min-h-0 flex-1 overflow-y-auto bg-linear-to-bl to-50% font-mono !shadow-sm"
+			class="card bg-base-100 card-border border-base-300 from-base-content/5 order-1 mb-1 flex h-[40vh] flex-col overflow-hidden bg-linear-to-bl to-50% font-mono !shadow-sm md:order-2 md:mb-0 md:h-auto md:min-h-0 md:flex-1"
 		>
 			<div class="card-title p-4" style="border-bottom: 1px solid var(--color-base-300)">
 				<Fa icon={faComments} />
 				{m.chat()}
 			</div>
-			<div class="flex h-full flex-col overflow-hidden">
+			<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 				<div
-					class="max-h-[50vh] min-h-0 w-full flex-1 overflow-y-auto md:max-h-full"
+					class="min-h-0 w-full flex-1 overflow-y-auto"
 					role="region"
 					aria-label="Activity log"
 					tabindex="-1"
@@ -1503,18 +1510,28 @@
 			</div>
 		</div>
 	</div>
+
+	{#if room.initialized && !spectrumId}
+		<div
+			class="fixed inset-0 z-20 flex flex-col items-center justify-center gap-16 bg-black/40 sm:flex-row sm:gap-4"
+		>
+			<button onclick={toggleCreateModal} class="btn btn-success btn-lg rounded-lg shadow-lg">
+				<Fa icon={faPlayCircle} />&nbsp;{m.start_spectrum()}
+			</button>
+			<button onclick={toggleJoinModal} class="btn btn-info btn-lg rounded-lg shadow-lg">
+				<Fa icon={faRightFromBracket} />&nbsp;{m.join_spectrum()}
+			</button>
+		</div>
+	{/if}
 </div>
 
-<p>&nbsp;</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<p class="hidden md:block">&nbsp;</p>
+<p class="hidden md:block">&nbsp;</p>
+<p class="hidden md:block">&nbsp;</p>
 
 <style>
 	table {
 		table-layout: fixed;
-		box-shadow:
-			0 2px 5px 0 rgba(0, 0, 0, 0.16),
-			0 2px 10px 0 rgba(0, 0, 0, 0.12);
 	}
 
 	.swap-active {
