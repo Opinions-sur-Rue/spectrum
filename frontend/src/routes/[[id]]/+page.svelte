@@ -1035,7 +1035,7 @@
 				</div>
 
 				<footer
-					class="flex flex-wrap items-center justify-center gap-4"
+					class="flex flex-wrap items-center justify-center gap-4 pt-0"
 					class:p-4={spectrumId}
 					class:absolute={!room.showNeutralCircle}
 					class:bottom-0={!room.showNeutralCircle}
