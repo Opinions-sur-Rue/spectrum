@@ -33,16 +33,16 @@
 	}
 </script>
 
-<div class="header flex items-center pl-2 md:pl-0">
-	<h1 class="flex-none font-mono text-xl sm:text-2xl">
+<div class="header flex flex-none items-center pl-2 md:pl-0">
+	<h1 class="flex-none font-mono text-base sm:text-2xl">
 		{#if logo && !forceDarkLogo}
-			<img src={logo} alt="Spectrum" width={logoWidth} class="inline w-18 md:w-24" />
+			<img src={logo} alt="Spectrum" width={logoWidth} class="inline w-12 md:w-24" />
 		{:else}
 			<img
 				src={`./logo-${forceDarkLogo ? 'dark' : theme}.png`}
 				alt="Spectrum"
 				width={logoWidth}
-				class="inline w-18 md:w-24"
+				class="inline w-12 md:w-24"
 			/>
 		{/if}<span class="ml-1">{title}</span>
 	</h1>

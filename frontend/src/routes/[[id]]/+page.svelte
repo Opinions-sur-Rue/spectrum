@@ -893,7 +893,7 @@
 <EmojiBurst {emoji} {trigger} {handAnimation} {lowerAnimation} {handUsername} />
 
 {#if !streamerMode}
-	<div class="relative z-30">
+	<div class="relative z-30 flex-none">
 		<Header
 			subtitle={m.subtitle()}
 			logo={LOGO_URL}
@@ -985,10 +985,10 @@
 {/if}
 
 <div
-	class="relative mt-8 grid h-full grid-cols-1 justify-items-start gap-4 md:min-h-[50vh] md:grid-cols-[2fr_1fr]"
+	class="relative mt-2 grid grid-cols-1 justify-items-start gap-2 md:mt-8 md:h-[50vh] md:grid-cols-[2fr_1fr] md:gap-4"
 >
-	<div class="flex h-max w-full">
-		<div class="card bg-base-100 h-max w-full shadow-sm" bind:clientWidth={canvasWidth}>
+	<div class="flex h-max w-full md:h-full">
+		<div class="card bg-base-100 h-max w-full shadow-sm md:h-full" bind:clientWidth={canvasWidth}>
 			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
 					<InputFlex
@@ -1187,7 +1187,7 @@
 		</div>
 	</div>
 
-	<div class="flex min-h-0 flex-col overflow-hidden">
+	<div class="flex flex-col md:min-h-0 md:overflow-hidden">
 		{#if !streamerMode}
 			<div
 				class="card bg-base-100 card-border border-base-300 from-base-content/5 order-2 mb-4 flex-none bg-linear-to-bl to-50% font-mono shadow-sm md:order-1"
@@ -1457,15 +1457,15 @@
 		{/if}
 		<div
 			id="history"
-			class="card bg-base-100 card-border border-base-300 from-base-content/5 order-1 mb-4 min-h-0 flex-1 overflow-y-auto bg-linear-to-bl to-50% font-mono !shadow-sm md:order-2 md:mb-0"
+			class="card bg-base-100 card-border border-base-300 from-base-content/5 order-1 mb-1 flex h-[40vh] flex-col overflow-hidden bg-linear-to-bl to-50% font-mono !shadow-sm md:order-2 md:mb-0 md:h-auto md:min-h-0 md:flex-1"
 		>
 			<div class="card-title p-4" style="border-bottom: 1px solid var(--color-base-300)">
 				<Fa icon={faComments} />
 				{m.chat()}
 			</div>
-			<div class="flex h-full flex-col overflow-hidden">
+			<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 				<div
-					class="max-h-[50vh] min-h-0 w-full flex-1 overflow-y-auto md:max-h-full"
+					class="min-h-0 w-full flex-1 overflow-y-auto"
 					role="region"
 					aria-label="Activity log"
 					tabindex="-1"
@@ -1525,9 +1525,9 @@
 	{/if}
 </div>
 
-<p>&nbsp;</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<p class="hidden md:block">&nbsp;</p>
+<p class="hidden md:block">&nbsp;</p>
+<p class="hidden md:block">&nbsp;</p>
 
 <style>
 	table {
