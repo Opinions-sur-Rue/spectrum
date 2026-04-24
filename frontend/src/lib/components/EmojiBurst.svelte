@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { tick, untrack } from 'svelte';
+
 	interface Props {
 		emoji: string;
 		trigger: boolean;
@@ -14,14 +16,17 @@
 	let timeout: ReturnType<typeof setTimeout> | undefined;
 
 	$effect(() => {
-		if (trigger) {
+		if (!trigger) return;
+		untrack(() => {
 			if (timeout) clearTimeout(timeout);
 			show = true;
-			if (handAnimation && element) element.setAttribute('data-username', handUsername);
+			tick().then(() => {
+				if (handAnimation && element) element.setAttribute('data-username', handUsername);
+			});
 			timeout = setTimeout(() => {
 				show = false;
 			}, 1600);
-		}
+		});
 	});
 
 	const particleCount = 20;

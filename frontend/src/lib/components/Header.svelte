@@ -17,6 +17,7 @@
 	export let logo: string | undefined = undefined;
 	export let logoWidth: number = 64;
 	export let streamerMode: boolean = false;
+	export let forceDarkLogo: boolean = false;
 
 	const THEME_KEY = 'spectrum-theme';
 	let theme: 'light' | 'dark' =
@@ -32,21 +33,21 @@
 	}
 </script>
 
-<div class="header flex">
+<div class="header flex items-center pl-2 md:pl-0">
 	<h1 class="flex-none font-mono text-xl sm:text-2xl">
-		{#if logo}
-			<img src={logo} alt="Spectrum" width={logoWidth} class="inline w-14 sm:w-auto" />
+		{#if logo && !forceDarkLogo}
+			<img src={logo} alt="Spectrum" width={logoWidth} class="inline w-18 md:w-24" />
 		{:else}
 			<img
-				src={`./logo-${theme}.png`}
+				src={`./logo-${forceDarkLogo ? 'dark' : theme}.png`}
 				alt="Spectrum"
 				width={logoWidth}
-				class="inline w-14 sm:w-auto"
+				class="inline w-18 md:w-24"
 			/>
 		{/if}<span class="ml-1">{title}</span>
 	</h1>
 
-	<div class="flex-1 p-2">
+	<div class="flex-1 px-2 py-1">
 		{#if subtitle}
 			{#if logo && title}
 				<p class="mt-2 hidden text-center font-thin italic sm:block">
@@ -62,8 +63,9 @@
 	</div>
 
 	<ul
-		class="menu menu-horizontal bg-base-100 rounded-box mt-0 h-min max-h-min"
-		class:hidden={streamerMode}
+		class="menu menu-horizontal bg-base-100 rounded-box mt-0 h-min max-h-min {streamerMode
+			? 'hidden'
+			: 'hidden sm:flex'}"
 	>
 		<li class="dropdown dropdown-end tooltip hidden" data-tip="Signal">
 			<div
@@ -88,7 +90,7 @@
 				</div>
 			</div>
 		</li>
-		<li class="dropdown dropdown-end tooltip" data-tip="Feedback">
+		<li class="dropdown dropdown-end tooltip hidden sm:block" data-tip="Feedback">
 			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
 				<Fa icon={faFileCircleQuestion} class="text-lg" />
 			</div>
