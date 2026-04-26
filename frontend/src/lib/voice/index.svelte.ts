@@ -32,8 +32,10 @@ const voiceIdToUserId = new SvelteMap<string, string>();
 const activeCalls = new Map<string, ReturnType<Peer['call']>>();
 
 const getAudioContext = () =>
-	new (window.AudioContext ||
-		(window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext)();
+	new (
+		window.AudioContext ||
+		(window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext
+	)();
 
 const pendingAudio: HTMLAudioElement[] = [];
 
