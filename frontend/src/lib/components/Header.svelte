@@ -10,7 +10,6 @@
 		faSignal
 	} from '@fortawesome/free-solid-svg-icons';
 	import Fa from 'svelte-fa';
-	import { resolve } from '$app/paths';
 
 	export let title: string | undefined = undefined;
 	export let subtitle: string | undefined = undefined;
