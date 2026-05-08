@@ -58,7 +58,7 @@
 		"@capacitor/core": "^8.3.0",
 		"@fortawesome/free-brands-svg-icons": "^7.2.0",
 		"@inlang/paraglide-js": "^2.16.1",
-		"fabric": "^7.2.0",
+		"fabric": "^7.3.1",
 		"peerjs": "^1.5.5"
 	}
 }
