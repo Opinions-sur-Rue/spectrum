@@ -105,6 +105,56 @@ export const pointInPolygon = function (polygon: [number, number][], point: [num
 	return odd;
 };
 
+/**
+ * Checks if a circle intersects any edge of a polygon.
+ * Used for pellet (paddle) collision detection where the circle radius matters.
+ *
+ * @param polygon array of [x, y] points defining the polygon edges
+ * @param cx center x of the circle
+ * @param cy center y of the circle
+ * @param radius radius of the circle
+ * @return boolean true if the circle intersects or is inside the polygon
+ */
+export const circleIntersectsPolygon = function (
+	polygon: [number, number][],
+	cx: number,
+	cy: number,
+	radius: number
+): boolean {
+	// First check if center is inside polygon
+	if (pointInPolygon(polygon, [cx, cy])) {
+		return true;
+	}
+
+	// Check distance from circle center to each polygon edge
+	for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+		const x1 = polygon[i][0];
+		const y1 = polygon[i][1];
+		const x2 = polygon[j][0];
+		const y2 = polygon[j][1];
+
+		// Find closest point on line segment to circle center
+		const dx = x2 - x1;
+		const dy = y2 - y1;
+		const len2 = dx * dx + dy * dy;
+
+		let t = 0;
+		if (len2 > 0) {
+			t = Math.max(0, Math.min(1, ((cx - x1) * dx + (cy - y1) * dy) / len2));
+		}
+
+		const closestX = x1 + t * dx;
+		const closestY = y1 + t * dy;
+
+		const distSq = (cx - closestX) * (cx - closestX) + (cy - closestY) * (cy - closestY);
+		if (distSq <= radius * radius) {
+			return true;
+		}
+	}
+
+	return false;
+};
+
 export function lerp(a: number, b: number, t: number) {
 	return a + (b - a) * t;
 }

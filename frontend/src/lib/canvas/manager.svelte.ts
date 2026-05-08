@@ -1,7 +1,7 @@
 import { Canvas, loadSVGFromURL, util } from 'fabric';
-import { lerp, pointInPolygon } from '$lib/utils';
+import { lerp, pointInPolygon, circleIntersectsPolygon } from '$lib/utils';
 import { room, removeParticipant } from '$lib/spectrum/room.svelte';
-import { newPellet } from '$lib/canvas/pellet';
+import { newPellet, PELLET_RADIUS } from '$lib/canvas/pellet';
 import { m } from '$lib/paraglide/messages.js';
 import { getLocale } from '$lib/paraglide/runtime';
 
@@ -206,7 +206,7 @@ class CanvasManager {
 				const pathPoint = cell.path[index];
 				const p = [
 					pathPoint[pathPoint.length - 2] * scale - 15 * scale,
-					pathPoint[pathPoint.length - 1] * scale - 10 * scale
+					pathPoint[pathPoint.length - 1] * scale
 				];
 				this._cellsPoints[this._cells.length - 1].push(p);
 			}
@@ -262,7 +262,7 @@ class CanvasManager {
 				const pathPoint = cell.path[index];
 				const p = [
 					pathPoint[pathPoint.length - 2] * scale - 15 * scale,
-					pathPoint[pathPoint.length - 1] * scale - 10 * scale
+					pathPoint[pathPoint.length - 1] * scale
 				];
 				this._cellsPoints[i].push(p);
 			}
@@ -307,7 +307,7 @@ class CanvasManager {
 					const cell = this._cells[i];
 					const isNeutralCell = cell.id === 'notReplied' || cell.id === 'indifferent';
 					if (!this._showNeutralCircle && isNeutralCell) continue;
-					if (pointInPolygon(this._cellsPoints[i], [this.myPellet!.left, this.myPellet!.top])) {
+					if (circleIntersectsPolygon(this._cellsPoints[i], this.myPellet!.left, this.myPellet!.top, PELLET_RADIUS)) {
 						cell.set({ fill: '#10b1b1' });
 						if (cell.id !== this._currentOpinion) {
 							this._currentOpinion = cell.id;
@@ -437,7 +437,7 @@ class CanvasManager {
 			const cell = this._cells[i];
 			const isNeutralCell = cell.id === 'notReplied' || cell.id === 'indifferent';
 			if (!this._showNeutralCircle && isNeutralCell) continue;
-			if (pointInPolygon(this._cellsPoints[i], [target.left, target.top])) {
+			if (circleIntersectsPolygon(this._cellsPoints[i], target.left, target.top, PELLET_RADIUS)) {
 				if (cell.id !== 'notReplied') {
 					log(
 						m.log_opinion({
