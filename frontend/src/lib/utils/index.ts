@@ -105,8 +105,215 @@ export const pointInPolygon = function (polygon: [number, number][], point: [num
 	return odd;
 };
 
+/**
+ * Checks if a circle intersects any edge of a polygon.
+ * Used for pellet (paddle) collision detection where the circle radius matters.
+ *
+ * @param polygon array of [x, y] points defining the polygon edges
+ * @param cx center x of the circle
+ * @param cy center y of the circle
+ * @param radius radius of the circle
+ * @return boolean true if the circle intersects or is inside the polygon
+ */
+export const circleIntersectsPolygon = function (
+	polygon: [number, number][],
+	cx: number,
+	cy: number,
+	radius: number
+): boolean {
+	// First check if center is inside polygon
+	if (pointInPolygon(polygon, [cx, cy])) {
+		return true;
+	}
+
+	// Check distance from circle center to each polygon edge
+	for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+		const x1 = polygon[i][0];
+		const y1 = polygon[i][1];
+		const x2 = polygon[j][0];
+		const y2 = polygon[j][1];
+
+		// Find closest point on line segment to circle center
+		const dx = x2 - x1;
+		const dy = y2 - y1;
+		const len2 = dx * dx + dy * dy;
+
+		let t = 0;
+		if (len2 > 0) {
+			t = Math.max(0, Math.min(1, ((cx - x1) * dx + (cy - y1) * dy) / len2));
+		}
+
+		const closestX = x1 + t * dx;
+		const closestY = y1 + t * dy;
+
+		const distSq = (cx - closestX) * (cx - closestX) + (cy - closestY) * (cy - closestY);
+		if (distSq <= radius * radius) {
+			return true;
+		}
+	}
+
+	return false;
+};
+
 export function lerp(a: number, b: number, t: number) {
 	return a + (b - a) * t;
+}
+
+/**
+ * Convert a Fabric path (array of absolute commands: M, L, H, V, C, S, Q, T, A, Z)
+ * into a polygon by sampling curves into N segments per command.
+ */
+export function pathToPolygon(
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	path: any[],
+	samples = 16
+): [number, number][] {
+	const points: [number, number][] = [];
+	let curX = 0;
+	let curY = 0;
+	let startX = 0;
+	let startY = 0;
+
+	const push = (x: number, y: number) => {
+		points.push([x, y]);
+		curX = x;
+		curY = y;
+	};
+
+	for (const cmd of path) {
+		const type = cmd[0];
+		switch (type) {
+			case 'M': {
+				startX = cmd[1];
+				startY = cmd[2];
+				push(cmd[1], cmd[2]);
+				break;
+			}
+			case 'L': {
+				push(cmd[1], cmd[2]);
+				break;
+			}
+			case 'H': {
+				push(cmd[1], curY);
+				break;
+			}
+			case 'V': {
+				push(curX, cmd[1]);
+				break;
+			}
+			case 'C': {
+				const x1 = cmd[1],
+					y1 = cmd[2];
+				const x2 = cmd[3],
+					y2 = cmd[4];
+				const x = cmd[5],
+					y = cmd[6];
+				const p0x = curX,
+					p0y = curY;
+				for (let i = 1; i <= samples; i++) {
+					const t = i / samples;
+					const mt = 1 - t;
+					const bx =
+						mt * mt * mt * p0x + 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t * x;
+					const by =
+						mt * mt * mt * p0y + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y;
+					points.push([bx, by]);
+				}
+				curX = x;
+				curY = y;
+				break;
+			}
+			case 'Q': {
+				const x1 = cmd[1],
+					y1 = cmd[2];
+				const x = cmd[3],
+					y = cmd[4];
+				const p0x = curX,
+					p0y = curY;
+				for (let i = 1; i <= samples; i++) {
+					const t = i / samples;
+					const mt = 1 - t;
+					const bx = mt * mt * p0x + 2 * mt * t * x1 + t * t * x;
+					const by = mt * mt * p0y + 2 * mt * t * y1 + t * t * y;
+					points.push([bx, by]);
+				}
+				curX = x;
+				curY = y;
+				break;
+			}
+			case 'A': {
+				const rx0 = Math.abs(cmd[1]);
+				const ry0 = Math.abs(cmd[2]);
+				const xRotDeg = cmd[3];
+				const largeArc = !!cmd[4];
+				const sweep = !!cmd[5];
+				const x2 = cmd[6],
+					y2 = cmd[7];
+				const x1 = curX,
+					y1 = curY;
+				if (rx0 === 0 || ry0 === 0 || (x1 === x2 && y1 === y2)) {
+					push(x2, y2);
+					break;
+				}
+				const phi = (xRotDeg * Math.PI) / 180;
+				const cosPhi = Math.cos(phi),
+					sinPhi = Math.sin(phi);
+				const dx = (x1 - x2) / 2,
+					dy = (y1 - y2) / 2;
+				const x1p = cosPhi * dx + sinPhi * dy;
+				const y1p = -sinPhi * dx + cosPhi * dy;
+				let rx = rx0,
+					ry = ry0;
+				const lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry);
+				if (lambda > 1) {
+					const s = Math.sqrt(lambda);
+					rx *= s;
+					ry *= s;
+				}
+				const sign = largeArc === sweep ? -1 : 1;
+				const num = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p;
+				const den = rx * rx * y1p * y1p + ry * ry * x1p * x1p;
+				const factor = sign * Math.sqrt(Math.max(0, num / den));
+				const cxp = (factor * (rx * y1p)) / ry;
+				const cyp = (factor * -(ry * x1p)) / rx;
+				const cx = cosPhi * cxp - sinPhi * cyp + (x1 + x2) / 2;
+				const cy = sinPhi * cxp + cosPhi * cyp + (y1 + y2) / 2;
+				const angle = (ux: number, uy: number, vx: number, vy: number) => {
+					const dot = ux * vx + uy * vy;
+					const len = Math.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy));
+					let a = Math.acos(Math.max(-1, Math.min(1, dot / len)));
+					if (ux * vy - uy * vx < 0) a = -a;
+					return a;
+				};
+				const theta1 = angle(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry);
+				let dTheta = angle(
+					(x1p - cxp) / rx,
+					(y1p - cyp) / ry,
+					(-x1p - cxp) / rx,
+					(-y1p - cyp) / ry
+				);
+				if (!sweep && dTheta > 0) dTheta -= 2 * Math.PI;
+				else if (sweep && dTheta < 0) dTheta += 2 * Math.PI;
+				for (let i = 1; i <= samples; i++) {
+					const t = i / samples;
+					const a = theta1 + dTheta * t;
+					const px = cosPhi * (rx * Math.cos(a)) - sinPhi * (ry * Math.sin(a)) + cx;
+					const py = sinPhi * (rx * Math.cos(a)) + cosPhi * (ry * Math.sin(a)) + cy;
+					points.push([px, py]);
+				}
+				curX = x2;
+				curY = y2;
+				break;
+			}
+			case 'Z':
+			case 'z': {
+				curX = startX;
+				curY = startY;
+				break;
+			}
+		}
+	}
+	return points;
 }
 
 export function capitalize(str: string): string {

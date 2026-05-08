@@ -1,7 +1,7 @@
 import { Canvas, loadSVGFromURL, util } from 'fabric';
-import { lerp, pointInPolygon } from '$lib/utils';
+import { lerp, pathToPolygon, circleIntersectsPolygon } from '$lib/utils';
 import { room, removeParticipant } from '$lib/spectrum/room.svelte';
-import { newPellet } from '$lib/canvas/pellet';
+import { newPellet, PELLET_RADIUS } from '$lib/canvas/pellet';
 import { m } from '$lib/paraglide/messages.js';
 import { getLocale } from '$lib/paraglide/runtime';
 
@@ -195,13 +195,16 @@ class CanvasManager {
 		const scaleY = canvasHeight / svg.height!;
 		const scale = Math.min(scaleX, scaleY);
 
+		const svgLeft = (canvasWidth - svg.width! * scale) / 2;
+		const svgTop = 15 * this._scale;
+
 		svg.set({
 			originX: 'left',
 			originY: 'top',
 			scaleX: scale,
 			scaleY: scale,
-			left: (canvasWidth - svg.width! * scale) / 2,
-			top: 15 * this._scale
+			left: svgLeft,
+			top: svgTop
 		});
 		svg.selectable = false;
 		svg.evented = false;
@@ -210,16 +213,10 @@ class CanvasManager {
 			if (!obj || !obj.id || !knownCellIds.has(obj.id)) continue;
 			this._cells.push(obj);
 			const cell = this._cells[this._cells.length - 1];
-			this._cellsPoints[this._cells.length - 1] = [];
-
-			for (let index = 0; index < cell.path.length - 2; index++) {
-				const pathPoint = cell.path[index];
-				const p = [
-					pathPoint[pathPoint.length - 2] * scale - 15 * scale,
-					pathPoint[pathPoint.length - 1] * scale - 10 * scale
-				];
-				this._cellsPoints[this._cells.length - 1].push(p);
-			}
+			const raw = pathToPolygon(cell.path);
+			this._cellsPoints[this._cells.length - 1] = raw.map(
+				([x, y]) => [x * scale + svgLeft, y * scale + svgTop] as [number, number]
+			);
 		}
 
 		this._svg = svg;
@@ -242,14 +239,17 @@ class CanvasManager {
 
 		this._canvas.setDimensions({ width: canvasWidth, height: scale * originalHeight });
 
+		const svgLeft = this._svg ? (canvasWidth - this._svg.width! * scale) / 2 : 0;
+		const svgTop = 15 * scale;
+
 		if (this._svg) {
 			this._svg.set({
 				originX: 'left',
 				originY: 'top',
 				scaleX: scale,
 				scaleY: scale,
-				left: (canvasWidth - this._svg.width! * scale) / 2,
-				top: 15 * scale
+				left: svgLeft,
+				top: svgTop
 			});
 		}
 
@@ -268,14 +268,10 @@ class CanvasManager {
 			this._cellsPoints[i] = [];
 			if (!cell?.path) continue;
 
-			for (let index = 0; index < cell.path.length - 2; index++) {
-				const pathPoint = cell.path[index];
-				const p = [
-					pathPoint[pathPoint.length - 2] * scale - 15 * scale,
-					pathPoint[pathPoint.length - 1] * scale - 10 * scale
-				];
-				this._cellsPoints[i].push(p);
-			}
+			const raw = pathToPolygon(cell.path);
+			this._cellsPoints[i] = raw.map(
+				([x, y]) => [x * scale + svgLeft, y * scale + svgTop] as [number, number]
+			);
 		}
 	}
 
@@ -317,7 +313,14 @@ class CanvasManager {
 					const cell = this._cells[i];
 					const isNeutralCell = cell.id === 'notReplied' || cell.id === 'indifferent';
 					if (!this._showNeutralCircle && isNeutralCell) continue;
-					if (pointInPolygon(this._cellsPoints[i], [this.myPellet!.left, this.myPellet!.top])) {
+					if (
+						circleIntersectsPolygon(
+							this._cellsPoints[i],
+							this.myPellet!.left,
+							this.myPellet!.top,
+							PELLET_RADIUS
+						)
+					) {
 						cell.set({ fill: '#10b1b1' });
 						if (cell.id !== this._currentOpinion) {
 							this._currentOpinion = cell.id;
@@ -447,7 +450,7 @@ class CanvasManager {
 			const cell = this._cells[i];
 			const isNeutralCell = cell.id === 'notReplied' || cell.id === 'indifferent';
 			if (!this._showNeutralCircle && isNeutralCell) continue;
-			if (pointInPolygon(this._cellsPoints[i], [target.left, target.top])) {
+			if (circleIntersectsPolygon(this._cellsPoints[i], target.left, target.top, PELLET_RADIUS)) {
 				if (cell.id !== 'notReplied') {
 					log(
 						m.log_opinion({
