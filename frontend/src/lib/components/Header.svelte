@@ -10,7 +10,6 @@
 		faSignal
 	} from '@fortawesome/free-solid-svg-icons';
 	import Fa from 'svelte-fa';
-	import { resolve } from '$app/paths';
 
 	export let title: string | undefined = undefined;
 	export let subtitle: string | undefined = undefined;
@@ -107,7 +106,7 @@
 							class="link link-info"
 							target="_blank"
 							rel="noopener"
-							href={resolve(m.link_feedback_form())}>Google Form</a
+							href={m.link_feedback_form()}>Google Form</a
 						>
 					</p>
 				</div>
