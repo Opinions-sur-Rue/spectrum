@@ -126,7 +126,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		showNeutralCircle := len(rpc.Arguments) < 2 || rpc.Arguments[1] != "false"
 		sliceCount := 7
 		if len(rpc.Arguments) >= 3 {
-			if n, err := strconv.Atoi(rpc.Arguments[2]); err == nil && (n == 3 || n == 7) {
+			if n, err := strconv.Atoi(rpc.Arguments[2]); err == nil && (n == 3 || n == 5 || n == 7 || n == 9) {
 				sliceCount = n
 			}
 		}
