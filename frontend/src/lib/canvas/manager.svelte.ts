@@ -15,6 +15,8 @@ type LogFn = (message: string, type?: string) => void;
 
 function getOpinionLabel(id: string): string {
 	switch (id) {
+		case 'absolutelyAgree':
+			return m.opinion_absolutely_agree();
 		case 'stronglyAgree':
 			return m.opinion_strongly_agree();
 		case 'agree':
@@ -29,6 +31,8 @@ function getOpinionLabel(id: string): string {
 			return m.opinion_disagree();
 		case 'stronglyDisagree':
 			return m.opinion_strongly_disagree();
+		case 'absolutelyDisagree':
+			return m.opinion_absolutely_disagree();
 		case 'indifferent':
 			return m.opinion_indifferent();
 		default:
@@ -139,13 +143,15 @@ class CanvasManager {
 
 	async loadSVG(sliceCount = 7) {
 		const knownCellIds = new Set([
+			'absolutelyDisagree',
+			'stronglyDisagree',
 			'disagree',
 			'slightlyDisagree',
-			'stronglyDisagree',
 			'neutral',
 			'slightlyAgree',
 			'agree',
 			'stronglyAgree',
+			'absolutelyAgree',
 			'indifferent',
 			'notReplied'
 		]);
@@ -167,7 +173,11 @@ class CanvasManager {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		let objects: any[], options: unknown;
 		try {
-			const url = sliceCount === 3 ? m.file_spectrum_3() : m.file_spectrum();
+			let url: string;
+			if (sliceCount === 3) url = m.file_spectrum_3();
+			else if (sliceCount === 5) url = m.file_spectrum_5();
+			else if (sliceCount === 9) url = m.file_spectrum_9();
+			else url = m.file_spectrum();
 			({ objects, options } = await loadSVGFromURL(url));
 		} catch (err) {
 			console.error('Failed to load SVG:', err);

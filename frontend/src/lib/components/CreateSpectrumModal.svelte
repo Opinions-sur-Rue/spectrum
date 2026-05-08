@@ -94,8 +94,16 @@
 						3
 					</label>
 					<label class="label text-base-content cursor-pointer gap-2">
+						<input class="radio" type="radio" name="sliceCount" value={5} bind:group={sliceCount} />
+						5
+					</label>
+					<label class="label text-base-content cursor-pointer gap-2">
 						<input class="radio" type="radio" name="sliceCount" value={7} bind:group={sliceCount} />
 						7
+					</label>
+					<label class="label text-base-content cursor-pointer gap-2">
+						<input class="radio" type="radio" name="sliceCount" value={9} bind:group={sliceCount} />
+						9
 					</label>
 				</div>
 			</div>

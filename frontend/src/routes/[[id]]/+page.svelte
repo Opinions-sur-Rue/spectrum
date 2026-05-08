@@ -563,50 +563,20 @@
 	}
 
 	function convertVoteToPosition(vote?: number) {
-		let position;
+		const sliceCount = room.sliceCount;
+		const maxVote = (sliceCount - 1) / 2;
 
-		if (room.sliceCount === 3) {
-			switch (vote) {
-				case -1:
-					position = { x: 98, y: 399 };
-					break;
-				case 0:
-					position = { x: 475, y: 78 };
-					break;
-				case 1:
-					position = { x: 832, y: 408 };
-					break;
-				default:
-					position = { x: 467, y: 424 };
-					break;
-			}
+		let position: { x: number; y: number };
+		if (vote === undefined || isNaN(vote) || Math.abs(vote) > maxVote) {
+			position = { x: 467, y: 424 };
 		} else {
-			switch (vote) {
-				case -3:
-					position = { x: 98, y: 399 };
-					break;
-				case -2:
-					position = { x: 157, y: 251 };
-					break;
-				case -1:
-					position = { x: 292, y: 127 };
-					break;
-				case 0:
-					position = { x: 475, y: 78 };
-					break;
-				case 1:
-					position = { x: 659, y: 123 };
-					break;
-				case 2:
-					position = { x: 771, y: 250 };
-					break;
-				case 3:
-					position = { x: 832, y: 408 };
-					break;
-				default:
-					position = { x: 467, y: 424 };
-					break;
-			}
+			// Place vote on a half-ellipse arc from (98, 408) at theta=π
+			// through (475, 78) at theta=π/2 to (832, 408) at theta=0.
+			const theta = Math.PI / 2 - (vote * Math.PI) / (sliceCount - 1);
+			position = {
+				x: 475 + 377 * Math.cos(theta),
+				y: 408 - 330 * Math.sin(theta)
+			};
 		}
 
 		const randomOffsetSize = 40;
