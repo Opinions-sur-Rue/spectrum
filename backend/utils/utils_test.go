@@ -6,6 +6,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testReply = "reply"
+	testPlain = "plain"
+)
+
 func Test_computeOutput(t *testing.T) {
 	tt := map[string]struct {
 		acceptHeader []string
@@ -17,31 +22,31 @@ func Test_computeOutput(t *testing.T) {
 			acceptHeader: []string{
 				"application/json",
 			},
-			reply:    "reply",
-			plain:    "plain",
+			reply:    testReply,
+			plain:    testPlain,
 			expected: "\"reply\"",
 		},
 		"yaml": {
 			acceptHeader: []string{
 				"application/yaml",
 			},
-			reply:    "reply",
-			plain:    "plain",
+			reply:    testReply,
+			plain:    testPlain,
 			expected: "reply\n",
 		},
 		"xml": {
 			acceptHeader: []string{
 				"application/xml",
 			},
-			reply:    "reply",
-			plain:    "plain",
+			reply:    testReply,
+			plain:    testPlain,
 			expected: "<string>reply</string>",
 		},
 		"plain": {
 			acceptHeader: []string{},
-			reply:        "reply",
-			plain:        "plain",
-			expected:     "plain",
+			reply:        testReply,
+			plain:        testPlain,
+			expected:     testPlain,
 		},
 	}
 
