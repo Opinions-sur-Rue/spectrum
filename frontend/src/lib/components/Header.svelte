@@ -107,7 +107,7 @@
 							class="link link-info"
 							target="_blank"
 							rel="noopener"
-							href={resolve(m.link_feedback_form())}>Google Form</a
+							href={m.link_feedback_form()}>Google Form</a
 						>
 					</p>
 				</div>
