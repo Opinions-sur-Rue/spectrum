@@ -862,7 +862,7 @@
 <EmojiBurst {emoji} {trigger} {handAnimation} {lowerAnimation} {handUsername} />
 
 {#if !streamerMode}
-	<div class="relative z-50 flex-none">
+	<div class="relative z-30 flex-none">
 		<Header
 			subtitle={m.subtitle()}
 			logo={LOGO_URL}
