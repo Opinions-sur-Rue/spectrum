@@ -2,82 +2,72 @@
 	import { m } from '$lib/paraglide/messages';
 	import { LOGO_URL, LOGO_WIDTH } from '$lib/env';
 	import Fa from 'svelte-fa';
-	import {
-		faXmark,
-		faPlayCircle,
-		faRightFromBracket
-	} from '@fortawesome/free-solid-svg-icons';
-	import { onMount } from 'svelte';
+	import { faPlayCircle, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 
-	let { onStart, onJoin }: { onStart: () => void; onJoin: () => void } = $props();
-
-	let dismissed = $state(false);
-
-	const STORAGE_KEY = 'spectrum-onboarding-dismissed';
-
-	onMount(() => {
-		if (localStorage.getItem(STORAGE_KEY) === 'true') {
-			dismissed = true;
-		}
-	});
-
-	function dismiss() {
-		dismissed = true;
-		localStorage.setItem(STORAGE_KEY, 'true');
-	}
+	let {
+		onStart,
+		onJoin,
+		ready,
+		reconnecting
+	}: {
+		onStart: () => void;
+		onJoin: () => void;
+		ready: boolean;
+		reconnecting: boolean;
+	} = $props();
 </script>
 
-{#if !dismissed}
-	<div
-		class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4"
-		aria-label={m.welcome_title()}
-		role="dialog"
-		aria-modal="true"
+<div
+	class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4"
+	aria-label={m.welcome_title()}
+	role="dialog"
+	aria-modal="true"
+>
+	<section
+		class="bg-base-100 flex w-full max-w-xl flex-col items-center gap-6 rounded-xl p-6 shadow-2xl sm:p-8"
 	>
-		<section
-			class="bg-base-100 relative flex w-full max-w-xl flex-col items-center gap-6 rounded-xl p-6 shadow-2xl sm:p-8"
-		>
-			<!-- Logo / Illustration -->
-			<div class="flex flex-col items-center gap-4">
-				<img
-					src={LOGO_URL ?? './logo-light.png'}
-					alt="Spectrum"
-					width={LOGO_WIDTH}
-					class="inline w-24 sm:w-32"
-				/>
-				<h2 class="text-center font-mono text-xl font-bold sm:text-2xl">
-					{m.welcome_title()}
-				</h2>
-				<p class="max-w-md text-center text-sm leading-relaxed sm:text-base">
-					{m.welcome_body()}
-				</p>
-			</div>
+		<div class="flex flex-col items-center gap-4">
+			<img
+				src={LOGO_URL ?? './logo-light.png'}
+				alt="Spectrum"
+				width={LOGO_WIDTH}
+				class="inline w-24 sm:w-32"
+			/>
+			<h2 class="text-center font-mono text-xl font-bold sm:text-2xl">
+				{m.welcome_title()}
+			</h2>
+			<p class="max-w-md text-center text-sm leading-relaxed sm:text-base">
+				{m.welcome_body()}
+			</p>
+		</div>
 
-			<!-- Actions -->
-			<div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+		<div
+			class="flex min-h-16 w-full flex-col items-stretch justify-center gap-4 sm:flex-row sm:flex-wrap sm:items-center"
+		>
+			{#if !ready}
+				<span class="font-mono text-sm">
+					<span class="loading loading-spinner loading-md text-success"></span>
+					&nbsp;Loading...
+				</span>
+			{:else if reconnecting}
+				<span class="font-mono text-sm">
+					<span class="loading loading-spinner loading-sm text-warning"></span>
+					<span class="text-warning">&nbsp;Reconnecting...</span>
+				</span>
+			{:else}
 				<button onclick={onStart} class="btn btn-success btn-lg rounded-lg shadow-lg">
 					<Fa icon={faPlayCircle} />&nbsp;{m.start_spectrum()}
 				</button>
 				<button onclick={onJoin} class="btn btn-info btn-lg rounded-lg shadow-lg">
 					<Fa icon={faRightFromBracket} />&nbsp;{m.join_spectrum()}
 				</button>
+			{/if}
 		</div>
-
-		<!-- Dismiss -->
-		<button
-			onclick={dismiss}
-			aria-label={m.welcome_dismiss()}
-			class="btn btn-ghost btn-circle absolute top-4 right-4 sm:top-8 sm:right-8"
-		>
-			<Fa icon={faXmark} class="text-lg" />
-			</button>
-		</section>
-	</div>
-{/if}
+	</section>
+</div>
 
 <style>
 	section {
-		position: relative;
 		animation: welcome-fadein 0.4s ease forwards;
 	}
 

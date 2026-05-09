@@ -862,7 +862,7 @@
 <EmojiBurst {emoji} {trigger} {handAnimation} {lowerAnimation} {handUsername} />
 
 {#if !streamerMode}
-	<div class="relative z-30 flex-none">
+	<div class="relative z-50 flex-none">
 		<Header
 			subtitle={m.subtitle()}
 			logo={LOGO_URL}
@@ -871,17 +871,17 @@
 			forceDarkLogo={room.initialized && !spectrumId}
 		>
 			<div class="ml-0 flex flex-wrap items-center justify-start gap-2 font-mono sm:gap-4">
-				<span class="px-2 py-1 sm:px-4 sm:py-2">
-					{#if !room.initialized}
-						<span class="loading loading-spinner loading-md text-success"></span> Loading...
-					{:else if wsState.reconnecting}
-						<span class="loading loading-spinner loading-sm text-warning"></span>
-						<span class="text-warning font-mono text-sm">Reconnecting...</span>
-					{:else}
-						<div class="inline-grid *:[grid-area:1/1]">
-							<div class={spectrumId ? 'status status-success' : 'status status-error'}></div>
-						</div>
-						{#if spectrumId}
+				{#if spectrumId}
+					<span class="px-2 py-1 sm:px-4 sm:py-2">
+						{#if !room.initialized}
+							<span class="loading loading-spinner loading-md text-success"></span> Loading...
+						{:else if wsState.reconnecting}
+							<span class="loading loading-spinner loading-sm text-warning"></span>
+							<span class="text-warning font-mono text-sm">Reconnecting...</span>
+						{:else}
+							<div class="inline-grid *:[grid-area:1/1]">
+								<div class="status status-success"></div>
+							</div>
 							<span class="inline-flex items-center text-xs sm:text-base">
 								<span class="hidden sm:inline">{m.spectrum_in_progress()} &mdash;&nbsp;</span
 								>{m.id()}=<b>{showSpectrumId ? spectrumId : 'OSR-****'}</b>
@@ -897,8 +897,8 @@
 								</div>
 							</span>
 						{/if}
-					{/if}
-				</span>
+					</span>
+				{/if}
 
 				{#if room.initialized && spectrumId}
 					<button
@@ -1481,8 +1481,13 @@
 	</div>
 </div>
 
-{#if room.initialized && !spectrumId}
-	<WelcomePane onStart={toggleCreateModal} onJoin={toggleJoinModal} />
+{#if !spectrumId && !showCreateModal && !showJoinModal}
+	<WelcomePane
+		onStart={toggleCreateModal}
+		onJoin={toggleJoinModal}
+		ready={room.initialized && !wsState.reconnecting}
+		reconnecting={wsState.reconnecting}
+	/>
 {/if}
 
 <p class="hidden md:block">&nbsp;</p>
