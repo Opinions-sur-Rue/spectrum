@@ -17,8 +17,6 @@
 		faPerson,
 		faPersonArrowUpFromLine,
 		faPersonWalkingArrowRight,
-		faPlayCircle,
-		faRightFromBracket,
 		faRotateLeft,
 		faSatelliteDish,
 		faStop,
@@ -50,6 +48,7 @@
 	import { room, joinRoom, leaveRoom, type Participant } from '$lib/spectrum/room.svelte';
 	import EmojiBurst from '$lib/components/EmojiBurst.svelte';
 	import InputFlex from '$lib/components/InputFlex.svelte';
+	import WelcomePane from '$lib/components/WelcomePane.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { notify } from '$lib/utils/notify';
@@ -1482,16 +1481,7 @@
 	</div>
 
 	{#if room.initialized && !spectrumId}
-		<div
-			class="fixed inset-0 z-20 flex flex-col items-center justify-center gap-16 bg-black/40 sm:flex-row sm:gap-4"
-		>
-			<button onclick={toggleCreateModal} class="btn btn-success btn-lg rounded-lg shadow-lg">
-				<Fa icon={faPlayCircle} />&nbsp;{m.start_spectrum()}
-			</button>
-			<button onclick={toggleJoinModal} class="btn btn-info btn-lg rounded-lg shadow-lg">
-				<Fa icon={faRightFromBracket} />&nbsp;{m.join_spectrum()}
-			</button>
-		</div>
+		<WelcomePane onStart={toggleCreateModal} onJoin={toggleJoinModal} />
 	{/if}
 </div>
 
