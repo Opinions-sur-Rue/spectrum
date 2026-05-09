@@ -21,7 +21,7 @@
 
 	$effect(() => {
 		const el = document.getElementById(modalId);
-		if (el instanceof HTMLDialogElement && !el.open) {
+		if (el instanceof HTMLDialogElement && !el.open && typeof el.showModal === 'function') {
 			el.showModal();
 		}
 	});
