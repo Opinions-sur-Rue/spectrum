@@ -1479,11 +1479,11 @@
 			</div>
 		</div>
 	</div>
-
-	{#if room.initialized && !spectrumId}
-		<WelcomePane onStart={toggleCreateModal} onJoin={toggleJoinModal} />
-	{/if}
 </div>
+
+{#if room.initialized && !spectrumId}
+	<WelcomePane onStart={toggleCreateModal} onJoin={toggleJoinModal} />
+{/if}
 
 <p class="hidden md:block">&nbsp;</p>
 <p class="hidden md:block">&nbsp;</p>
