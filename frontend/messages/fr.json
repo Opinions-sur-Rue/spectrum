@@ -32,6 +32,8 @@
     "info_what_is_steelman_answer": "Un homme de fer est une technique de débat qui consiste à reformuler l'argument de son\ninterlocuteur de la manière la plus forte, claire et juste possible, parfois même mieux\nque lui ne l'aurait exprimé lui-même. <br />\nCela permet de montrer qu'on a bien compris sa position et d'engager un dialogue respectueux\net constructif, loin des caricatures ou des attaques simplistes. C'est pourquoi il est couramment\nutilisé lors de Spectrum. <br />\nC'est l'opposé de l'homme de paille, qui déforme un argument pour mieux le réfuter. L'homme\nde fer vise au contraire la compréhension mutuelle.",
     "initial_claim": "Claim initial",
     "join": "Rejoindre",
+    "welcome_body": "Spectrum permet à un groupe de partager des opinions de façon anonyme et de les visualiser en temps réel. Démarre un nouveau Spectrum pour poser une question à ton groupe, ou rejoins-en un avec son identifiant.",
+    "welcome_title": "Bienvenue sur Spectrum",
     "join_spectrum": "Rejoindre un Spectrum",
     "kick_participant": "Retirer du spectrum",
     "leave_spectrum": "Quitter Spectrum",

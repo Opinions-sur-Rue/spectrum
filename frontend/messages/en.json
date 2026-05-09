@@ -32,6 +32,8 @@
     "info_what_is_steelman_answer": "A Steelman is a debate technique that consists of reformulating the other person's argument\nas strongly, clearly, and fairly as possible—sometimes even better than they could have expressed it themselves. <br />\nThis shows that you've truly understood their position and helps foster a respectful and constructive dialogue,\nfar from caricatures or simplistic attacks. This is why it's commonly used during Spectrum. <br />\nIt is the opposite of the straw man, which distorts an argument to more easily refute it. The Steelman aims instead\nat mutual understanding.",
     "initial_claim": "Initial Claim",
     "join": "Join",
+    "welcome_body": "Spectrum lets groups share opinions anonymously and see them visualized in real time. Start a new Spectrum to ask your group a question, or join an existing one with its ID.",
+    "welcome_title": "Welcome to Spectrum",
     "join_spectrum": "Join a Spectrum",
     "kick_participant": "Kick",
     "leave_spectrum": "Leave Spectrum",
