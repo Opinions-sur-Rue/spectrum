@@ -3,11 +3,7 @@
 	import { getLocale, setLocale } from '$lib/paraglide/runtime';
 	import { LOGO_URL, LOGO_WIDTH } from '$lib/env';
 	import Fa from 'svelte-fa';
-	import {
-		faGlobe,
-		faPlayCircle,
-		faRightFromBracket
-	} from '@fortawesome/free-solid-svg-icons';
+	import { faGlobe, faPlayCircle, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 
 	let {
 		onStart,
@@ -32,9 +28,7 @@
 
 	function pickLocale(locale: 'en' | 'fr', event: Event) {
 		setLocale(locale);
-		(event.currentTarget as HTMLElement)
-			.closest('details')
-			?.removeAttribute('open');
+		(event.currentTarget as HTMLElement).closest('details')?.removeAttribute('open');
 	}
 </script>
 
