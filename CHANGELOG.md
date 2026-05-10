@@ -4,18 +4,28 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-05-10
+
 ### Added
+- **Welcome screen** — onboarding modal for first-time users with Start / Join CTAs and inline language selector (#406, #495)
+- **Configurable spectrum size** — admins can choose 3 / 5 / 7 / 9 slices when creating a room, with matching SVG backgrounds in EN and FR (#461, #487)
+- **Stop Spectrum** — any admin can now stop and delete a running spectrum room; all participants are ejected (#410, #442)
+- **Admin auto-reassign** — admin role reassigned automatically when the current admin disconnects or the last admin leaves (#300, #374)
 - Admin can globally hide/show all participants on the canvas (#398, #405)
 - Configurable central neutral circle (#399, #402)
 - **Capacitor / Android APK** — native Android build with foreground audio service (#327, #386)
-- **Admin auto-reassign** — admin role reassigned automatically when current admin disconnects or last admin leaves (#300, #374)
-- **Stop Spectrum** — any admin can now stop and delete a running spectrum room; all participants are ejected (#410, #442)
+- Nightly APK published to GitHub Releases on each push to `main` (#450)
 - Confirmation dialog before kicking a participant (#411, #440)
 - Confirmation dialog before making a participant admin — action is irreversible (#412, #441)
 - Loading state on JoinSpectrumModal while awaiting server confirmation (#408, #443)
 - Subtle drag hint after 4s of inactivity when pellet has not been moved; hidden after first drag and persisted in localStorage per spectrum (#414, #444, #446)
 
 ### Fixed
+- Pellet collision detection (#494)
+- Canvas now waits for `bind:clientWidth` to measure actual container width before drawing (#449)
+- Header `resolve()` no longer rewrites external URLs (#481)
+- Compact header and icon-only Start/Join buttons on mobile (#454)
+- Drag-hint overlapping the footer — only the canvas is wrapped in the relative container (#446)
 - Missing Android permissions for audio/microphone (#390)
 - Hardcoded `'fr-FR'` locale in timestamp formatting replaced with `getLocale()` (#422, #431)
 - Hardcoded French nack error message replaced with i18n key `error_nack` (#421, #430)
@@ -29,12 +39,17 @@ All notable changes to **Spectrum** are documented in this file.
 - Issues #427 and #428 (participantsHidden sync and myposition self-send) were already fixed in #405
 
 ### Changed
-- CI: name APK artifact by branch/PR and keep main builds 90 days (#401)
 - Start/Join button colors corrected: Start → `btn-success`, Join → `btn-neutral` for semantic clarity (#409, #439)
 - Admin toolbar buttons now have DaisyUI tooltips visible at all breakpoints including tablet (#413, #438)
 - Header made more compact (`text-2xl`, reduced padding/margin) — improves mobile layout (#447)
-- Claim field placeholder updated to 'Entrez le claim du spectrum ici' for better discoverability (#447)
+- Claim field placeholder updated for better discoverability (#447)
 - vitest: renamed deprecated `test.workspace` to `test.projects`
+- CI: name APK artifact by branch/PR and keep main builds 90 days (#401)
+- CI: backend Go toolchain bumped to 1.24
+- Repeated strings extracted to constants in `utils_test.go` (#480)
+
+### Build / Dependencies
+- ~130 Dependabot updates across frontend (Svelte 5.55.x, SvelteKit 2.59.x, Tailwind 4.1.x, Vite 7.3.x, fabric 7.3.x, Capacitor 8.3.x, paraglide-js, eslint, prettier, typescript-eslint, jsdom, vitest 3.2.x) and backend (`google.golang.org/api`, Go modules)
 
 ---
 
