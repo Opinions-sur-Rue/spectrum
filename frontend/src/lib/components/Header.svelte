@@ -116,7 +116,7 @@
 			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
 				<Fa icon={faCircleInfo} class="text-lg" />
 			</div>
-			<ul class="list dropdown-content bg-base-100 rounded-box z-1 w-3xl max-w-screen shadow-sm">
+			<ul class="list dropdown-content bg-base-100 rounded-box z-1 max-w-[90vw] md:max-w-3xl shadow-sm">
 				<li class="list-row">
 					<div>
 						<div class="font-bold">{m.info_what_is_spectrum()}</div>
