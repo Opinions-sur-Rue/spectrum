@@ -45,7 +45,7 @@
 	<div class="modal-box">
 		<form method="dialog">
 			<button
-				class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2 hover:bg-rose-300"
+				class="btn btn-md btn-circle btn-ghost absolute top-2 right-2 hover:bg-rose-300"
 				onclick={() => (toggle = false)}>✕</button
 			>
 		</form>
