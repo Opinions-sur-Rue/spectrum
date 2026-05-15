@@ -85,12 +85,12 @@
 			{#if !ready}
 				<span class="text-center font-mono text-sm">
 					<span class="loading loading-spinner loading-md text-success"></span>
-					&nbsp;Loading...
+					&nbsp;{m.loading()}
 				</span>
 			{:else if reconnecting}
 				<span class="text-center font-mono text-sm">
 					<span class="loading loading-spinner loading-sm text-warning"></span>
-					<span class="text-warning">&nbsp;Reconnecting...</span>
+					<span class="text-warning">&nbsp;{m.reconnecting()}</span>
 				</span>
 			{:else}
 				<button onclick={onStart} class="btn btn-success btn-lg rounded-lg shadow-lg">

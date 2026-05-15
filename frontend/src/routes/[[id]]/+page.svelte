@@ -217,7 +217,13 @@
 			if (!room.listening) return;
 			const otherUserId = args[0];
 			if (otherUserId != room.userId) {
-				notify.info(room.others[otherUserId].nickname + ' a envoyé : ' + args[1], 5000);
+				notify.info(
+					m.log_emoji_received({
+						name: room.others[otherUserId].nickname,
+						emoji: args[1]
+					}),
+					5000
+				);
 				log(
 					m.log_emoji_received({
 						name: room.others[otherUserId].nickname,
@@ -932,7 +938,7 @@
 	</div>
 {:else}
 	<div class="fixed top-5 right-[2rem] z-1000">
-		<div class="tooltip tooltip-left" data-tip="Quitter mode streamer">
+		<div class="tooltip tooltip-left" data-tip={m.leave_streamer()}>
 			<button
 				onclick={() => {
 					streamerMode = false;
