@@ -78,13 +78,13 @@
 			<div tabindex="0" class="dropdown-content bg-base-100 rounded-box z-1 w-max shadow-sm">
 				<div class="stats">
 					<div class="stat">
-						<div class="stat-title">Server Ping</div>
+						<div class="stat-title">{m.server_ping()}</div>
 						<div class="stat-value">120ms</div>
 					</div>
 
 					<div class="stat">
-						<div class="stat-title">Server Status</div>
-						<div class="stat-value text-success">Healthy</div>
+						<div class="stat-title">{m.server_status()}</div>
+						<div class="stat-value text-success">{m.healthy()}</div>
 					</div>
 				</div>
 			</div>
@@ -106,7 +106,7 @@
 							class="link link-info"
 							target="_blank"
 							rel="noopener"
-							href={m.link_feedback_form()}>Google Form</a
+							href={m.link_feedback_form()}>{m.google_form()}</a
 						>
 					</p>
 				</div>
@@ -177,7 +177,7 @@
 				</li>
 			</ul>
 		</li>
-		<li class="dropdown dropdown-end tooltip" data-tip="Langues">
+		<li class="dropdown dropdown-end tooltip" data-tip={m.languages()}>
 			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
 				<Fa icon={faGlobe} class="text-lg" />
 				<svg
