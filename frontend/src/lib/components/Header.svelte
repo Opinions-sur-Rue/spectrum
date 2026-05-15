@@ -7,7 +7,8 @@
 		faFileCircleQuestion,
 		faGlobe,
 		faPalette,
-		faSignal
+		faSignal,
+		faChevronDown
 	} from '@fortawesome/free-solid-svg-icons';
 	import Fa from 'svelte-fa';
 
@@ -182,15 +183,7 @@
 		<li class="dropdown dropdown-end tooltip" data-tip={m.languages()}>
 			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
 				<Fa icon={faGlobe} class="text-lg" />
-				<svg
-					width="12px"
-					height="12px"
-					class="inline-block h-2 w-2 fill-current opacity-60"
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 2048 2048"
-				>
-					<path d="M1799 349l242 241-1017 1017L7 590l242-241 775 775 775-775z"></path>
-				</svg>
+				<Fa icon={faChevronDown} class="inline-block h-2 w-2 opacity-60" />
 			</div>
 			<ul class="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
 				<li>
