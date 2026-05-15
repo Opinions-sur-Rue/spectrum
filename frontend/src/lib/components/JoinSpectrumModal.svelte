@@ -86,15 +86,15 @@
 			{:else}
 				<div class="mb-4"></div>
 			{/if}
-			<div>
-				<button class="btn btn-neutral float-left" type="submit" disabled={loading}>
+			<div class="flex justify-end gap-2">
+				<button class="btn btn-neutral" type="submit" disabled={loading}>
 					{#if loading}
 						<span class="loading loading-spinner loading-sm"></span>
 					{/if}
 					{m.join()}
 				</button>
 				<button
-					class="btn btn-warning float-right"
+					class="btn btn-warning"
 					onclick={() => (toggle = false)}
 					type="button"
 					disabled={loading}>{m.cancel()}</button

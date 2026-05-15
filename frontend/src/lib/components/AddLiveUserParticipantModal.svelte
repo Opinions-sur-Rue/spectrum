@@ -114,8 +114,8 @@
 				{/each}
 			</ul>
 
-			<div>
-				<button class="btn btn-warning float-right" type="button" onclick={() => (toggle = false)}
+			<div class="flex justify-end">
+				<button class="btn btn-warning" type="button" onclick={() => (toggle = false)}
 					>{m.close()}</button
 				>
 			</div>

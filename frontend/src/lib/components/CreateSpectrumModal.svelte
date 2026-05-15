@@ -123,9 +123,9 @@
 				>
 			</div>
 
-			<div>
-				<button class="btn btn-success float-left" type="submit">{m.start_spectrum()}</button>
-				<button class="btn btn-warning float-right" type="button" onclick={() => (toggle = false)}
+			<div class="flex justify-end gap-2">
+				<button class="btn btn-success" type="submit">{m.start_spectrum()}</button>
+				<button class="btn btn-warning" type="button" onclick={() => (toggle = false)}
 					>{m.cancel()}</button
 				>
 			</div>
