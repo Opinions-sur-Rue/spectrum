@@ -88,7 +88,7 @@
 			<!-- Nombre de cases -->
 			<div class="mb-4">
 				<span class="label text-base-content font-bold">{m.spectrum_slices()}</span>
-				<div class="flex gap-4">
+				<div class="flex flex-wrap gap-4">
 					<label class="label text-base-content cursor-pointer gap-2">
 						<input class="radio" type="radio" name="sliceCount" value={3} bind:group={sliceCount} />
 						3

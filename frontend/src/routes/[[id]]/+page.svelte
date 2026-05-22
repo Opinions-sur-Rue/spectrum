@@ -962,7 +962,7 @@
 <div
 	class="relative mt-2 grid grid-cols-1 justify-items-start gap-2 md:mt-8 md:h-[50vh] md:grid-cols-[2fr_1fr] md:gap-4"
 >
-	<div class="flex h-max w-full md:h-full">
+	<div class="flex h-[50vh] w-full md:h-full">
 		<div class="card bg-base-100 h-max w-full shadow-sm md:h-full" bind:clientWidth={canvasWidth}>
 			<header class="w-full p-0 font-mono">
 				<label class="floating-label">
