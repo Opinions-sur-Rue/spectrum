@@ -50,7 +50,7 @@
 		</form>
 		<form class="p-4" onsubmit={handleSubmit}>
 			<label
-				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
+				class="label text-base-content after:text-error font-bold after:ml-0.5 after:content-['*']"
 				for="spectrumId">{m.spectrum_id()}</label
 			>
 			<input
@@ -68,7 +68,7 @@
 				<div class="mb-4"></div>
 			{/if}
 			<label
-				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
+				class="label text-base-content after:text-error font-bold after:ml-0.5 after:content-['*']"
 				for="nickname1">{m.nickname()}</label
 			>
 			<input

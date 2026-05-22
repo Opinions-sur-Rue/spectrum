@@ -52,7 +52,7 @@
 		<form class="p-4" onsubmit={handleSubmit}>
 			<!-- Pseudo -->
 			<label
-				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
+				class="label text-base-content after:text-error font-bold after:ml-0.5 after:content-['*']"
 				for="nickname2">{m.your_nickname()}</label
 			>
 			<input

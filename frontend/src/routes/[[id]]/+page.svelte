@@ -1004,7 +1004,7 @@
 
 					{#if showDragHint}
 						<div class="drag-hint pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2">
-							<span class="rounded-full bg-black/60 px-4 py-2 text-sm text-white">
+							<span class="bg-neutral/60 text-neutral-content rounded-full px-4 py-2 text-sm">
 								{m.drag_hint()}
 							</span>
 						</div>
@@ -1229,7 +1229,7 @@
 												<Fa icon={faMicrophone} />
 											</div>
 											<div
-												class="swap-off btn btn-square rounded-xl border-0 bg-red-500/20 text-red-500"
+												class="swap-off btn btn-square bg-error/20 text-error rounded-xl border-0"
 											>
 												<Fa icon={faMicrophoneSlash} />
 											</div>
@@ -1265,7 +1265,7 @@
 										<div class="swap-on">
 											<Fa icon={faMicrophone} />
 										</div>
-										<div class="swap-off text-red-500">
+										<div class="swap-off text-error">
 											<Fa icon={faMicrophoneSlash} />
 										</div>
 									</label>
@@ -1278,7 +1278,7 @@
 									<div class="dropdown dropdown-click dropdown-bottom dropdown-center">
 										<button
 											tabindex="0"
-											class="btn btn-square rounded-xl border-0 bg-yellow-500/20 text-yellow-500"
+											class="btn btn-square bg-warning/20 text-warning rounded-xl border-0"
 										>
 											{#if other.volume && other.volume > 50}
 												<Fa icon={faVolumeHigh} />
@@ -1315,7 +1315,7 @@
 									{#if room.adminModeOn}
 										<div class="tooltip" data-tip={m.kick_participant()}>
 											<button
-												class="btn btn-square rounded-xl border-0 bg-orange-500/20 text-orange-500"
+												class="btn btn-square bg-warning/20 text-warning rounded-xl border-0"
 												onclick={() => {
 													promptKick(colorHex);
 												}}><Fa icon={faUserSlash} /></button
@@ -1323,7 +1323,7 @@
 										</div>
 										<div class="tooltip" data-tip={m.make_admin()}>
 											<button
-												class="btn btn-square rounded-xl border-0 bg-amber-500/20 text-amber-500"
+												class="btn btn-square bg-warning/20 text-warning rounded-xl border-0"
 												onclick={() => {
 													promptMakeAdmin(colorHex);
 												}}><Fa icon={faLock} /></button
@@ -1376,7 +1376,7 @@
 									><b>{room.nickname}{room.adminModeOn ? '*' : ''}</b></span
 								>
 							</div>
-							<div class="text-sm text-gray-500">
+							<div class="text-base-content/50 text-sm">
 								<label class="swap swap-flip">
 									<input
 										type="checkbox"
@@ -1390,7 +1390,7 @@
 									<div class="swap-on">
 										<Fa icon={faMicrophone} />
 									</div>
-									<div class="swap-off text-red-500">
+									<div class="swap-off text-error">
 										<Fa icon={faMicrophoneSlash} />
 									</div>
 								</label>
@@ -1423,12 +1423,12 @@
 								<div class="truncate text-base font-bold">
 									{other.nickname}
 								</div>
-								<div class="text-sm text-gray-500">
+								<div class="text-base-content/50 text-sm">
 									<label class="swap swap-flip cursor-default" class:swap-active={other.microphone}>
 										<div class="swap-on">
 											<Fa icon={faMicrophone} />
 										</div>
-										<div class="swap-off text-red-500">
+										<div class="swap-off text-error">
 											<Fa icon={faMicrophoneSlash} />
 										</div>
 									</label>
@@ -1467,10 +1467,10 @@
 								>
 								<span
 									class="text-sm"
-									class:text-black-800={log.type === 'message' || log.type === 'event'}
-									class:text-green-800={log.type === 'join'}
-									class:text-red-800={log.type === 'leave'}
-									class:text-orange-800={log.type === 'claim'}>{match?.[2]}</span
+									class:text-neutral={log.type === 'message' || log.type === 'event'}
+									class:text-success={log.type === 'join'}
+									class:text-error={log.type === 'leave'}
+									class:text-warning={log.type === 'claim'}>{match?.[2]}</span
 								>
 							</div>
 						</div>
