@@ -68,7 +68,7 @@
 			</label>
 
 			<!-- Filtered list of users-->
-			<ul class="my-4 max-h-60 min-h-30 space-y-2 overflow-y-auto rounded-sm">
+			<ul class="my-4 max-h-60 min-h-30 space-y-2 overflow-y-auto rounded-lg">
 				{#each filteredUsers() as user (user.userId)}
 					<li class="relative">
 						<button
