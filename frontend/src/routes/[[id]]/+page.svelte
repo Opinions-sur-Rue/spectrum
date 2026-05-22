@@ -1119,29 +1119,36 @@
 									class="dropdown-content menu bg-base-100 rounded-box z-1 w-14 items-center p-2 shadow-sm"
 								>
 									<li>
-										<button aria-label="😜 Winking face with tongue" onclick={() => sendEmoji(0)}
+										<button aria-label={m.emoji_winking_face()} onclick={() => sendEmoji(0)}
 											>😜</button
 										>
 									</li>
 									<li>
-										<button aria-label="🤔 Thinking face" onclick={() => sendEmoji(1)}>🤔</button>
+										<button aria-label={m.emoji_thinking_face()} onclick={() => sendEmoji(1)}
+											>🤔</button
+										>
 									</li>
 									<li>
-										<button aria-label="😵 Dizzy face" onclick={() => sendEmoji(2)}>😵</button>
+										<button aria-label={m.emoji_dizzy_face()} onclick={() => sendEmoji(2)}
+											>😵</button
+										>
 									</li>
 									<li>
-										<button aria-label="🤯 Exploding head" onclick={() => sendEmoji(3)}>🤯</button>
+										<button aria-label={m.emoji_exploding_head()} onclick={() => sendEmoji(3)}
+											>🤯</button
+										>
 									</li>
 									<li>
-										<button aria-label="🫣 Face with peeking eye" onclick={() => sendEmoji(4)}
+										<button aria-label={m.emoji_peeking_eye()} onclick={() => sendEmoji(4)}
 											>🫣</button
 										>
 									</li>
 									<li>
-										<button aria-label="🛟 Ring buoy" onclick={() => sendEmoji(5)}>🛟</button>
+										<button aria-label={m.emoji_ring_buoy()} onclick={() => sendEmoji(5)}>🛟</button
+										>
 									</li>
 									<li>
-										<button aria-label="🦝 Raccoon" onclick={() => sendEmoji(6)}>🦝</button>
+										<button aria-label={m.emoji_raccoon()} onclick={() => sendEmoji(6)}>🦝</button>
 									</li>
 								</ul>
 							</div>
