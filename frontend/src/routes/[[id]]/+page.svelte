@@ -8,6 +8,7 @@
 		faExclamation,
 		faEye,
 		faEyeSlash,
+		faCrown,
 		faLock,
 		faMapPin,
 		faMicrophone,
@@ -1207,8 +1208,11 @@
 								</td>
 								<td>
 									<span class="text-sm"
-										><b>{room.nickname}{room.adminModeOn ? '*' : ''}</b>
-										({m.yourself()}){#if myHandRaised}
+										><b>{room.nickname}</b>
+										{#if room.adminModeOn}
+											<Fa icon={faCrown} class="text-warning ml-1 inline h-3 w-3" />
+										{/if}
+										{#if myHandRaised}
 											&nbsp;🤚{/if}</span
 									>
 								</td>
@@ -1373,7 +1377,10 @@
 						<div class="flex-1">
 							<div class="text-base font-bold">
 								<span class="truncate text-sm"
-									><b>{room.nickname}{room.adminModeOn ? '*' : ''}</b></span
+									><b>{room.nickname}</b>
+									{#if room.adminModeOn}
+										<Fa icon={faCrown} class="text-warning ml-1 inline h-3 w-3" />
+									{/if}</span
 								>
 							</div>
 							<div class="text-base-content/50 text-sm">
