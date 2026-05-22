@@ -1021,7 +1021,7 @@
 						<div class="flex flex-wrap items-center gap-2">
 							<div class="tooltip" data-tip={m.reset_positions()}>
 								<button
-									class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+									class="btn btn-neutral btn-md rounded-lg font-mono"
 									onclick={resetPositions}
 								>
 									<Fa icon={faRotateLeft} /><span class="hidden lg:!inline-block">
@@ -1035,7 +1035,7 @@
 								data-tip={room.participantsHidden ? m.show_participants() : m.hide_participants()}
 							>
 								<button
-									class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+									class="btn btn-neutral btn-md rounded-lg font-mono"
 									onclick={() => rpc(room.participantsHidden ? 'showall' : 'hideall')}
 								>
 									<Fa icon={room.participantsHidden ? faEye : faEyeSlash} /><span
@@ -1048,7 +1048,7 @@
 
 							<div class="tooltip" data-tip={m.create_pellet()}>
 								<button
-									class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+									class="btn btn-neutral btn-md rounded-lg font-mono"
 									class:btn-disabled={myPellet}
 									onclick={initPellet}
 									><Fa icon={faCirclePlus} /><span class="hidden lg:!inline-block">
@@ -1060,7 +1060,7 @@
 							{#if room.liveChannel && room.liveListening}
 								<div class="tooltip" data-tip={m.disconnect_live()}>
 									<button
-										class="btn btn-error rounded-lg px-4 py-2 font-mono"
+										class="btn btn-error btn-md rounded-lg font-mono"
 										onclick={() => {
 											rpc('disconnect');
 											room.liveChannel = undefined;
@@ -1072,7 +1072,7 @@
 								</div>
 							{:else if room.liveChannel}
 								<div class="tooltip" data-tip={m.connecting_live()}>
-									<button class="btn btn-error rounded-lg px-4 py-2 font-mono"
+									<button class="btn btn-error btn-md rounded-lg font-mono"
 										><span class="loading loading-spinner loading-xs"></span><span
 											class="hidden lg:!inline-block"
 										>
@@ -1083,7 +1083,7 @@
 							{:else}
 								<div class="tooltip" data-tip={m.connect_live()}>
 									<button
-										class="btn btn-error rounded-lg px-4 py-2 font-mono"
+										class="btn btn-error btn-md rounded-lg font-mono"
 										onclick={toggleConnectLiveModal}
 										><Fa icon={faTowerBroadcast} /><span class="hidden lg:!inline-block">
 											{m.connect_live()}</span
@@ -1094,7 +1094,7 @@
 
 							<div class="tooltip" data-tip={m.stop_spectrum()}>
 								<button
-									class="btn btn-error rounded-lg px-4 py-2 font-mono"
+									class="btn btn-error btn-md rounded-lg font-mono"
 									onclick={promptStopSpectrum}
 									><Fa icon={faStop} /><span class="hidden lg:!inline-block">
 										{m.stop_spectrum()}</span
@@ -1146,7 +1146,7 @@
 								</ul>
 							</div>
 							<button
-								class="btn rounded-lg px-4 py-2 font-mono"
+								class="btn btn-md rounded-lg font-mono"
 								class:btn-info={!myHandRaised}
 								class:btn-success={myHandRaised}
 								aria-label={myHandRaised ? m.lower_hand() : m.raise_hand()}
@@ -1328,7 +1328,7 @@
 							<tr>
 								<td colspan="3" class="text-center">
 									<button
-										class="btn btn-neutral rounded-lg px-4 py-2 font-mono"
+										class="btn btn-neutral btn-md rounded-lg font-mono"
 										onclick={() =>
 											(showAddLiveUserParticipantModal = !showAddLiveUserParticipantModal)}
 										><Fa icon={faPersonArrowUpFromLine} /><span class="hidden lg:!inline-block">
