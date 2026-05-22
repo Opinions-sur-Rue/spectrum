@@ -1225,11 +1225,11 @@
 											class:swap-active={voice.voiceState.microphone &&
 												voice.voiceState.peerConnected}
 										>
-											<div class="swap-on btn btn-ghost btn-square rounded-xl">
+											<div class="swap-on btn btn-ghost btn-square rounded-lg">
 												<Fa icon={faMicrophone} />
 											</div>
 											<div
-												class="swap-off btn btn-square bg-error/20 text-error rounded-xl border-0"
+												class="swap-off btn btn-square bg-error/20 text-error rounded-lg border-0"
 											>
 												<Fa icon={faMicrophoneSlash} />
 											</div>
@@ -1278,7 +1278,7 @@
 									<div class="dropdown dropdown-click dropdown-bottom dropdown-center">
 										<button
 											tabindex="0"
-											class="btn btn-square bg-warning/20 text-warning rounded-xl border-0"
+											class="btn btn-square bg-warning/20 text-warning rounded-lg border-0"
 										>
 											{#if other.volume && other.volume > 50}
 												<Fa icon={faVolumeHigh} />
@@ -1315,7 +1315,7 @@
 									{#if room.adminModeOn}
 										<div class="tooltip" data-tip={m.kick_participant()}>
 											<button
-												class="btn btn-square bg-warning/20 text-warning rounded-xl border-0"
+												class="btn btn-square bg-warning/20 text-warning rounded-lg border-0"
 												onclick={() => {
 													promptKick(colorHex);
 												}}><Fa icon={faUserSlash} /></button
@@ -1323,7 +1323,7 @@
 										</div>
 										<div class="tooltip" data-tip={m.make_admin()}>
 											<button
-												class="btn btn-square bg-warning/20 text-warning rounded-xl border-0"
+												class="btn btn-square bg-warning/20 text-warning rounded-lg border-0"
 												onclick={() => {
 													promptMakeAdmin(colorHex);
 												}}><Fa icon={faLock} /></button
