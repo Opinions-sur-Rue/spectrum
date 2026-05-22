@@ -5,6 +5,7 @@
  * the page component, the voice module, and future modules.
  */
 import { newPellet } from '$lib/canvas/pellet';
+import { SvelteSet } from 'svelte/reactivity';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,7 +74,10 @@ export const room = $state({
 	sliceCount: 7,
 
 	/** True when the admin has hidden all participants from non-admins. */
-	participantsHidden: false
+	participantsHidden: false,
+
+	/** Set of colorHex values for participants who are admins. */
+	adminIds: new SvelteSet<string>()
 });
 
 // ---------------------------------------------------------------------------
@@ -85,6 +89,7 @@ export function joinRoom(spectrumId: string, userId: string, nickname: string, i
 	room.userId = userId;
 	room.nickname = nickname;
 	room.adminModeOn = isAdmin;
+	if (isAdmin) room.adminIds.add(userId);
 	room.initialized = true;
 	room.listening = true;
 }
@@ -92,6 +97,7 @@ export function joinRoom(spectrumId: string, userId: string, nickname: string, i
 export function leaveRoom() {
 	room.spectrumId = undefined;
 	room.adminModeOn = false;
+	room.adminIds = new SvelteSet();
 	room.listening = false;
 	room.liveChannel = undefined;
 	room.liveListening = false;
