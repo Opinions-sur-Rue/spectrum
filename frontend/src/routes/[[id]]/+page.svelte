@@ -1280,8 +1280,7 @@
 										</div>
 									</label>
 									<span class="text-sm"
-										><b>{other.nickname}</b
-										>{#if room.adminIds.has(colorHex)}
+										><b>{other.nickname}</b>{#if room.adminIds.has(colorHex)}
 											<Fa icon={faCrown} class="text-warning ml-1 inline h-3 w-3" />
 										{/if}{#if other.handRaised}
 											🤚{/if}</span
