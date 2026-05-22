@@ -29,6 +29,8 @@
 	"file_spectrum_9": "/spectrum_en_9.svg",
 	"spectrum_slices": "Number of slices",
 	"healthy": "Healthy",
+	"header_feedback": "Feedback",
+	"header_info": "Information",
 	"hide_id": "Hide ID",
 	"google_form": "Google Form",
 	"id": "ID",
