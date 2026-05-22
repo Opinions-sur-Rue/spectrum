@@ -199,13 +199,17 @@
 			const otherUserId = args[0];
 			const coords = parseCoords(args[1]);
 			const otherNickname = args[2];
-			if (otherUserId != room.userId)
+			if (otherUserId != room.userId) {
+				if (args[3] === '*') room.adminIds.add(otherUserId);
+				else room.adminIds.delete(otherUserId);
 				canvasManager.updatePellet(otherUserId, coords, otherNickname);
+			}
 		});
 		registerHandler('userleft', (args) => {
 			if (!room.listening) return;
 			const otherUserId = args[0];
 			if (otherUserId != room.userId) {
+				room.adminIds.delete(otherUserId);
 				log(m.log_left_spectrum({ name: room.others[otherUserId].nickname }), 'leave');
 				canvasManager.deletePellet(otherUserId);
 			} else {
@@ -261,10 +265,12 @@
 			if (!room.listening) return;
 			const otherUserId = args[0];
 			if (otherUserId != room.userId) {
+				room.adminIds.add(otherUserId);
 				canvasManager.deletePellet(otherUserId, true);
 				log(m.log_made_admin({ name: room.others[otherUserId].nickname }), 'event');
 			} else {
 				room.adminModeOn = true;
+				room.adminIds.add(room.userId!);
 				canvasManager.removeMyPellet();
 				log(m.log_you_been_made_admin(), 'event');
 			}
@@ -1209,7 +1215,7 @@
 								<td>
 									<span class="text-sm"
 										><b>{room.nickname}</b>
-										{#if room.adminModeOn}
+										{#if room.adminIds.has(room.userId!)}
 											<Fa icon={faCrown} class="text-warning ml-1 inline h-3 w-3" />
 										{/if}
 										{#if myHandRaised}
@@ -1274,7 +1280,10 @@
 										</div>
 									</label>
 									<span class="text-sm"
-										><b>{other.nickname}</b>{#if other.handRaised}
+										><b>{other.nickname}</b
+										>{#if room.adminIds.has(colorHex)}
+											<Fa icon={faCrown} class="text-warning ml-1 inline h-3 w-3" />
+										{/if}{#if other.handRaised}
 											🤚{/if}</span
 									>
 								</td>
@@ -1378,7 +1387,7 @@
 							<div class="text-base font-bold">
 								<span class="truncate text-sm"
 									><b>{room.nickname}</b>
-									{#if room.adminModeOn}
+									{#if room.adminIds.has(room.userId!)}
 										<Fa icon={faCrown} class="text-warning ml-1 inline h-3 w-3" />
 									{/if}</span
 								>
