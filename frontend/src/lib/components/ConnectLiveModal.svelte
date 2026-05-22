@@ -39,7 +39,7 @@
 			onsubmit={() => channel && liveId && secret && onSubmit(channel, liveId, secret)}
 		>
 			<label
-				class="label text-base-content block font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
+				class="label text-base-content after:text-error block font-bold after:ml-0.5 after:content-['*']"
 				for="platform">{m.platform()}</label
 			>
 			<select class="select mb-6 block" id="platform" bind:value={channel}>
@@ -49,7 +49,7 @@
 				<option value="twitch">Twitch</option>
 			</select>
 			<label
-				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
+				class="label text-base-content after:text-error font-bold after:ml-0.5 after:content-['*']"
 				for="claim">{m.live_id()}</label
 			>
 			<input
@@ -61,7 +61,7 @@
 				required
 			/>
 			<label
-				class="label text-base-content font-bold after:ml-0.5 after:text-red-500 after:content-['*']"
+				class="label text-base-content after:text-error font-bold after:ml-0.5 after:content-['*']"
 				for="secret">{m.secret()}</label
 			>
 			<input
