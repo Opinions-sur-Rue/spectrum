@@ -937,7 +937,9 @@
 		</Header>
 	</div>
 {:else}
-	<div class="fixed top-5 right-[2rem] z-1000">
+	<div
+		class="fixed top-[max(1.25rem,env(safe-area-inset-top))] right-[max(2rem,env(safe-area-inset-right))] z-1000"
+	>
 		<div class="tooltip tooltip-left" data-tip={m.leave_streamer()}>
 			<button
 				onclick={() => {
