@@ -17,12 +17,14 @@ export default ts.config(
 	prettier,
 	...svelte.configs.prettier,
 	{
+		name: 'spectrum/globals',
 		languageOptions: {
 			globals: { ...globals.browser, ...globals.node }
 		},
 		rules: { 'no-undef': 'off' }
 	},
 	{
+		name: 'spectrum/svelte',
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 		ignores: ['eslint.config.js', 'svelte.config.js'],
 		languageOptions: {
