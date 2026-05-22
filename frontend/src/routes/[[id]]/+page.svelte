@@ -1165,7 +1165,7 @@
 	<div class="flex flex-col md:min-h-0 md:overflow-hidden">
 		{#if !streamerMode}
 			<div
-				class="card bg-base-100 card-border border-base-300 from-base-content/5 order-2 mb-4 flex-none bg-linear-to-bl to-50% font-mono shadow-sm md:order-1"
+				class="card bg-base-100 card-border border-base-300 from-base-content/5 order-2 mb-4 flex-none overflow-x-auto bg-linear-to-bl to-50% font-mono shadow-sm md:order-1"
 			>
 				<table class="table">
 					<colgroup>
