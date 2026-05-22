@@ -97,4 +97,10 @@
 		padding: 8px;
 		font-weight: normal;
 	}
+
+	@media (max-width: 319px) {
+		input::placeholder {
+			font-size: 0.625rem;
+		}
+	}
 </style>
