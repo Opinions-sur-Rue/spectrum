@@ -1,0 +1,16 @@
+Spectrum is a visual and interactive tool designed to facilitate constructive discussions between multiple people around beliefs or opinions.
+
+Inspired by Street Epistemology (SE), it allows each participant to position their level of confidence on a scale ranging from doubt to strong agreement, while explaining the reasons behind their stance.
+
+The goal is not to debate to convince, but to encourage critical thinking, idea clarification, and mutual understanding. By making divergences and convergences visible, Spectrum fosters respectful and introspective dialogue, whether in person or online.
+
+Features:
+- Anonymous participation — opinions without identity bias
+- Real-time visual positioning on a spectrum canvas
+- Live chat with emoji reactions
+- Voice chat (WebRTC) for live discussions
+- Spectrum slices: 3, 5, 7, or 9 positions
+- Multi-language: English, French
+- Streamer mode for public debates
+- Dark/light themes
+- No account required — join with a simple ID

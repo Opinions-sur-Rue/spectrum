@@ -1,0 +1,16 @@
+Spectrum est un outil visuel et interactif conçu pour faciliter les discussions constructives entre plusieurs personnes autour de croyances ou d'opinions.
+
+Inspiré de la méthode de l'entretien épistémique (EE), il permet à chacun de positionner son niveau de confiance sur une échelle allant du doute au fort assentiment, tout en expliquant les raisons qui motivent cette position.
+
+L'objectif n'est pas de débattre pour convaincre, mais d'encourager la réflexion critique, la clarification des idées et la compréhension mutuelle. En rendant visibles les divergences et les convergences, le Spectrum favorise un dialogue respectueux et introspectif, que ce soit en présentiel ou en ligne.
+
+Fonctionnalités :
+- Participation anonyme — les opinions sans biais d'identité
+- Positionnement visuel en temps réel sur un canevas spectrum
+- Chat en direct avec réactions emoji
+- Chat vocal (WebRTC) pour discussions en direct
+- Cases spectrum : 3, 5, 7 ou 9 positions
+- Multi-langue : anglais, français
+- Mode streamer pour débats publics
+- Thèmes clair/sombre
+- Aucun compte requis — rejoins avec un simple identifiant
