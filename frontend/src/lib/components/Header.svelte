@@ -157,7 +157,10 @@
 				<Fa icon={faPalette} class="text-lg" />
 			</div>
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-			<ul tabindex="0" class="dropdown-content bg-base-300 rounded-box z-1 w-52 p-2 shadow-2xl">
+			<ul
+				tabindex="0"
+				class="dropdown-content bg-base-300 rounded-box z-1 w-52 max-w-[90vw] p-2 shadow-2xl"
+			>
 				<li>
 					<input
 						type="radio"
@@ -201,7 +204,7 @@
 				<Fa icon={faGlobe} class="text-lg" />
 				<Fa icon={faChevronDown} class="inline-block h-2 w-2 opacity-60" />
 			</div>
-			<ul class="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+			<ul class="dropdown-content menu bg-base-100 rounded-box z-1 w-52 max-w-[90vw] p-2 shadow-sm">
 				<li>
 					<button class:menu-active={getLocale() === 'en'} onclick={() => setLocale('en')}
 						><span class="pe-4 font-mono text-[.5625rem] font-bold tracking-[0.09375rem] opacity-40"
