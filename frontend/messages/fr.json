@@ -29,6 +29,8 @@
 	"file_spectrum_9": "/spectrum_9.svg",
 	"spectrum_slices": "Nombre de cases",
 	"healthy": "Opérationnel",
+	"header_feedback": "Retours",
+	"header_info": "Informations",
 	"hide_id": "Cacher l'identifiant",
 	"google_form": "Formulaire Google",
 	"id": "Identifiant",

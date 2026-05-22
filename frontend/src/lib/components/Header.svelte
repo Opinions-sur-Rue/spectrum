@@ -67,11 +67,12 @@
 			? 'hidden'
 			: 'hidden sm:flex'}"
 	>
-		<li class="dropdown dropdown-end tooltip hidden" data-tip="Signal">
+		<li class="dropdown dropdown-end tooltip hidden" data-tip={m.server_status()}>
 			<div
 				tabindex="0"
 				role="button"
 				class="btn btn-ghost rounded-field indicator after:ml-2 after:transition-transform after:duration-200 after:content-['+']"
+				aria-label={m.server_status()}
 			>
 				<Fa icon={faSignal} class="text-lg " />
 			</div>
@@ -90,8 +91,13 @@
 				</div>
 			</div>
 		</li>
-		<li class="dropdown dropdown-end tooltip hidden sm:block" data-tip="Feedback">
-			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
+		<li class="dropdown dropdown-end tooltip hidden sm:block" data-tip={m.header_feedback()}>
+			<div
+				tabindex="0"
+				role="button"
+				class="btn btn-ghost rounded-field"
+				aria-label={m.header_feedback()}
+			>
 				<Fa icon={faFileCircleQuestion} class="text-lg" />
 			</div>
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -113,8 +119,13 @@
 				</div>
 			</div>
 		</li>
-		<li class="dropdown dropdown-end tooltip hidden md:block" data-tip="Informations">
-			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
+		<li class="dropdown dropdown-end tooltip hidden md:block" data-tip={m.header_info()}>
+			<div
+				tabindex="0"
+				role="button"
+				class="btn btn-ghost rounded-field"
+				aria-label={m.header_info()}
+			>
 				<Fa icon={faCircleInfo} class="text-lg" />
 			</div>
 			<ul
@@ -142,7 +153,7 @@
 			</ul>
 		</li>
 		<li class="dropdown dropdown-end tooltip" data-tip={m.theme()}>
-			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
+			<div tabindex="0" role="button" class="btn btn-ghost rounded-field" aria-label={m.theme()}>
 				<Fa icon={faPalette} class="text-lg" />
 			</div>
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -181,7 +192,12 @@
 			</ul>
 		</li>
 		<li class="dropdown dropdown-end tooltip" data-tip={m.languages()}>
-			<div tabindex="0" role="button" class="btn btn-ghost rounded-field">
+			<div
+				tabindex="0"
+				role="button"
+				class="btn btn-ghost rounded-field"
+				aria-label={m.languages()}
+			>
 				<Fa icon={faGlobe} class="text-lg" />
 				<Fa icon={faChevronDown} class="inline-block h-2 w-2 opacity-60" />
 			</div>
