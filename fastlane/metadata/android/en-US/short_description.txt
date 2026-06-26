@@ -1,0 +1,3 @@
+Spectrum – Visual discussion tool
+
+Spectrum lets groups share opinions anonymously and see them visualized in real time. Start a new Spectrum to ask your group a question, or join an existing one with its ID.
