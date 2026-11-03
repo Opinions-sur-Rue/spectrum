@@ -1,0 +1,47 @@
+# Local development stack.
+#
+#   docker compose -f docker-compose.dev.yaml up
+#
+# Frontend: http://localhost:5173 (Vite dev server, hot reload)
+# Backend:  http://localhost:3000 (Go API + websocket)
+# Swagger:  http://localhost:3000/docs/
+#
+# No Traefik, no TLS, no .env file needed: everything is inline.
+# The frontend reads its configuration from frontend/.env (Vite).
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "3000:3000"
+    environment:
+      API_PORT: "3000"
+      API_VERSION: "dev"
+      LOG_LEVEL: "debug"
+      # v2 room defaults
+      SPECTRUM_PARTICIPANT_SLOTS: "6"
+      SPECTRUM_SPECTATOR_LIMIT: "50"
+      SPECTRUM_SPECTATOR_CHAT: "false"
+      # No speech-to-text pipeline yet
+      SPECTRUM_TRANSCRIPTION_ENABLED: "false"
+    restart: unless-stopped
+
+  frontend:
+    image: node:24-alpine
+    working_dir: /app
+    # Dependencies are installed on the host (`npm install` in ./frontend).
+    # Skipping it here avoids two concurrent npm processes when a tool
+    # (or an agent) is adding a dependency at the same time.
+    command: sh -c "npm run dev -- --host 0.0.0.0 --port 5173"
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: "http://localhost:3000"
+      VITE_PUBLIC_URL: "http://localhost:5173"
+      VITE_DEBUG: "true"
+    restart: unless-stopped
