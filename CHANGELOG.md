@@ -4,6 +4,16 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **v2 foundation** — stage role model (`admin`, `participant`, `spectator`), per-room settings, and a versioned `{v:2, op, payload}` protocol envelope dispatched alongside the legacy RPC format. v1 clients are unaffected.
+- Room settings: participant slots, spectator limit, spectator chat, pellet/note visibility for spectators, transcription toggle. Defaults overridable with `SPECTRUM_PARTICIPANT_SLOTS`, `SPECTRUM_SPECTATOR_LIMIT`, `SPECTRUM_SPECTATOR_CHAT`, `SPECTRUM_TRANSCRIPTION_ENABLED`.
+- Spectators are real room members: they receive room messages and are evicted by the same grace period as participants.
+- `docs/ARCHITECTURE_V2.md` — canvas, roles, protocol, voice, transcription and AI facilitator design.
+
+### Changed
+- WebSocket read limit raised from 512 bytes to 64 KiB to carry v2 canvas payloads.
+- `Room.AddUser` now assigns the pellet color on the user and enforces the participant slot limit.
+
 ## [1.1.0] - 2026-05-10
 
 ### Added

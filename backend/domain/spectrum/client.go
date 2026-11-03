@@ -36,7 +36,8 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 
 	// Maximum message size allowed from peer.
-	maxMessageSize = 512
+	// v2 canvas payloads carry markdown notes, so 512 bytes is far too small.
+	maxMessageSize = 64 * 1024
 )
 
 var (
@@ -95,6 +96,13 @@ func (c *Client) ReadPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
+
+		if envelope, ok := valueobjects.TryParseEnvelope(message); ok {
+			if err := c.EvaluateV2(envelope); err != nil {
+				log.Debugf("ReadPump v2 error: %v", err)
+			}
+			continue
+		}
 
 		content, err := valueobjects.ParseMessageContent(message)
 		if err != nil {

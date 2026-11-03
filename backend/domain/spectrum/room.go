@@ -27,6 +27,8 @@ type Room struct {
 	closed             bool
 	admins             []string
 	participants       map[string]*User
+	spectators         map[string]*User
+	settings           RoomSettings
 	socialListener     social.ChatListener
 	showNeutralCircle  bool
 	sliceCount         int
@@ -59,6 +61,8 @@ func NewRoom(creator *User, id string, topic string) *Room {
 		closed:       false,
 		admins:       []string{creator.UserID},
 		participants: make(map[string]*User),
+		spectators:   make(map[string]*User),
+		settings:     LoadRoomSettings(),
 	}
 }
 
@@ -97,6 +101,10 @@ func (r *Room) AddUser(user *User) (string, error) {
 		return "", errors.New("room closed")
 	}
 
+	if r.ParticipantSlots() <= len(r.participants) {
+		return "", ErrRoomFull
+	}
+
 	// Generate a slice containing colorIndices from 0 to n-1
 	colorIndices := make([]int, len(generalColors))
 	for i := 0; i < len(generalColors); i++ {
@@ -113,16 +121,190 @@ func (r *Room) AddUser(user *User) (string, error) {
 			colorIndices = append(colorIndices[:x], colorIndices[x+1:]...)
 		} else {
 			r.participants[generalColors[x]] = user
+			user.SetColor(generalColors[x])
 			color = generalColors[x]
 			break
 		}
 	}
 
 	if color == "" {
-		return "", errors.New("room is full")
+		return "", ErrRoomFull
 	}
 
 	return color, nil
+}
+
+// --- Stage model (v2) ---
+
+// Settings returns the current room settings.
+func (r *Room) Settings() RoomSettings {
+	return r.settings
+}
+
+// SetSettings replaces the room settings after clamping them.
+func (r *Room) SetSettings(settings RoomSettings) {
+	r.settings = settings.Sanitize()
+}
+
+// ParticipantSlots returns the number of seats on stage.
+func (r *Room) ParticipantSlots() int {
+	if r.settings.ParticipantSlots <= 0 {
+		return DefaultParticipantSlots
+	}
+	return r.settings.ParticipantSlots
+}
+
+// SpectatorLimit returns the number of seats on the bench.
+func (r *Room) SpectatorLimit() int {
+	if r.settings.SpectatorLimit <= 0 {
+		return DefaultSpectatorLimit
+	}
+	return r.settings.SpectatorLimit
+}
+
+// RoleOf returns the role of a member and whether they belong to the room.
+func (r *Room) RoleOf(userID string) (Role, bool) {
+	if r == nil {
+		return RoleSpectator, false
+	}
+
+	for _, participant := range r.participants {
+		if participant.UserID == userID {
+			if slices.Contains(r.admins, userID) {
+				return RoleAdmin, true
+			}
+			return RoleParticipant, true
+		}
+	}
+
+	if _, ok := r.spectators[userID]; ok {
+		return RoleSpectator, true
+	}
+
+	return RoleSpectator, false
+}
+
+// ColorOf returns the pellet color of a participant.
+func (r *Room) ColorOf(userID string) (string, bool) {
+	for color, participant := range r.participants {
+		if participant.UserID == userID {
+			return color, true
+		}
+	}
+	return "", false
+}
+
+// MemberCount returns the number of users in the room, stage and bench.
+func (r *Room) MemberCount() int {
+	return len(r.participants) + len(r.spectators)
+}
+
+// Participants returns the users currently on stage.
+func (r *Room) Participants() []*User {
+	users := make([]*User, 0, len(r.participants))
+	for _, participant := range r.participants {
+		users = append(users, participant)
+	}
+	return users
+}
+
+// Spectators returns the users currently on the bench.
+func (r *Room) Spectators() []*User {
+	users := make([]*User, 0, len(r.spectators))
+	for _, spectator := range r.spectators {
+		users = append(users, spectator)
+	}
+	return users
+}
+
+// AddSpectator puts a user on the bench. It is idempotent.
+func (r *Room) AddSpectator(user *User) error {
+	if r == nil || r.closed {
+		return ErrRoomClosed
+	}
+	if user == nil {
+		return ErrUserCannotJoin
+	}
+	if _, already := r.spectators[user.UserID]; already {
+		return nil
+	}
+	if _, onStage := r.ColorOf(user.UserID); onStage {
+		return nil
+	}
+	if len(r.spectators) >= r.SpectatorLimit() {
+		return ErrSpectatorLimitReached
+	}
+
+	r.spectators[user.UserID] = user
+	user.SetColor("")
+	user.SetLastPosition("")
+	user.SetRoom(r.id)
+
+	return nil
+}
+
+// RemoveSpectator takes a user off the bench. It reports whether they were there.
+func (r *Room) RemoveSpectator(userID string) bool {
+	if r == nil {
+		return false
+	}
+	if _, ok := r.spectators[userID]; !ok {
+		return false
+	}
+	delete(r.spectators, userID)
+	return true
+}
+
+// Promote moves a spectator onto the stage and returns their pellet color.
+func (r *Room) Promote(userID string) (string, error) {
+	if r == nil || r.closed {
+		return "", ErrRoomClosed
+	}
+
+	user, ok := r.spectators[userID]
+	if !ok {
+		return "", ErrUserNotOnBench
+	}
+
+	color, err := r.AddUser(user)
+	if err != nil {
+		return "", err
+	}
+
+	delete(r.spectators, userID)
+
+	return color, nil
+}
+
+// Demote moves a participant back to the bench and releases their slot.
+func (r *Room) Demote(userID string) error {
+	if r == nil || r.closed {
+		return ErrRoomClosed
+	}
+
+	color, ok := r.ColorOf(userID)
+	if !ok {
+		return ErrUserNotOnStage
+	}
+
+	// Check the bench before mutating anything, so a failed demotion is a no-op.
+	if _, already := r.spectators[userID]; !already && len(r.spectators) >= r.SpectatorLimit() {
+		return ErrSpectatorLimitReached
+	}
+
+	participant := r.participants[color]
+	delete(r.participants, color)
+	r.RemoveAdmin(userID)
+
+	participant.SetColor("")
+	participant.SetLastPosition("")
+	participant.SetRoom(r.id)
+
+	if _, already := r.spectators[userID]; !already {
+		r.spectators[userID] = participant
+	}
+
+	return nil
 }
 
 func (r *Room) SetAdminByColor(color string) error {

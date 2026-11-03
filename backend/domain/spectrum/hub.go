@@ -49,6 +49,11 @@ var (
 	ErrWrongRoomOrPassword   = errors.New("wrong room or password")
 	ErrUnknownAtRoomCreation = errors.New("unknown problem at room creation")
 	ErrUserCannotJoin        = errors.New("user cannot join room")
+	ErrRoomFull              = errors.New("room is full")
+	ErrSpectatorLimitReached = errors.New("spectator limit reached")
+	ErrUserNotOnBench        = errors.New("user is not a spectator")
+	ErrUserNotOnStage        = errors.New("user is not a participant")
+	ErrNotAdmin              = errors.New("user is not an admin")
 )
 
 func NewHub() *Hub {
@@ -248,12 +253,87 @@ func (h *Hub) LeaveRoom(roomID string, color string, userID string) error {
 	if err := room.Leave(color); err != nil {
 		return err
 	}
+	room.RemoveSpectator(userID)
 	if wasAdmin {
 		room.RemoveAdmin(userID)
 		if len(room.admins) == 0 && len(room.participants) > 0 {
 			h.reassignAdminLocked(roomID, room)
 		}
 	}
+	return nil
+}
+
+// JoinSpectator puts a user on the bench of a room.
+func (h *Hub) JoinSpectator(roomID string, userID string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	room, ok := h.rooms[roomID]
+	if !ok {
+		return ErrRoomNotFound
+	}
+	if room.IsClosed() {
+		return ErrRoomClosed
+	}
+
+	user, ok := h.users[userID]
+	if !ok || user == nil {
+		return ErrUserCannotJoin
+	}
+
+	return room.AddSpectator(user)
+}
+
+// Promote moves a spectator onto the stage. requesterID must be an admin of
+// the room. Returns the pellet color assigned to the promoted user.
+func (h *Hub) Promote(roomID string, requesterID string, targetID string) (string, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	room, ok := h.rooms[roomID]
+	if !ok {
+		return "", ErrRoomNotFound
+	}
+	if !room.IsAdmin(requesterID) {
+		return "", ErrNotAdmin
+	}
+
+	color, err := room.Promote(targetID)
+	if err != nil {
+		return "", err
+	}
+
+	if user, ok := h.users[targetID]; ok {
+		user.SetRoom(roomID)
+	}
+
+	return color, nil
+}
+
+// Demote sends a participant back to the bench. requesterID must be an admin
+// of the room. The admin cannot demote themselves while other admins remain:
+// they can, but the room keeps at least one admin through reassignment.
+func (h *Hub) Demote(roomID string, requesterID string, targetID string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	room, ok := h.rooms[roomID]
+	if !ok {
+		return ErrRoomNotFound
+	}
+	if !room.IsAdmin(requesterID) {
+		return ErrNotAdmin
+	}
+
+	wasAdmin := room.IsAdmin(targetID)
+	if err := room.Demote(targetID); err != nil {
+		return err
+	}
+
+	if wasAdmin && len(room.admins) == 0 && len(room.participants) > 0 {
+		h.reassignAdminLocked(roomID, room)
+	}
+
 	return nil
 }
 
@@ -266,9 +346,16 @@ func (h *Hub) StopRoom(roomID string) error {
 		return ErrRoomNotFound
 	}
 	content := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_STOPPED)
-	for _, p := range room.participants {
+	for _, p := range room.Participants() {
 		h.messages <- valueobjects.NewServiceMessage(p.UserID, content.Export())
 		if u, ok := h.users[p.UserID]; ok {
+			u.SetRoom("")
+			u.SetColor("")
+		}
+	}
+	for _, s := range room.Spectators() {
+		h.messages <- valueobjects.NewServiceMessage(s.UserID, content.Export())
+		if u, ok := h.users[s.UserID]; ok {
 			u.SetRoom("")
 			u.SetColor("")
 		}
@@ -306,7 +393,7 @@ func (h *Hub) ClearUserByColor(roomID string, color string) {
 	}
 }
 
-// messageRoomLocked sends a message to all participants in a room.
+// messageRoomLocked sends a message to every member of a room, stage and bench.
 // Caller must hold h.mu (read or write lock).
 func (h *Hub) messageRoomLocked(roomID string, content *valueobjects.MessageContent) {
 	room, ok := h.rooms[roomID]
@@ -315,6 +402,9 @@ func (h *Hub) messageRoomLocked(roomID string, content *valueobjects.MessageCont
 	}
 	for _, user := range room.participants {
 		h.messages <- valueobjects.NewServiceMessage(user.UserID, content.Export())
+	}
+	for _, spectator := range room.spectators {
+		h.messages <- valueobjects.NewServiceMessage(spectator.UserID, content.Export())
 	}
 }
 
@@ -394,12 +484,13 @@ func (h *Hub) cleanupRoomLocked(roomID string, room *Room) {
 	if room.IsClosed() {
 		return
 	}
-	if len(room.participants) == 0 {
+	if room.MemberCount() == 0 {
 		room.Close()
 		return
 	}
 
 	deleted, toNotify, adminRemoved := h.evictExpiredParticipants(room)
+	h.evictExpiredSpectators(room)
 
 	for _, notifyID := range toNotify {
 		for _, color := range deleted {
@@ -438,6 +529,20 @@ func (h *Hub) evictExpiredParticipants(room *Room) (deleted []string, toNotify [
 		}
 	}
 	return
+}
+
+// evictExpiredSpectators removes bench members whose grace period expired.
+// Spectators have no color, so nothing is broadcast for them yet.
+// Caller must hold h.mu write lock.
+func (h *Hub) evictExpiredSpectators(room *Room) {
+	now := time.Now().Unix()
+	for userID, spectator := range room.spectators {
+		if spectator.beginningGracePeriod+h.gracePeriodSeconds < now {
+			delete(room.spectators, userID)
+			spectator.SetRoom("")
+			spectator.SetColor("")
+		}
+	}
 }
 
 // reassignAdminLocked picks the first remaining participant and promotes them to admin.
