@@ -393,6 +393,42 @@ func (h *Hub) ClearUserByColor(roomID string, color string) {
 	}
 }
 
+// MessageRoomV2 sends a structured v2 event to every room member accepted by
+// allow. A nil predicate broadcasts to the whole room.
+func (h *Hub) MessageRoomV2(roomID string, op string, payload any, allow func(userID string, role Role) bool) {
+	envelope, err := valueobjects.NewEnvelope(op, payload)
+	if err != nil {
+		log.Errorf("Failed to build v2 room event %s: %v", op, err)
+		return
+	}
+	raw := envelope.Export()
+	if raw == nil {
+		return
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	room, ok := h.rooms[roomID]
+	if !ok {
+		return
+	}
+
+	deliver := func(userID string) {
+		role, _ := room.RoleOf(userID)
+		if allow == nil || allow(userID, role) {
+			h.messages <- valueobjects.NewServiceMessage(userID, raw)
+		}
+	}
+
+	for _, participant := range room.participants {
+		deliver(participant.UserID)
+	}
+	for _, spectator := range room.spectators {
+		deliver(spectator.UserID)
+	}
+}
+
 // messageRoomLocked sends a message to every member of a room, stage and bench.
 // Caller must hold h.mu (read or write lock).
 func (h *Hub) messageRoomLocked(roomID string, content *valueobjects.MessageContent) {

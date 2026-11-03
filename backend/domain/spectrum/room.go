@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"slices"
 
+	canvasdomain "Opinions-sur-Rue/spectrum/domain/canvas"
 	"Opinions-sur-Rue/spectrum/domain/social"
 	log "github.com/sirupsen/logrus"
 )
@@ -29,6 +30,7 @@ type Room struct {
 	participants       map[string]*User
 	spectators         map[string]*User
 	settings           RoomSettings
+	board              *canvasdomain.Canvas
 	socialListener     social.ChatListener
 	showNeutralCircle  bool
 	sliceCount         int
@@ -63,6 +65,7 @@ func NewRoom(creator *User, id string, topic string) *Room {
 		participants: make(map[string]*User),
 		spectators:   make(map[string]*User),
 		settings:     LoadRoomSettings(),
+		board:        canvasdomain.New(),
 	}
 }
 
@@ -139,6 +142,11 @@ func (r *Room) AddUser(user *User) (string, error) {
 // Settings returns the current room settings.
 func (r *Room) Settings() RoomSettings {
 	return r.settings
+}
+
+// Board returns the room canvas. It is never nil for a room built with NewRoom.
+func (r *Room) Board() *canvasdomain.Canvas {
+	return r.board
 }
 
 // SetSettings replaces the room settings after clamping them.
