@@ -43,6 +43,12 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 	log.Debug(rpc.Arguments)
 
 	user := c.hub.GetUser(c.userID)
+	if rpc.Procedure != "signin" && user == nil {
+		return ErrNotSignedIn
+	}
+	if err := c.checkLegacyStagePermission(rpc.Procedure); err != nil {
+		return err
+	}
 
 	switch rpc.Procedure {
 	case "emoji":
@@ -218,7 +224,23 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		user.SetRoom("")
 	case "myposition":
 		if user.IsInRoom() {
-			user.SetLastPosition(rpc.Arguments[0])
+			var movement spectrumMovementPayload
+			var currentRoom *Room
+			err := c.hub.WithRoom(user.Room(), func(room *Room) error {
+				role, present := room.RoleOf(c.userID)
+				if !present || !role.CanMovePellet() {
+					return ErrForbidden
+				}
+				user.SetLastPosition(rpc.Arguments[0])
+				x, y := spectrumPosition(user)
+				currentRoom = room
+				movement = spectrumMovementPayload{Revision: room.spectrumRevision, MemberID: room.memberIDs[c.userID], X: x, Y: y, Version: user.positionVersion}
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+			c.broadcastSpectrumMovement(user.Room(), c.userID, currentRoom, movement)
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_UPDATE, user.Color, rpc.Arguments[0], rpc.Arguments[1])
 			roomID := user.Room()
 			hidden := false
@@ -249,6 +271,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			}
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MADEADMIN, rpc.Arguments[0])
 			c.hub.MessageRoom(roomID, reply)
+			c.hub.MessageRoomV2(roomID, "room.invalidate", struct{}{}, nil)
 		}
 	case "resetpositions":
 		if user.IsInRoom() {
@@ -272,23 +295,8 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 	case "kick":
 		if user.IsInRoom() {
 			roomID := user.Room()
-			room := c.hub.GetRoom(roomID)
-			if room == nil {
-				break
-			}
-			if room.IsAdmin(c.UserID()) {
-				reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_USERLEFT, rpc.Arguments[0])
-				c.hub.MessageRoom(roomID, reply)
-				err := c.hub.WithRoom(roomID, func(room *Room) error {
-					return room.Leave(rpc.Arguments[0])
-				})
-				if err != nil {
-					reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error())
-					c.send <- reply.Export()
-					break
-				}
-				// Clear room/color for the kicked user
-				c.hub.ClearUserByColor(roomID, rpc.Arguments[0])
+			if err := c.hub.KickByColor(roomID, c.UserID(), rpc.Arguments[0]); err != nil {
+				c.Send(valueobjects.NewMessageContentWithArgs(valueobjects.RPC_NACK, err.Error()).Export())
 			}
 		}
 	case "claim":
@@ -300,6 +308,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			})
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CLAIM, rpc.Arguments[0])
 			c.hub.MessageRoom(roomID, reply)
+			c.hub.MessageRoomV2(roomID, "spectrum.invalidate", struct{}{}, nil)
 		}
 	case "myvoicechatid":
 		if user.IsInRoom() {
@@ -387,11 +396,14 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			c.hub.MessageRoom(roomID, reply)
 		}
 	case "sendchatmessage":
-		if user.IsInRoom() {
-			roomID := user.Room()
-			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_CHATMESSAGE, user.Color, rpc.Arguments[0])
-			c.hub.MessageRoom(roomID, reply)
+		if len(rpc.Arguments) == 0 {
+			return ErrChatContent
 		}
+		envelope, err := valueobjects.NewEnvelope("chat.send", map[string]string{"text": rpc.Arguments[0]})
+		if err != nil {
+			return err
+		}
+		return handleChatSend(c, envelope)
 	case "disconnect":
 		if user.IsInRoom() {
 			roomID := user.Room()
@@ -431,10 +443,12 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			}
 			_ = c.hub.WithRoom(roomID, func(room *Room) error {
 				room.participantsHidden = true
+				room.spectrumRevision++
 				return nil
 			})
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_PARTICIPANTSHIDDEN)
 			c.hub.MessageRoom(roomID, reply)
+			c.hub.MessageRoomV2(roomID, "spectrum.invalidate", struct{}{}, nil)
 		}
 	case "showall":
 		if user.IsInRoom() {
@@ -448,10 +462,12 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 			}
 			_ = c.hub.WithRoom(roomID, func(room *Room) error {
 				room.participantsHidden = false
+				room.spectrumRevision++
 				return nil
 			})
 			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_PARTICIPANTSSHOWN)
 			c.hub.MessageRoom(roomID, reply)
+			c.hub.MessageRoomV2(roomID, "spectrum.invalidate", struct{}{}, nil)
 			var updates []*valueobjects.MessageContent
 			c.hub.WithRoomRead(roomID, func(room *Room) {
 				for _, p := range room.participants {
@@ -486,5 +502,29 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		return ErrCommandNotRecognized
 	}
 
+	return nil
+}
+
+// Legacy commands share the authoritative v2 roles; there is no spectator
+// override through the old transport while v1 and v2 coexist.
+func (c *Client) checkLegacyStagePermission(procedure string) error {
+	var adminOnly bool
+	switch procedure {
+	case "makeadmin", "claim", "resetpositions":
+		adminOnly = true
+	case "myposition", "myvoicechatid", "unmutedmymicrophone":
+	default:
+		return nil
+	}
+	_, _, role, _, _, err := c.v2RoomContext()
+	if err != nil {
+		return err
+	}
+	if adminOnly && role != RoleAdmin {
+		return ErrForbidden
+	}
+	if !adminOnly && !role.OnStage() {
+		return ErrForbidden
+	}
 	return nil
 }

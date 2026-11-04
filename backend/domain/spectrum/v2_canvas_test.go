@@ -42,6 +42,7 @@ func TestCanSeeNote(t *testing.T) {
 		{"participant sees approved and visible", "other", RoleParticipant, spectatorsDenied, approvedVisible, true},
 		{"spectator sees visible note when allowed", "spec", RoleSpectator, spectatorsAllowed, approvedVisible, true},
 		{"spectator cannot see when disabled", "spec", RoleSpectator, spectatorsDenied, approvedVisible, false},
+		{"demoted author does not see their own pending note", "author", RoleSpectator, spectatorsAllowed, pending, false},
 	}
 
 	for _, tt := range tests {
@@ -71,6 +72,7 @@ func TestCanEditNote(t *testing.T) {
 		{"author cannot edit approved", "author", RoleParticipant, approved, false},
 		{"other cannot edit", "other", RoleParticipant, pending, false},
 		{"spectator cannot edit", "spec", RoleSpectator, pending, false},
+		{"demoted author cannot edit", "author", RoleSpectator, pending, false},
 	}
 
 	for _, tt := range tests {

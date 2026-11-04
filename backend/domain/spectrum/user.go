@@ -10,6 +10,7 @@ type User struct {
 	Color                string
 	currentRoomID        string
 	lastPosition         string
+	positionVersion      uint64
 	lastVoiceId          string
 	microphoneEnabled    bool
 	beginningGracePeriod int64
@@ -38,6 +39,7 @@ func (u *User) SetRoom(roomID string) {
 
 func (u *User) SetLastPosition(lastPosition string) {
 	u.lastPosition = lastPosition
+	u.positionVersion++
 }
 
 func (u *User) LastPosition() string {

@@ -17,7 +17,6 @@ var (
 // --- Payloads ---
 
 type noteCreatePayload struct {
-	Title    string  `json:"title"`
 	Markdown string  `json:"markdown"`
 	Color    string  `json:"color"`
 	X        float64 `json:"x"`
@@ -27,7 +26,6 @@ type noteCreatePayload struct {
 type noteUpdatePayload struct {
 	NoteID   string  `json:"noteId"`
 	Version  int     `json:"version"`
-	Title    *string `json:"title,omitempty"`
 	Markdown *string `json:"markdown,omitempty"`
 	Color    *string `json:"color,omitempty"`
 }
@@ -36,6 +34,12 @@ type noteMovePayload struct {
 	NoteID string  `json:"noteId"`
 	X      float64 `json:"x"`
 	Y      float64 `json:"y"`
+}
+
+type noteResizePayload struct {
+	NoteID string  `json:"noteId"`
+	Width  float64 `json:"width"`
+	Height float64 `json:"height"`
 }
 
 type noteIDPayload struct {
@@ -50,6 +54,11 @@ type noteModeratePayload struct {
 type noteRevealPayload struct {
 	NoteID  string `json:"noteId"`
 	Visible bool   `json:"visible"`
+}
+
+type notePinPayload struct {
+	NoteID string `json:"noteId"`
+	Pinned bool   `json:"pinned"`
 }
 
 type edgeCreatePayload struct {
@@ -74,6 +83,8 @@ func init() {
 	v2Handlers["note.create"] = handleNoteCreate
 	v2Handlers["note.update"] = handleNoteUpdate
 	v2Handlers["note.move"] = handleNoteMove
+	v2Handlers["note.resize"] = handleNoteResize
+	v2Handlers["note.pin"] = handleNotePin
 	v2Handlers["note.delete"] = handleNoteDelete
 	v2Handlers["note.moderate"] = handleNoteModerate
 	v2Handlers["note.reveal"] = handleNoteReveal
@@ -84,7 +95,7 @@ func init() {
 // --- Handlers ---
 
 func handleCanvasGet(c *Client, envelope *valueobjects.Envelope) error {
-	user, _, role, settings, board, err := c.v2RoomContext()
+	user, roomID, role, settings, board, err := c.v2RoomContext()
 	if err != nil {
 		c.v2Error(envelope, "not_in_room", err)
 		return err
@@ -96,7 +107,7 @@ func handleCanvasGet(c *Client, envelope *valueobjects.Envelope) error {
 
 	for _, note := range snapshot.Notes {
 		if canSeeNote(user.UserID, role, settings, note) {
-			filtered.Notes = append(filtered.Notes, note)
+			filtered.Notes = append(filtered.Notes, c.publicNote(roomID, note))
 			visible[note.ID] = true
 		}
 	}
@@ -133,7 +144,7 @@ func handleNoteCreate(c *Client, envelope *valueobjects.Envelope) error {
 	}
 
 	note, err := board.CreateNote(user.UserID, canvasdomain.NoteDraft{
-		Title:    payload.Title,
+		Title:    canvasdomain.TitleFromMarkdown(payload.Markdown),
 		Markdown: payload.Markdown,
 		Color:    payload.Color,
 		X:        payload.X,
@@ -144,7 +155,7 @@ func handleNoteCreate(c *Client, envelope *valueobjects.Envelope) error {
 		return err
 	}
 
-	c.hub.MessageRoomV2(roomID, "note.created", note, noteAudience(settings, note))
+	c.hub.MessageRoomV2(roomID, "note.created", c.publicNote(roomID, note), noteAudience(settings, note))
 
 	return nil
 }
@@ -172,8 +183,13 @@ func handleNoteUpdate(c *Client, envelope *valueobjects.Envelope) error {
 		return ErrForbidden
 	}
 
+	var title *string
+	if payload.Markdown != nil {
+		derived := canvasdomain.TitleFromMarkdown(*payload.Markdown)
+		title = &derived
+	}
 	note, err := board.UpdateNote(payload.NoteID, payload.Version, canvasdomain.NotePatch{
-		Title:    payload.Title,
+		Title:    title,
 		Markdown: payload.Markdown,
 		Color:    payload.Color,
 	})
@@ -182,7 +198,7 @@ func handleNoteUpdate(c *Client, envelope *valueobjects.Envelope) error {
 		return err
 	}
 
-	c.hub.MessageRoomV2(roomID, "note.updated", note, noteAudience(settings, note))
+	c.hub.MessageRoomV2(roomID, "note.updated", c.publicNote(roomID, note), noteAudience(settings, note))
 
 	return nil
 }
@@ -216,8 +232,66 @@ func handleNoteMove(c *Client, envelope *valueobjects.Envelope) error {
 		return err
 	}
 
-	c.hub.MessageRoomV2(roomID, "note.moved", note, noteAudience(settings, note))
+	c.hub.MessageRoomV2(roomID, "note.moved", c.publicNote(roomID, note), noteAudience(settings, note))
 
+	return nil
+}
+
+func handleNoteResize(c *Client, envelope *valueobjects.Envelope) error {
+	var payload noteResizePayload
+	if err := envelope.DecodePayload(&payload); err != nil {
+		c.v2Error(envelope, "invalid_payload", err)
+		return err
+	}
+	user, roomID, role, settings, board, err := c.v2RoomContext()
+	if err != nil {
+		c.v2Error(envelope, "not_in_room", err)
+		return err
+	}
+	existing, ok := board.GetNote(payload.NoteID)
+	if !ok {
+		c.v2Error(envelope, "note_not_found", canvasdomain.ErrNoteNotFound)
+		return canvasdomain.ErrNoteNotFound
+	}
+	if !canEditNote(user.UserID, role, existing) {
+		c.v2Error(envelope, "forbidden", ErrForbidden)
+		return ErrForbidden
+	}
+	note, err := board.ResizeNote(payload.NoteID, payload.Width, payload.Height)
+	if err != nil {
+		c.v2Error(envelope, "invalid_resize", err)
+		return err
+	}
+	c.hub.MessageRoomV2(roomID, "note.resized", c.publicNote(roomID, note), noteAudience(settings, note))
+	return nil
+}
+
+func handleNotePin(c *Client, envelope *valueobjects.Envelope) error {
+	var payload notePinPayload
+	if err := envelope.DecodePayload(&payload); err != nil {
+		c.v2Error(envelope, "invalid_payload", err)
+		return err
+	}
+	user, roomID, role, settings, board, err := c.v2RoomContext()
+	if err != nil {
+		c.v2Error(envelope, "not_in_room", err)
+		return err
+	}
+	existing, ok := board.GetNote(payload.NoteID)
+	if !ok {
+		c.v2Error(envelope, "note_not_found", canvasdomain.ErrNoteNotFound)
+		return canvasdomain.ErrNoteNotFound
+	}
+	if !canEditNote(user.UserID, role, existing) {
+		c.v2Error(envelope, "forbidden", ErrForbidden)
+		return ErrForbidden
+	}
+	note, err := board.PinNote(payload.NoteID, payload.Pinned)
+	if err != nil {
+		c.v2Error(envelope, "invalid_pin", err)
+		return err
+	}
+	c.hub.MessageRoomV2(roomID, "note.pinned", c.publicNote(roomID, note), noteAudience(settings, note))
 	return nil
 }
 
@@ -278,7 +352,9 @@ func handleNoteModerate(c *Client, envelope *valueobjects.Envelope) error {
 		return err
 	}
 
-	c.hub.MessageRoomV2(roomID, "note.moderated", note, noteAudience(settings, note))
+	c.hub.MessageRoomV2(roomID, "note.moderated", c.publicNote(roomID, note), noteAudience(settings, note))
+	// Members who lost access must discard cached notes and incident edges.
+	c.hub.MessageRoomV2(roomID, "canvas.invalidate", struct{}{}, nil)
 
 	return nil
 }
@@ -306,7 +382,10 @@ func handleNoteReveal(c *Client, envelope *valueobjects.Envelope) error {
 		return err
 	}
 
-	c.hub.MessageRoomV2(roomID, "note.revealed", note, noteAudience(settings, note))
+	c.hub.MessageRoomV2(roomID, "note.revealed", c.publicNote(roomID, note), noteAudience(settings, note))
+	// Also refresh members excluded from the new audience (hide), and expose
+	// existing edges to newly eligible members (reveal).
+	c.hub.MessageRoomV2(roomID, "canvas.invalidate", struct{}{}, nil)
 
 	return nil
 }
@@ -377,6 +456,13 @@ func handleEdgeDelete(c *Client, envelope *valueobjects.Envelope) error {
 
 // --- Helpers ---
 
+func (c *Client) publicNote(roomID string, note canvasdomain.Note) canvasdomain.Note {
+	authorID := note.AuthorID
+	note.AuthorID = ""
+	c.hub.WithRoomRead(roomID, func(room *Room) { note.AuthorID = room.memberIDs[authorID] })
+	return note
+}
+
 func (c *Client) v2RoomContext() (*User, string, Role, RoomSettings, *canvasdomain.Canvas, error) {
 	if c.userID == "" {
 		return nil, "", "", RoomSettings{}, nil, ErrNotSignedIn
@@ -392,15 +478,19 @@ func (c *Client) v2RoomContext() (*User, string, Role, RoomSettings, *canvasdoma
 	var role Role
 	var settings RoomSettings
 	var board *canvasdomain.Canvas
+	var member bool
 
 	c.hub.WithRoomRead(roomID, func(room *Room) {
-		role, _ = room.RoleOf(user.UserID)
+		role, member = room.RoleOf(user.UserID)
 		settings = room.Settings()
 		board = room.Board()
 	})
 
 	if board == nil {
 		return nil, "", "", RoomSettings{}, nil, ErrRoomNotFound
+	}
+	if !member {
+		return nil, "", "", RoomSettings{}, nil, ErrNotInRoom
 	}
 
 	return user, roomID, role, settings, board, nil
@@ -417,16 +507,25 @@ func (c *Client) v2Error(envelope *valueobjects.Envelope, code string, err error
 
 // canSeeNote reports whether a room member may receive a note.
 func canSeeNote(userID string, role Role, settings RoomSettings, note canvasdomain.Note) bool {
-	if role == RoleAdmin || note.AuthorID == userID {
+	if role == RoleAdmin {
 		return true
 	}
-	if note.Moderation != canvasdomain.ModerationApproved || !note.Visible {
-		return false
-	}
+
+	// The audience only ever sees approved notes that the admin revealed.
+	// This applies to spectators without exception, including a demoted
+	// participant who authored the note.
 	if role == RoleSpectator {
-		return settings.NotesVisibleToSpectators
+		return note.Moderation == canvasdomain.ModerationApproved &&
+			note.Visible &&
+			settings.NotesVisibleToSpectators
 	}
-	return true
+
+	// On stage: authors keep sight of their own notes through moderation.
+	if note.AuthorID == userID {
+		return true
+	}
+
+	return note.Moderation == canvasdomain.ModerationApproved && note.Visible
 }
 
 // canEditNote reports whether a room member may edit or move a note.
@@ -435,7 +534,7 @@ func canEditNote(userID string, role Role, note canvasdomain.Note) bool {
 	if role == RoleAdmin {
 		return true
 	}
-	return note.AuthorID == userID && note.Moderation != canvasdomain.ModerationApproved
+	return role == RoleParticipant && note.AuthorID == userID && note.Moderation != canvasdomain.ModerationApproved
 }
 
 func noteAudience(settings RoomSettings, note canvasdomain.Note) func(string, Role) bool {

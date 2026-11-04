@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
+	voicedomain "Opinions-sur-Rue/spectrum/domain/voice"
 	"Opinions-sur-Rue/spectrum/utils"
 	log "github.com/sirupsen/logrus"
 )
@@ -18,6 +19,11 @@ type Hub struct {
 	// mu protects clients, users, mappingUserIDToClient, and rooms from concurrent access.
 	// Use RLock/RUnlock for reads, Lock/Unlock for writes.
 	mu sync.RWMutex
+	// Lock order: voiceMu, then mu. SFU HTTP calls never hold mu.
+	voiceMu      sync.Mutex
+	voiceBackend voicedomain.Backend
+	voiceEnabled bool
+	voiceError   error
 
 	// Registered clients.
 	clients map[*Client]bool
@@ -57,6 +63,11 @@ var (
 )
 
 func NewHub() *Hub {
+	voiceBackend, voiceError := voicedomain.FromEnv()
+	voiceEnabled := os.Getenv("SPECTRUM_VOICE_ENABLED") == "true"
+	if !voiceEnabled && os.Getenv("LIVEKIT_API_SECRET") != "" {
+		voiceBackend, _ = voicedomain.ConfiguredFromEnv()
+	}
 	gracePeriod := int64(60)
 	if envVal := os.Getenv("SPECTRUM_GRACE_PERIOD_SECONDS"); envVal != "" {
 		if parsed, err := strconv.ParseInt(envVal, 10, 64); err == nil && parsed > 0 {
@@ -72,6 +83,9 @@ func NewHub() *Hub {
 		mappingUserIDToClient: make(map[string]*Client),
 		rooms:                 make(map[string]*Room),
 		gracePeriodSeconds:    gracePeriod,
+		voiceBackend:          voiceBackend,
+		voiceEnabled:          voiceEnabled,
+		voiceError:            voiceError,
 	}
 }
 
@@ -144,33 +158,37 @@ func (h *Hub) NewPrivateRoom(creatorUserID string) (string, string, string, erro
 
 func (h *Hub) JoinRoom(roomID string, userID string) (string, error) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 
 	room, ok := h.rooms[roomID]
 	if !ok {
+		h.mu.Unlock()
 		return "", ErrRoomNotFound
 	}
 
 	if room.IsClosed() {
+		h.mu.Unlock()
 		return "", ErrRoomClosed
 	}
 
 	user := h.users[userID]
+	if user == nil {
+		h.mu.Unlock()
+		return "", ErrUserCannotJoin
+	}
 
 	color, err := room.AddUser(user)
 	if err != nil {
+		h.mu.Unlock()
 		return "", errors.Join(err, ErrUserCannotJoin)
 	}
 
 	user.SetRoom(roomID)
 
-	userNickname := user.Nickname
-	if userNickname == "" {
-		userNickname = userID
-	}
+	userNickname := room.memberName(user)
+	h.mu.Unlock()
 
 	reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_JOINED, color, userNickname)
-	h.messageRoomLocked(roomID, reply)
+	h.MessageRoom(roomID, reply)
 
 	return color, nil
 }
@@ -201,8 +219,17 @@ func (h *Hub) MessageUser(senderID string, recipentID string, content *valueobje
 
 func (h *Hub) MessageRoom(roomID string, content *valueobjects.MessageContent) {
 	h.mu.RLock()
-	defer h.mu.RUnlock()
-	h.messageRoomLocked(roomID, content)
+	var recipients []string
+	if room := h.rooms[roomID]; room != nil {
+		for _, member := range append(room.Participants(), room.Spectators()...) {
+			recipients = append(recipients, member.UserID)
+		}
+	}
+	h.mu.RUnlock()
+	raw := content.Export()
+	for _, userID := range recipients {
+		h.messages <- valueobjects.NewServiceMessage(userID, raw)
+	}
 }
 
 // --- Accessor helpers for use in rpc.go (called from ReadPump goroutines) ---
@@ -243,23 +270,83 @@ func (h *Hub) WithRoomRead(roomID string, fn func(room *Room)) {
 
 // LeaveRoom removes a participant from a room and reassigns admin if needed.
 func (h *Hub) LeaveRoom(roomID string, color string, userID string) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	room, ok := h.rooms[roomID]
-	if !ok {
-		return ErrRoomNotFound
+	var notice *valueobjects.MessageContent
+	err := h.voiceMutation(roomID, true, func(room *Room) error {
+		if _, present := room.RoleOf(userID); !present {
+			return ErrUserCannotJoin
+		}
+		return nil
+	}, func(room *Room) error {
+		wasAdmin := room.IsAdmin(userID)
+		if actual, onStage := room.ColorOf(userID); onStage {
+			if err := room.Leave(actual); err != nil {
+				return err
+			}
+		}
+		room.RemoveSpectator(userID)
+		if user := h.users[userID]; user != nil {
+			user.SetRoom("")
+			user.SetColor("")
+			user.SetMicrophoneEnabled(false)
+			user.SetLastVoiceId("")
+		}
+		if wasAdmin {
+			room.RemoveAdmin(userID)
+			if len(room.admins) == 0 && len(room.participants) > 0 {
+				notice = h.reassignAdminLocked(roomID, room)
+			}
+		}
+		return nil
+	})
+	if err == nil {
+		if notice != nil {
+			h.MessageRoom(roomID, notice)
+		}
+		h.MessageRoomV2(roomID, "room.invalidate", struct{}{}, nil)
 	}
-	wasAdmin := room.IsAdmin(userID)
-	if err := room.Leave(color); err != nil {
+	return err
+}
+
+// KickByColor retires voice admission before removing the selected participant.
+func (h *Hub) KickByColor(roomID, requester, color string) error {
+	var target string
+	var notice *valueobjects.MessageContent
+	err := h.voiceMutation(roomID, true, func(room *Room) error {
+		if !room.IsAdmin(requester) {
+			return ErrNotAdmin
+		}
+		member := room.participants[color]
+		if member == nil || member.UserID == requester {
+			return ErrUserCannotJoin
+		}
+		target = member.UserID
+		return nil
+	}, func(room *Room) error {
+		wasAdmin := room.IsAdmin(target)
+		if err := room.Leave(color); err != nil {
+			return err
+		}
+		room.RemoveAdmin(target)
+		if member := h.users[target]; member != nil {
+			member.SetRoom("")
+			member.SetColor("")
+			member.SetMicrophoneEnabled(false)
+			member.SetLastVoiceId("")
+		}
+		if wasAdmin && len(room.admins) == 0 && len(room.participants) > 0 {
+			notice = h.reassignAdminLocked(roomID, room)
+		}
+		return nil
+	})
+	if err != nil {
 		return err
 	}
-	room.RemoveSpectator(userID)
-	if wasAdmin {
-		room.RemoveAdmin(userID)
-		if len(room.admins) == 0 && len(room.participants) > 0 {
-			h.reassignAdminLocked(roomID, room)
-		}
+	h.MessageUser(requester, target, valueobjects.NewMessageContentWithArgs(valueobjects.RPC_STOPPED))
+	h.MessageRoom(roomID, valueobjects.NewMessageContentWithArgs(valueobjects.RPC_USERLEFT, color))
+	if notice != nil {
+		h.MessageRoom(roomID, notice)
 	}
+	h.MessageRoomV2(roomID, "room.invalidate", struct{}{}, nil)
 	return nil
 }
 
@@ -314,53 +401,58 @@ func (h *Hub) Promote(roomID string, requesterID string, targetID string) (strin
 // of the room. The admin cannot demote themselves while other admins remain:
 // they can, but the room keeps at least one admin through reassignment.
 func (h *Hub) Demote(roomID string, requesterID string, targetID string) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	room, ok := h.rooms[roomID]
-	if !ok {
-		return ErrRoomNotFound
+	var notice *valueobjects.MessageContent
+	err := h.voiceMutation(roomID, true, func(room *Room) error {
+		if !room.IsAdmin(requesterID) {
+			return ErrNotAdmin
+		}
+		if _, present := room.ColorOf(targetID); !present {
+			return ErrUserNotOnStage
+		}
+		if len(room.spectators) >= room.SpectatorLimit() {
+			return ErrSpectatorLimitReached
+		}
+		return nil
+	}, func(room *Room) error {
+		wasAdmin := room.IsAdmin(targetID)
+		if err := room.Demote(targetID); err != nil {
+			return err
+		}
+		if wasAdmin && len(room.admins) == 0 && len(room.participants) > 0 {
+			notice = h.reassignAdminLocked(roomID, room)
+		}
+		return nil
+	})
+	if err == nil {
+		if notice != nil {
+			h.MessageRoom(roomID, notice)
+		}
+		h.MessageRoomV2(roomID, "room.invalidate", struct{}{}, nil)
 	}
-	if !room.IsAdmin(requesterID) {
-		return ErrNotAdmin
-	}
-
-	wasAdmin := room.IsAdmin(targetID)
-	if err := room.Demote(targetID); err != nil {
-		return err
-	}
-
-	if wasAdmin && len(room.admins) == 0 && len(room.participants) > 0 {
-		h.reassignAdminLocked(roomID, room)
-	}
-
-	return nil
+	return err
 }
 
 // StopRoom broadcasts RPC_STOPPED to all participants and deletes the room.
 func (h *Hub) StopRoom(roomID string) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	room, ok := h.rooms[roomID]
-	if !ok {
-		return ErrRoomNotFound
-	}
-	content := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_STOPPED)
-	for _, p := range room.Participants() {
-		h.messages <- valueobjects.NewServiceMessage(p.UserID, content.Export())
-		if u, ok := h.users[p.UserID]; ok {
-			u.SetRoom("")
-			u.SetColor("")
+	var recipients []string
+	err := h.voiceMutation(roomID, true, func(room *Room) error { return nil }, func(room *Room) error {
+		for _, member := range append(room.Participants(), room.Spectators()...) {
+			recipients = append(recipients, member.UserID)
+			member.SetRoom("")
+			member.SetColor("")
+			member.SetMicrophoneEnabled(false)
+			member.SetLastVoiceId("")
 		}
+		delete(h.rooms, roomID)
+		return nil
+	})
+	if err != nil {
+		return err
 	}
-	for _, s := range room.Spectators() {
-		h.messages <- valueobjects.NewServiceMessage(s.UserID, content.Export())
-		if u, ok := h.users[s.UserID]; ok {
-			u.SetRoom("")
-			u.SetColor("")
-		}
+	content := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_STOPPED).Export()
+	for _, userID := range recipients {
+		h.messages <- valueobjects.NewServiceMessage(userID, content)
 	}
-	delete(h.rooms, roomID)
 	return nil
 }
 
@@ -407,45 +499,41 @@ func (h *Hub) MessageRoomV2(roomID string, op string, payload any, allow func(us
 	}
 
 	h.mu.RLock()
-	defer h.mu.RUnlock()
-
 	room, ok := h.rooms[roomID]
 	if !ok {
+		h.mu.RUnlock()
 		return
 	}
 
-	deliver := func(userID string) {
+	// Collect recipients under the lock, then send after releasing it.
+	// Sending on h.messages while holding h.mu can deadlock: the buffer is
+	// bounded, and the Hub.Run consumer needs the same lock to route.
+	recipients := make([]string, 0, room.MemberCount())
+
+	collect := func(userID string) {
 		role, _ := room.RoleOf(userID)
 		if allow == nil || allow(userID, role) {
-			h.messages <- valueobjects.NewServiceMessage(userID, raw)
+			recipients = append(recipients, userID)
 		}
 	}
 
 	for _, participant := range room.participants {
-		deliver(participant.UserID)
+		collect(participant.UserID)
 	}
 	for _, spectator := range room.spectators {
-		deliver(spectator.UserID)
+		collect(spectator.UserID)
 	}
-}
+	h.mu.RUnlock()
 
-// messageRoomLocked sends a message to every member of a room, stage and bench.
-// Caller must hold h.mu (read or write lock).
-func (h *Hub) messageRoomLocked(roomID string, content *valueobjects.MessageContent) {
-	room, ok := h.rooms[roomID]
-	if !ok {
-		return
-	}
-	for _, user := range room.participants {
-		h.messages <- valueobjects.NewServiceMessage(user.UserID, content.Export())
-	}
-	for _, spectator := range room.spectators {
-		h.messages <- valueobjects.NewServiceMessage(spectator.UserID, content.Export())
+	for _, userID := range recipients {
+		h.messages <- valueobjects.NewServiceMessage(userID, raw)
 	}
 }
 
 func (h *Hub) Run(ctx context.Context) {
 	h.context = ctx
+	go h.prepareVoice(ctx)
+	defer h.shutdownVoice()
 	go h.Routine(ctx)
 
 	log.Debug("Hub runner starting...")
@@ -476,16 +564,25 @@ func (h *Hub) Run(ctx context.Context) {
 		case message := <-h.messages:
 			if message.IsBroadcastMessage() {
 				h.mu.RLock()
+				clients := make([]*Client, 0, len(h.clients))
 				for client := range h.clients {
-					(*client).Send(message.Content())
+					clients = append(clients, client)
 				}
 				h.mu.RUnlock()
+
+				// Send outside the lock: a full client channel must not block
+				// the single consumer while it holds the hub lock.
+				for _, client := range clients {
+					(*client).Send(message.Content())
+				}
 			} else {
 				h.mu.RLock()
-				if client, ok := h.mappingUserIDToClient[message.Recipient()]; ok {
+				client, ok := h.mappingUserIDToClient[message.Recipient()]
+				h.mu.RUnlock()
+
+				if ok {
 					(*client).Send(message.Content())
 				}
-				h.mu.RUnlock()
 			}
 		case <-ctx.Done():
 			log.Info("Hub runner terminated...")
@@ -503,41 +600,70 @@ func (h *Hub) Routine(ctx context.Context) {
 			return
 		case <-time.After(30 * time.Second):
 			log.Debug("Cleaning routine")
-			h.mu.Lock()
-			for roomID, room := range h.rooms {
-				h.cleanupRoomLocked(roomID, room)
+			h.prepareVoice(ctx)
+			h.mu.RLock()
+			rooms := make([]string, 0, len(h.rooms))
+			for roomID := range h.rooms {
+				rooms = append(rooms, roomID)
 			}
-			h.mu.Unlock()
+			h.mu.RUnlock()
+			for _, roomID := range rooms {
+				h.cleanupRoom(roomID)
+			}
 		}
 	}
 }
 
-// cleanupRoomLocked processes a single room during the cleanup routine.
-// Caller must hold h.mu write lock.
-func (h *Hub) cleanupRoomLocked(roomID string, room *Room) {
-	log.WithFields(log.Fields{"roomID": roomID}).Debug("Checking room")
+var errNoCleanup = errors.New("cleanup not needed")
 
-	if room.IsClosed() {
+// Eviction uses the same voice retirement barrier as explicit role changes.
+func (h *Hub) cleanupRoom(roomID string) {
+	var deleted, recipients []string
+	var notice *valueobjects.MessageContent
+	err := h.voiceMutation(roomID, true, func(room *Room) error {
+		if room.IsClosed() {
+			return errNoCleanup
+		}
+		if room.MemberCount() == 0 {
+			return nil
+		}
+		now := time.Now().Unix()
+		for _, member := range append(room.Participants(), room.Spectators()...) {
+			if member.beginningGracePeriod+h.gracePeriodSeconds < now {
+				return nil
+			}
+		}
+		return errNoCleanup
+	}, func(room *Room) error {
+		var removedAdmin bool
+		deleted, recipients, removedAdmin = h.evictExpiredParticipants(room)
+		h.evictExpiredSpectators(room)
+		if removedAdmin && len(room.admins) == 0 && len(room.participants) > 0 {
+			notice = h.reassignAdminLocked(roomID, room)
+		}
+		if room.MemberCount() == 0 {
+			if err := room.Close(); err != nil {
+				return err
+			}
+			delete(h.rooms, roomID)
+		}
+		return nil
+	})
+	if err != nil {
+		if !errors.Is(err, errNoCleanup) && !errors.Is(err, ErrRoomNotFound) {
+			log.Warn("Room cleanup postponed: voice revocation unavailable")
+		}
 		return
 	}
-	if room.MemberCount() == 0 {
-		room.Close()
-		return
-	}
-
-	deleted, toNotify, adminRemoved := h.evictExpiredParticipants(room)
-	h.evictExpiredSpectators(room)
-
-	for _, notifyID := range toNotify {
+	for _, recipient := range recipients {
 		for _, color := range deleted {
-			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_USERLEFT, color)
-			h.messages <- valueobjects.NewMessage(notifyID, notifyID, reply.Export())
+			h.MessageUser(recipient, recipient, valueobjects.NewMessageContentWithArgs(valueobjects.RPC_USERLEFT, color))
 		}
 	}
-
-	if adminRemoved && len(room.admins) == 0 && len(room.participants) > 0 {
-		h.reassignAdminLocked(roomID, room)
+	if notice != nil {
+		h.MessageRoom(roomID, notice)
 	}
+	h.MessageRoomV2(roomID, "room.invalidate", struct{}{}, nil)
 }
 
 // evictExpiredParticipants removes participants whose grace period has expired.
@@ -558,7 +684,11 @@ func (h *Hub) evictExpiredParticipants(room *Room) (deleted []string, toNotify [
 				adminRemoved = true
 			}
 			participant.SetRoom("")
+			participant.SetColor("")
+			participant.SetMicrophoneEnabled(false)
+			participant.SetLastVoiceId("")
 			delete(room.participants, color)
+			room.spectrumRevision++
 			deleted = append(deleted, color)
 		} else {
 			toNotify = append(toNotify, participant.UserID)
@@ -575,6 +705,7 @@ func (h *Hub) evictExpiredSpectators(room *Room) {
 	for userID, spectator := range room.spectators {
 		if spectator.beginningGracePeriod+h.gracePeriodSeconds < now {
 			delete(room.spectators, userID)
+			room.spectrumRevision++
 			spectator.SetRoom("")
 			spectator.SetColor("")
 		}
@@ -583,7 +714,7 @@ func (h *Hub) evictExpiredSpectators(room *Room) {
 
 // reassignAdminLocked picks the first remaining participant and promotes them to admin.
 // Caller must hold h.mu write lock.
-func (h *Hub) reassignAdminLocked(roomID string, room *Room) {
+func (h *Hub) reassignAdminLocked(roomID string, room *Room) *valueobjects.MessageContent {
 	for color, participant := range room.participants {
 		if err := room.SetAdmin(participant); err == nil {
 			log.WithFields(log.Fields{
@@ -591,9 +722,9 @@ func (h *Hub) reassignAdminLocked(roomID string, room *Room) {
 				"color":  color,
 				"userID": participant.UserID,
 			}).Info("Admin reassigned")
-			reply := valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MADEADMIN, color)
-			h.messageRoomLocked(roomID, reply)
+			return valueobjects.NewMessageContentWithArgs(valueobjects.RPC_MADEADMIN, color)
 		}
-		return
+		return nil
 	}
+	return nil
 }

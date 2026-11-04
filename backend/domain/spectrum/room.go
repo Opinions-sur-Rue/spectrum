@@ -1,6 +1,7 @@
 package spectrum
 
 import (
+	cryptorand "crypto/rand"
 	"errors"
 	"math/rand"
 	"slices"
@@ -29,6 +30,12 @@ type Room struct {
 	admins             []string
 	participants       map[string]*User
 	spectators         map[string]*User
+	memberIDs          map[string]string
+	spectrumRevision   uint64
+	chatMessages       []chatMessage
+	chatSequence       uint64
+	voiceRoomID        string
+	voiceGeneration    uint64
 	settings           RoomSettings
 	board              *canvasdomain.Canvas
 	socialListener     social.ChatListener
@@ -59,11 +66,13 @@ func (r *Room) Join(newUser *User) error {
 func NewRoom(creator *User, id string, topic string) *Room {
 	creator.SetRoom(id)
 	return &Room{
+		id:           id,
 		topic:        topic,
 		closed:       false,
 		admins:       []string{creator.UserID},
 		participants: make(map[string]*User),
 		spectators:   make(map[string]*User),
+		memberIDs:    make(map[string]string),
 		settings:     LoadRoomSettings(),
 		board:        canvasdomain.New(),
 	}
@@ -75,6 +84,7 @@ func (r *Room) Leave(color string) error {
 	}
 
 	delete(r.participants, color)
+	r.spectrumRevision++
 
 	return nil
 }
@@ -85,6 +95,7 @@ func (r *Room) RoomID() string {
 
 func (r *Room) SetTopic(topic string) {
 	r.topic = topic
+	r.spectrumRevision++
 }
 
 func (r *Room) Topic() string {
@@ -118,14 +129,15 @@ func (r *Room) AddUser(user *User) (string, error) {
 
 	for len(colorIndices) != 0 {
 		x := rand.Intn(len(colorIndices))
+		candidate := generalColors[colorIndices[x]]
 
-		if _, alreadyPresent := r.participants[generalColors[x]]; alreadyPresent {
+		if _, alreadyPresent := r.participants[candidate]; alreadyPresent {
 			// color already taken
 			colorIndices = append(colorIndices[:x], colorIndices[x+1:]...)
 		} else {
-			r.participants[generalColors[x]] = user
-			user.SetColor(generalColors[x])
-			color = generalColors[x]
+			r.participants[candidate] = user
+			user.SetColor(candidate)
+			color = candidate
 			break
 		}
 	}
@@ -133,6 +145,8 @@ func (r *Room) AddUser(user *User) (string, error) {
 	if color == "" {
 		return "", ErrRoomFull
 	}
+	r.ensureMemberID(user.UserID)
+	r.spectrumRevision++
 
 	return color, nil
 }
@@ -152,6 +166,7 @@ func (r *Room) Board() *canvasdomain.Canvas {
 // SetSettings replaces the room settings after clamping them.
 func (r *Room) SetSettings(settings RoomSettings) {
 	r.settings = settings.Sanitize()
+	r.spectrumRevision++
 }
 
 // ParticipantSlots returns the number of seats on stage.
@@ -244,9 +259,11 @@ func (r *Room) AddSpectator(user *User) error {
 	}
 
 	r.spectators[user.UserID] = user
+	r.ensureMemberID(user.UserID)
 	user.SetColor("")
 	user.SetLastPosition("")
 	user.SetRoom(r.id)
+	r.spectrumRevision++
 
 	return nil
 }
@@ -260,6 +277,7 @@ func (r *Room) RemoveSpectator(userID string) bool {
 		return false
 	}
 	delete(r.spectators, userID)
+	r.spectrumRevision++
 	return true
 }
 
@@ -305,14 +323,37 @@ func (r *Room) Demote(userID string) error {
 	r.RemoveAdmin(userID)
 
 	participant.SetColor("")
+	participant.SetMicrophoneEnabled(false)
+	participant.SetLastVoiceId("")
 	participant.SetLastPosition("")
 	participant.SetRoom(r.id)
+	r.spectrumRevision++
 
 	if _, already := r.spectators[userID]; !already {
 		r.spectators[userID] = participant
 	}
 
 	return nil
+}
+
+// Public IDs are scoped to this ephemeral room. Never expose the signin ID.
+func (r *Room) ensureMemberID(userID string) {
+	if r.memberIDs == nil {
+		r.memberIDs = make(map[string]string)
+	}
+	if r.memberIDs[userID] == "" {
+		r.memberIDs[userID] = "m_" + cryptorand.Text()
+	}
+}
+
+func (r *Room) userIDForMember(memberID string) (string, bool) {
+	for userID, publicID := range r.memberIDs {
+		if publicID == memberID {
+			_, present := r.RoleOf(userID)
+			return userID, present
+		}
+	}
+	return "", false
 }
 
 func (r *Room) SetAdminByColor(color string) error {
@@ -324,6 +365,7 @@ func (r *Room) SetAdminByColor(color string) error {
 	}
 
 	r.admins = append(r.admins, r.participants[color].UserID)
+	r.spectrumRevision++
 	r.participants[color].SetLastPosition("")
 	return nil
 }
@@ -333,6 +375,7 @@ func (r *Room) SetAdmin(user *User) error {
 		return errors.New("room closed")
 	}
 	r.admins = append(r.admins, user.UserID)
+	r.spectrumRevision++
 	user.SetLastPosition("")
 	return nil
 }
@@ -349,6 +392,7 @@ func (r *Room) RemoveAdmin(userID string) {
 	for i, adminID := range r.admins {
 		if adminID == userID {
 			r.admins = append(r.admins[:i], r.admins[i+1:]...)
+			r.spectrumRevision++
 			return
 		}
 	}

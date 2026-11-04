@@ -32,8 +32,12 @@ const (
 	MaxNoteMarkdownRunes = 4000
 
 	// DefaultNoteWidth and DefaultNoteHeight are the initial note size.
-	DefaultNoteWidth  = 260.0
-	DefaultNoteHeight = 180.0
+	DefaultNoteWidth  = 360.0
+	DefaultNoteHeight = 340.0
+	MinNoteWidth      = 220.0
+	MinNoteHeight     = 140.0
+	MaxNoteWidth      = 1200.0
+	MaxNoteHeight     = 1200.0
 )
 
 // Err* are the domain errors returned by the canvas.
@@ -48,6 +52,8 @@ var (
 	ErrDuplicateEdge     = errors.New("edge already exists")
 	ErrNoteNotApproved   = errors.New("note is not approved")
 	ErrInvalidModeration = errors.New("invalid moderation state")
+	ErrNotePinned        = errors.New("note is pinned; unpin it before changing its layout")
+	ErrInvalidNoteSize   = errors.New("invalid note size")
 )
 
 // Moderation is the review state of a note, independent from its visibility.
@@ -107,6 +113,7 @@ type Note struct {
 	Version    int        `json:"version"`
 	Moderation Moderation `json:"moderation"`
 	Visible    bool       `json:"visible"`
+	Pinned     bool       `json:"pinned"`
 }
 
 // Edge is a typed link between two notes.
@@ -229,12 +236,16 @@ func (c *Canvas) UpdateNote(id string, version int, patch NotePatch) (Note, erro
 		if err := validateTitle(title); err != nil {
 			return Note{}, err
 		}
-		note.Title = title
 	}
 	if patch.Markdown != nil {
 		if err := validateMarkdown(*patch.Markdown); err != nil {
 			return Note{}, err
 		}
+	}
+	if patch.Title != nil {
+		note.Title = strings.TrimSpace(*patch.Title)
+	}
+	if patch.Markdown != nil {
 		note.Markdown = *patch.Markdown
 	}
 	if patch.Color != nil {
@@ -258,11 +269,50 @@ func (c *Canvas) MoveNote(id string, x float64, y float64) (Note, error) {
 	if !ok {
 		return Note{}, ErrNoteNotFound
 	}
+	if note.Pinned {
+		return Note{}, ErrNotePinned
+	}
 
 	note.X, note.Y = clampPosition(x, y, note.Width, note.Height)
 	note.UpdatedAt = time.Now().UTC()
 	c.revision++
 
+	return *note, nil
+}
+
+// ResizeNote changes layout without invalidating an in-progress text edit.
+func (c *Canvas) ResizeNote(id string, width, height float64) (Note, error) {
+	if math.IsNaN(width) || math.IsNaN(height) || math.IsInf(width, 0) || math.IsInf(height, 0) || width <= 0 || height <= 0 {
+		return Note{}, ErrInvalidNoteSize
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	note, ok := c.notes[id]
+	if !ok {
+		return Note{}, ErrNoteNotFound
+	}
+	if note.Pinned {
+		return Note{}, ErrNotePinned
+	}
+	note.Width = math.Min(math.Max(MinNoteWidth, math.Min(MaxNoteWidth, width)), WorldWidth/2-note.X)
+	note.Height = math.Min(math.Max(MinNoteHeight, math.Min(MaxNoteHeight, height)), WorldHeight/2-note.Y)
+	note.UpdatedAt = time.Now().UTC()
+	c.revision++
+	return *note, nil
+}
+
+// PinNote changes movement protection without changing the content version.
+// Pin and MoveNote share the mutex, so a concurrent move cannot bypass pinning.
+func (c *Canvas) PinNote(id string, pinned bool) (Note, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	note, ok := c.notes[id]
+	if !ok {
+		return Note{}, ErrNoteNotFound
+	}
+	note.Pinned = pinned
+	note.UpdatedAt = time.Now().UTC()
+	c.revision++
 	return *note, nil
 }
 
