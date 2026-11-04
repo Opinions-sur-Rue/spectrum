@@ -1,0 +1,26 @@
+# Local development only. Ports bind to loopback in docker-compose.dev.yaml.
+# These public development credentials must never be used in production.
+# The backend retires the physical SFU room before revoking membership/roles.
+# auto_create must stay false so cached tokens cannot recreate retired rooms.
+port: 7880
+bind_addresses:
+  - 0.0.0.0
+keys:
+  spectrum-dev: spectrum-local-development-secret-not-for-production
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  use_external_ip: false
+  enable_loopback_candidate: true
+  # Explicit local STUN: never fall back to a third-party public service.
+  stun_servers:
+    - 127.0.0.1:3478
+room:
+  # A cached token must not be able to recreate a retired physical voice room.
+  auto_create: false
+  empty_timeout: 60
+  departure_timeout: 10
+  max_participants: 56
+  enable_remote_unmute: false
+logging:
+  level: warn

@@ -162,6 +162,21 @@ That model cannot support v2:
 - LiveKit Agents (Python) provides STT/LLM/TTS pipelines with turn detection, and Alkove ships an official LiveKit plugin.
 - `lib/voice` is rewritten behind the existing interface; PeerJS stays behind a feature flag until the migration is validated.
 
+### Local voice development
+
+Voice is off by default (`SPECTRUM_VOICE_ENABLED=false`); the UI hides every audio control while it is disabled.
+
+```bash
+SPECTRUM_VOICE_ENABLED=true docker compose -f docker-compose.dev.yaml --profile voice up -d --build
+python3 dev/check-livekit.py        # STUN, auth, room lifecycle, retired-token rejection
+npm run test:e2e:voice              # Chromium + Firefox, synthetic audio, no real microphone
+```
+
+- SFU signalling: `ws://127.0.0.1:7880`; media: `7882/udp` and `7881/tcp`; STUN: `127.0.0.1:3478` (coturn, STUN-only, no relay).
+- The dev credentials in `dev/livekit.yaml` are public fixtures. Production must inject `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` and terminate TLS.
+- Firefox hides host ICE candidates behind mDNS names that the containerised SFU cannot resolve, so local Firefox runs need `media.peerconnection.ice.obfuscate_host_addresses=false` (already set in `playwright.voice.config.ts`).
+- Rebuilding the backend wipes ephemeral rooms; create a new room before retesting.
+
 ## 7. Transcription
 
 - **Self-hosted STT**, FR + EN. Candidates: `faster-whisper` (better CPU throughput) or `whisper.cpp` server; streaming partials through a chunked pipeline (2-4 s windows, VAD-gated).
