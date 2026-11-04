@@ -352,7 +352,8 @@
 			if (!room.listening) return;
 			const otherUserId = args[0];
 			const message = args[1];
-			if (otherUserId != room.userId) log(`${room.others[otherUserId].nickname}: ${message}`);
+			if (otherUserId != room.userId)
+				log(`${room.others[otherUserId]?.nickname ?? 'Guest'}: ${message}`);
 			else log(`${room.nickname}: ${message}`);
 		});
 		registerHandler('participantshidden', () => {
