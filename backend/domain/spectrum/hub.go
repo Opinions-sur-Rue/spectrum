@@ -124,13 +124,37 @@ func (h *Hub) LinkUserWithClient(userID string, client *Client) {
 }
 
 func (h *Hub) NewRoom(creatorUserID string) (string, string, error) {
+	return h.newRoom(creatorUserID, 4)
+}
+
+// NewRoomWithCode creates a room whose identifier is long enough to resist
+// guessing. v2 uses it because an uninvited guest could otherwise join an
+// ephemeral room and listen to its voice room.
+func (h *Hub) NewRoomWithCode(creatorUserID string, codeLength int) (string, string, error) {
+	if codeLength < 4 || codeLength > 64 {
+		return "", "", ErrUnknownAtRoomCreation
+	}
+	return h.newRoom(creatorUserID, codeLength)
+}
+
+func (h *Hub) newRoom(creatorUserID string, codeLength int) (string, string, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	roomID := utils.GenerateRandomString(4)
-	room := NewRoom(h.users[creatorUserID], roomID, "")
+	creator := h.users[creatorUserID]
+	if creator == nil {
+		return "", "", ErrUnknownAtRoomCreation
+	}
+	var roomID string
+	for {
+		roomID = utils.GenerateRandomString(codeLength)
+		if _, taken := h.rooms[roomID]; !taken {
+			break
+		}
+	}
+	room := NewRoom(creator, roomID, "")
 
-	creatorColor, err := room.AddUser(h.users[creatorUserID])
+	creatorColor, err := room.AddUser(creator)
 	if err != nil {
 		return "", "", ErrUnknownAtRoomCreation
 	}

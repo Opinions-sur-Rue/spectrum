@@ -48,7 +48,7 @@ func handleRoomCreate(c *Client, envelope *valueobjects.Envelope) error {
 	if user.IsInRoom() {
 		return handleRoomGet(c, envelope)
 	}
-	roomID, color, err := c.hub.NewRoom(c.userID)
+	roomID, color, err := c.hub.NewRoomWithCode(c.userID, 12)
 	if err != nil {
 		c.v2Error(envelope, "room_create_failed", err)
 		return err
