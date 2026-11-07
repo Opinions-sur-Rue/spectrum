@@ -18,7 +18,7 @@ func TestSpectrumConfigurationIsAdminOnlyAndPreservesRoomState(t *testing.T) {
 	room.SetTopic("Keep this topic")
 	position := hub.users[guest.userID].LastPosition()
 	for _, count := range []int{3, 5, 7, 9} {
-		envelope := spectrumEnvelope(t, "spectrum.configure", map[string]any{"sliceCount": count, "showNeutralCircle": false})
+		envelope := spectrumEnvelope(t, "spectrum.configure", map[string]any{fieldSliceCount: count, fieldNeutralCircle: false})
 		before := room.spectrumRevision
 		if err := handleSpectrumConfigure(guest, envelope); err != ErrForbidden {
 			t.Fatalf("participant configuration accepted: %v", err)
@@ -39,7 +39,7 @@ func TestSpectrumConfigurationIsAdminOnlyAndPreservesRoomState(t *testing.T) {
 			t.Fatal("configuration reset topic or positions")
 		}
 	}
-	if err := handleSpectrumConfigure(admin, spectrumEnvelope(t, "spectrum.configure", map[string]bool{"showNeutralCircle": true})); err != nil {
+	if err := handleSpectrumConfigure(admin, spectrumEnvelope(t, "spectrum.configure", map[string]bool{fieldNeutralCircle: true})); err != nil {
 		t.Fatal(err)
 	}
 	if room.SliceCount() != 9 || !room.ShowNeutralCircle() {
@@ -51,15 +51,15 @@ func TestSpectrumConfigurationRejectsInvalidCountsWithoutMutation(t *testing.T) 
 	_, admin, guest, room := stageFixture(t)
 	for _, count := range []int{-1, 0, 1, 2, 4, 6, 8, 10, 999} {
 		before := room.spectrumRevision
-		err := handleSpectrumConfigure(admin, spectrumEnvelope(t, "spectrum.configure", map[string]int{"sliceCount": count}))
+		err := handleSpectrumConfigure(admin, spectrumEnvelope(t, "spectrum.configure", map[string]int{fieldSliceCount: count}))
 		if err != ErrInvalidSpectrumConfiguration || room.SliceCount() != 7 || room.spectrumRevision != before {
 			t.Fatalf("invalid count %d accepted: %v", count, err)
 		}
 	}
-	if err := handleSpectrumConfigure(guest, spectrumEnvelope(t, "spectrum.configure", map[string]int{"sliceCount": 3})); err != ErrForbidden {
+	if err := handleSpectrumConfigure(guest, spectrumEnvelope(t, "spectrum.configure", map[string]int{fieldSliceCount: 3})); err != ErrForbidden {
 		t.Fatal("spectator configured spectrum")
 	}
-	for _, payload := range []any{map[string]float64{"sliceCount": 3.5}, map[string]string{"sliceCount": "3"}, map[string]string{"showNeutralCircle": "false"}, struct{}{}} {
+	for _, payload := range []any{map[string]float64{fieldSliceCount: 3.5}, map[string]string{fieldSliceCount: "3"}, map[string]string{fieldNeutralCircle: "false"}, struct{}{}} {
 		if err := handleSpectrumConfigure(admin, spectrumEnvelope(t, "spectrum.configure", payload)); err == nil {
 			t.Fatalf("invalid payload accepted: %+v", payload)
 		}
@@ -72,7 +72,7 @@ func TestRoomCreateHonorsSpectrumConfiguration(t *testing.T) {
 			hub := NewHub()
 			hub.users["creator"] = NewUser("creator")
 			client := &Client{hub: hub, userID: "creator", send: make(chan []byte, 16)}
-			envelope := spectrumEnvelope(t, "room.create", map[string]any{"sliceCount": count, "showNeutralCircle": false, "topic": "  Initial discussion  "})
+			envelope := spectrumEnvelope(t, "room.create", map[string]any{fieldSliceCount: count, fieldNeutralCircle: false, "topic": "  Initial discussion  "})
 			if err := handleRoomCreate(client, envelope); err != nil {
 				t.Fatal(err)
 			}
@@ -88,7 +88,7 @@ func TestInvalidCreationDoesNotAllocateRoom(t *testing.T) {
 	hub := NewHub()
 	hub.users["creator"] = NewUser("creator")
 	client := &Client{hub: hub, userID: "creator", send: make(chan []byte, 16)}
-	if err := handleRoomCreate(client, spectrumEnvelope(t, "room.create", map[string]int{"sliceCount": 4})); err != ErrInvalidSpectrumConfiguration {
+	if err := handleRoomCreate(client, spectrumEnvelope(t, "room.create", map[string]int{fieldSliceCount: 4})); err != ErrInvalidSpectrumConfiguration {
 		t.Fatal("invalid room created")
 	}
 	if hub.CountTotalRooms() != 0 || hub.users["creator"].IsInRoom() {

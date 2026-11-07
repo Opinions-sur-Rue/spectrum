@@ -29,7 +29,7 @@ func stageFixture(t *testing.T) (*Hub, *Client, *Client, *Room) {
 
 func stageEnvelope(t *testing.T, op, memberID string) *valueobjects.Envelope {
 	t.Helper()
-	envelope, err := valueobjects.NewEnvelope(op, map[string]string{"memberId": memberID})
+	envelope, err := valueobjects.NewEnvelope(op, map[string]string{fieldMemberID: memberID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestV2StageCycleAndPendingNoteVisibility(t *testing.T) {
 	if role, _ := room.RoleOf(guest.userID); role != RoleParticipant {
 		t.Fatalf("role = %s", role)
 	}
-	create, _ := valueobjects.NewEnvelope("note.create", map[string]string{"markdown": "# Proposal"})
+	create, _ := valueobjects.NewEnvelope("note.create", map[string]string{fieldMarkdown: "# Proposal"})
 	if err := handleNoteCreate(guest, create); err != nil {
 		t.Fatal(err)
 	}

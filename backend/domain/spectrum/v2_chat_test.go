@@ -13,7 +13,7 @@ import (
 
 func TestChatPermissionsAndUntrustedIdentity(t *testing.T) {
 	hub, admin, spectator, room := stageFixture(t)
-	request := spectrumEnvelope(t, "chat.send", map[string]string{"text": "Hello", "clientId": "request-1", "memberId": room.memberIDs[admin.userID], "nickname": "Forged admin"})
+	request := spectrumEnvelope(t, "chat.send", map[string]string{"text": "Hello", "clientId": "request-1", fieldMemberID: room.memberIDs[admin.userID], "nickname": "Forged admin"})
 	if err := handleChatSend(spectator, request); err != ErrForbidden {
 		t.Fatalf("spectator error = %v", err)
 	}

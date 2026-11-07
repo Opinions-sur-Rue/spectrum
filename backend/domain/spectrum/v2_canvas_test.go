@@ -16,9 +16,9 @@ func noteFixture(author string, moderation canvasdomain.Moderation, visible bool
 }
 
 func TestCanSeeNote(t *testing.T) {
-	pending := noteFixture("author", canvasdomain.ModerationPending, false)
-	approvedHidden := noteFixture("author", canvasdomain.ModerationApproved, false)
-	approvedVisible := noteFixture("author", canvasdomain.ModerationApproved, true)
+	pending := noteFixture(fixtureAuthorID, canvasdomain.ModerationPending, false)
+	approvedHidden := noteFixture(fixtureAuthorID, canvasdomain.ModerationApproved, false)
+	approvedVisible := noteFixture(fixtureAuthorID, canvasdomain.ModerationApproved, true)
 
 	spectatorsAllowed := DefaultRoomSettings()
 	spectatorsAllowed.NotesVisibleToSpectators = true
@@ -34,15 +34,15 @@ func TestCanSeeNote(t *testing.T) {
 		note     canvasdomain.Note
 		want     bool
 	}{
-		{"admin sees pending", "admin", RoleAdmin, spectatorsDenied, pending, true},
-		{"author sees own pending", "author", RoleParticipant, spectatorsDenied, pending, true},
-		{"other participant does not see pending", "other", RoleParticipant, spectatorsDenied, pending, false},
-		{"spectator does not see pending", "spec", RoleSpectator, spectatorsAllowed, pending, false},
-		{"participant does not see approved but hidden", "other", RoleParticipant, spectatorsDenied, approvedHidden, false},
-		{"participant sees approved and visible", "other", RoleParticipant, spectatorsDenied, approvedVisible, true},
-		{"spectator sees visible note when allowed", "spec", RoleSpectator, spectatorsAllowed, approvedVisible, true},
-		{"spectator cannot see when disabled", "spec", RoleSpectator, spectatorsDenied, approvedVisible, false},
-		{"demoted author does not see their own pending note", "author", RoleSpectator, spectatorsAllowed, pending, false},
+		{"admin sees pending", fixtureAdminID, RoleAdmin, spectatorsDenied, pending, true},
+		{"author sees own pending", fixtureAuthorID, RoleParticipant, spectatorsDenied, pending, true},
+		{"other participant does not see pending", fixtureOtherID, RoleParticipant, spectatorsDenied, pending, false},
+		{"spectator does not see pending", fixtureSpectatorID, RoleSpectator, spectatorsAllowed, pending, false},
+		{"participant does not see approved but hidden", fixtureOtherID, RoleParticipant, spectatorsDenied, approvedHidden, false},
+		{"participant sees approved and visible", fixtureOtherID, RoleParticipant, spectatorsDenied, approvedVisible, true},
+		{"spectator sees visible note when allowed", fixtureSpectatorID, RoleSpectator, spectatorsAllowed, approvedVisible, true},
+		{"spectator cannot see when disabled", fixtureSpectatorID, RoleSpectator, spectatorsDenied, approvedVisible, false},
+		{"demoted author does not see their own pending note", fixtureAuthorID, RoleSpectator, spectatorsAllowed, pending, false},
 	}
 
 	for _, tt := range tests {
@@ -55,9 +55,9 @@ func TestCanSeeNote(t *testing.T) {
 }
 
 func TestCanEditNote(t *testing.T) {
-	pending := noteFixture("author", canvasdomain.ModerationPending, false)
-	rejected := noteFixture("author", canvasdomain.ModerationRejected, false)
-	approved := noteFixture("author", canvasdomain.ModerationApproved, true)
+	pending := noteFixture(fixtureAuthorID, canvasdomain.ModerationPending, false)
+	rejected := noteFixture(fixtureAuthorID, canvasdomain.ModerationRejected, false)
+	approved := noteFixture(fixtureAuthorID, canvasdomain.ModerationApproved, true)
 
 	tests := []struct {
 		name   string
@@ -66,13 +66,13 @@ func TestCanEditNote(t *testing.T) {
 		note   canvasdomain.Note
 		want   bool
 	}{
-		{"admin edits anything", "admin", RoleAdmin, approved, true},
-		{"author edits pending", "author", RoleParticipant, pending, true},
-		{"author edits rejected", "author", RoleParticipant, rejected, true},
-		{"author cannot edit approved", "author", RoleParticipant, approved, false},
-		{"other cannot edit", "other", RoleParticipant, pending, false},
-		{"spectator cannot edit", "spec", RoleSpectator, pending, false},
-		{"demoted author cannot edit", "author", RoleSpectator, pending, false},
+		{"admin edits anything", fixtureAdminID, RoleAdmin, approved, true},
+		{"author edits pending", fixtureAuthorID, RoleParticipant, pending, true},
+		{"author edits rejected", fixtureAuthorID, RoleParticipant, rejected, true},
+		{"author cannot edit approved", fixtureAuthorID, RoleParticipant, approved, false},
+		{"other cannot edit", fixtureOtherID, RoleParticipant, pending, false},
+		{"spectator cannot edit", fixtureSpectatorID, RoleSpectator, pending, false},
+		{"demoted author cannot edit", fixtureAuthorID, RoleSpectator, pending, false},
 	}
 
 	for _, tt := range tests {
@@ -87,11 +87,11 @@ func TestCanEditNote(t *testing.T) {
 func TestEdgeAudienceRequiresBothEndpoints(t *testing.T) {
 	board := canvasdomain.New()
 
-	first, err := board.CreateNote("author", canvasdomain.NoteDraft{Title: "first"}, canvasdomain.ModerationApproved)
+	first, err := board.CreateNote(fixtureAuthorID, canvasdomain.NoteDraft{Title: "first"}, canvasdomain.ModerationApproved)
 	if err != nil {
 		t.Fatalf("CreateNote: %v", err)
 	}
-	second, err := board.CreateNote("author", canvasdomain.NoteDraft{Title: "second"}, canvasdomain.ModerationApproved)
+	second, err := board.CreateNote(fixtureAuthorID, canvasdomain.NoteDraft{Title: "second"}, canvasdomain.ModerationApproved)
 	if err != nil {
 		t.Fatalf("CreateNote: %v", err)
 	}
@@ -104,27 +104,27 @@ func TestEdgeAudienceRequiresBothEndpoints(t *testing.T) {
 	settings := DefaultRoomSettings()
 	allow := edgeAudience(settings, board, edge)
 
-	if !allow("admin", RoleAdmin) {
+	if !allow(fixtureAdminID, RoleAdmin) {
 		t.Fatal("admin must always see the edge")
 	}
-	if allow("other", RoleParticipant) {
+	if allow(fixtureOtherID, RoleParticipant) {
 		t.Fatal("an edge between hidden notes must stay hidden")
 	}
 
 	if _, err := board.Reveal(first.ID, true); err != nil {
 		t.Fatalf("Reveal: %v", err)
 	}
-	if allow("other", RoleParticipant) {
+	if allow(fixtureOtherID, RoleParticipant) {
 		t.Fatal("one visible endpoint is not enough")
 	}
 
 	if _, err := board.Reveal(second.ID, true); err != nil {
 		t.Fatalf("Reveal: %v", err)
 	}
-	if !allow("other", RoleParticipant) {
+	if !allow(fixtureOtherID, RoleParticipant) {
 		t.Fatal("a participant must see an edge between two visible notes")
 	}
-	if allow("spec", RoleSpectator) {
+	if allow(fixtureSpectatorID, RoleSpectator) {
 		t.Fatal("spectators are denied when notes are hidden from them")
 	}
 }

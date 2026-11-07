@@ -2,6 +2,26 @@
 
 ## Active UI/UX follow-up — second pass
 
+### First hosted CI corrections — beta.2
+
+Beta.1 (`ca4fe1f`, tag `v2.0.0-beta.1`) was pushed on branch `v2`; hosted run
+42386544054 failed before publishing. No images or release manifest were emitted,
+and no production deployment occurred. Two clean-runner differences were found:
+
+- CI installed golangci-lint 2.15.0 while local lint was 2.5.0. Keep all rules
+  enabled; factor repeated fixture values/wire keys into test constants, name the
+  repeated live-disconnected state, and use `httptest.NewRequestWithContext` with
+  `t.Context()`. Pin both backend CI workflows to 2.15.0; downloaded/verified that
+  exact binary locally and obtained 0 issues plus passing full Go race tests.
+- A fresh checkout lacked generated Paraglide modules. `npm run check` and
+  `check:watch` now compile translations explicitly before Svelte synchronization
+  and type checking. Verified in a temporary clean git archive without generated
+  source or local .env, reusing only installed dependencies: 0 errors/warnings.
+
+Local frontend full lint/check and 115 unit tests passed. actionlint and staged
+diff checks also passed. Corrected candidate uses a new `v2.0.0-beta.2` tag rather
+than moving beta.1. No backend restart or deployment is part of this correction.
+
 ### Beta CI and Node 24 preparation — 2026-11-07
 
 - GitHub setup completed after user confirmation: repository variables

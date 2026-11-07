@@ -10,8 +10,8 @@ import (
 
 func TestV2SpectatorJoinRetainsRoomID(t *testing.T) {
 	hub := NewHub()
-	admin := NewUser("admin")
-	guest := NewUser("guest")
+	admin := NewUser(fixtureAdminID)
+	guest := NewUser(fixtureGuestID)
 	hub.users[admin.UserID] = admin
 	hub.users[guest.UserID] = guest
 	roomID, _, err := hub.NewRoom(admin.UserID)
@@ -40,29 +40,29 @@ func TestV2SpectatorJoinRetainsRoomID(t *testing.T) {
 
 func TestV2SettingsAdminOnlyAndRoomScoped(t *testing.T) {
 	hub := NewHub()
-	for _, id := range []string{"admin", "guest", "other"} {
+	for _, id := range []string{fixtureAdminID, fixtureGuestID, fixtureOtherID} {
 		hub.users[id] = NewUser(id)
 	}
-	roomID, _, err := hub.NewRoom("admin")
+	roomID, _, err := hub.NewRoom(fixtureAdminID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	otherID, _, err := hub.NewRoom("other")
+	otherID, _, err := hub.NewRoom(fixtureOtherID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := hub.JoinSpectator(roomID, "guest"); err != nil {
+	if err := hub.JoinSpectator(roomID, fixtureGuestID); err != nil {
 		t.Fatal(err)
 	}
 	envelope, err := valueobjects.NewEnvelope("room.settings", map[string]bool{"notesVisibleToSpectators": true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	guest := &Client{hub: hub, userID: "guest", send: make(chan []byte, 10)}
+	guest := &Client{hub: hub, userID: fixtureGuestID, send: make(chan []byte, 10)}
 	if err := handleRoomSettings(guest, envelope); err != ErrForbidden {
 		t.Fatalf("spectator settings error = %v", err)
 	}
-	admin := &Client{hub: hub, userID: "admin", send: make(chan []byte, 10)}
+	admin := &Client{hub: hub, userID: fixtureAdminID, send: make(chan []byte, 10)}
 	if err := handleRoomSettings(admin, envelope); err != nil {
 		t.Fatal(err)
 	}
@@ -76,13 +76,13 @@ func TestV2SettingsAdminOnlyAndRoomScoped(t *testing.T) {
 
 func TestV2HideInvalidatesFormerAudience(t *testing.T) {
 	hub := NewHub()
-	hub.users["admin"] = NewUser("admin")
-	hub.users["guest"] = NewUser("guest")
-	roomID, _, err := hub.NewRoom("admin")
+	hub.users[fixtureAdminID] = NewUser(fixtureAdminID)
+	hub.users[fixtureGuestID] = NewUser(fixtureGuestID)
+	roomID, _, err := hub.NewRoom(fixtureAdminID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := hub.JoinSpectator(roomID, "guest"); err != nil {
+	if err := hub.JoinSpectator(roomID, fixtureGuestID); err != nil {
 		t.Fatal(err)
 	}
 	room := hub.rooms[roomID]
@@ -95,7 +95,7 @@ func TestV2HideInvalidatesFormerAudience(t *testing.T) {
 	if _, err := board.CreateEdge(first.ID, second.ID, canvasdomain.RelationSupports, ""); err != nil {
 		t.Fatal(err)
 	}
-	admin := &Client{hub: hub, userID: "admin", send: make(chan []byte, 10)}
+	admin := &Client{hub: hub, userID: fixtureAdminID, send: make(chan []byte, 10)}
 	envelope, err := valueobjects.NewEnvelope("note.reveal", noteRevealPayload{NoteID: first.ID, Visible: false})
 	if err != nil {
 		t.Fatal(err)
@@ -110,17 +110,17 @@ func TestV2HideInvalidatesFormerAudience(t *testing.T) {
 		if err := json.Unmarshal(message.Content(), &event); err != nil {
 			t.Fatal(err)
 		}
-		if message.Recipient() == "guest" && event.Op == "canvas.invalidate" {
+		if message.Recipient() == fixtureGuestID && event.Op == "canvas.invalidate" {
 			invalidated = true
 		}
-		if message.Recipient() == "guest" && event.Op == "note.revealed" {
+		if message.Recipient() == fixtureGuestID && event.Op == "note.revealed" {
 			t.Fatal("hidden content sent to spectator")
 		}
 	}
 	if !invalidated {
 		t.Fatal("former audience did not receive invalidation")
 	}
-	guest := &Client{hub: hub, userID: "guest", send: make(chan []byte, 10)}
+	guest := &Client{hub: hub, userID: fixtureGuestID, send: make(chan []byte, 10)}
 	if err := handleCanvasGet(guest, envelope); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestV2HideInvalidatesFormerAudience(t *testing.T) {
 
 func createVisibleNote(t *testing.T, board *canvasdomain.Canvas, title string) canvasdomain.Note {
 	t.Helper()
-	note, err := board.CreateNote("admin", canvasdomain.NoteDraft{Title: title}, canvasdomain.ModerationApproved)
+	note, err := board.CreateNote(fixtureAdminID, canvasdomain.NoteDraft{Title: title}, canvasdomain.ModerationApproved)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,7 +17,7 @@ func spectrumEnvelope(t *testing.T, op string, payload any) *valueobjects.Envelo
 
 func TestSpectrumMovementIsRoleDerivedAndSelfOnly(t *testing.T) {
 	_, admin, guest, room := stageFixture(t)
-	move := spectrumEnvelope(t, "spectrum.move", map[string]any{"x": -99999, "y": 99999, "memberId": room.memberIDs[admin.userID]})
+	move := spectrumEnvelope(t, "spectrum.move", map[string]any{"x": -99999, "y": 99999, fieldMemberID: room.memberIDs[admin.userID]})
 	if err := handleSpectrumMove(guest, move); err != ErrForbidden {
 		t.Fatalf("spectator move error = %v", err)
 	}

@@ -8,13 +8,13 @@ import (
 
 func TestV2TitleComesOnlyFromMarkdown(t *testing.T) {
 	hub := NewHub()
-	hub.users["admin"] = NewUser("admin")
-	roomID, _, err := hub.NewRoom("admin")
+	hub.users[fixtureAdminID] = NewUser(fixtureAdminID)
+	roomID, _, err := hub.NewRoom(fixtureAdminID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	client := &Client{hub: hub, userID: "admin", send: make(chan []byte, 10)}
-	envelope, err := valueobjects.NewEnvelope("note.create", map[string]any{"title": "Ignored separate title", "markdown": "# Real heading\n\nBody"})
+	client := &Client{hub: hub, userID: fixtureAdminID, send: make(chan []byte, 10)}
+	envelope, err := valueobjects.NewEnvelope("note.create", map[string]any{"title": "Ignored separate title", fieldMarkdown: "# Real heading\n\nBody"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestV2TitleComesOnlyFromMarkdown(t *testing.T) {
 	if note.Title != "Real heading" {
 		t.Fatalf("title = %q", note.Title)
 	}
-	envelope, err = valueobjects.NewEnvelope("note.update", map[string]any{"noteId": note.ID, "version": note.Version, "title": "Still ignored", "markdown": "# Updated heading"})
+	envelope, err = valueobjects.NewEnvelope("note.update", map[string]any{"noteId": note.ID, "version": note.Version, "title": "Still ignored", fieldMarkdown: "# Updated heading"})
 	if err != nil {
 		t.Fatal(err)
 	}

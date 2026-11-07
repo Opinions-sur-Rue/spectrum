@@ -20,11 +20,11 @@ func TestTranscriptDiscardIsVersionedAndCannotDeleteFinals(t *testing.T) {
 	if _, _, err := room.appendTranscript(partial); err != ErrTranscriptContent {
 		t.Fatal("late text revived discarded draft")
 	}
-	partial.ID = "other"
+	partial.ID = fixtureOtherID
 	if _, _, err := room.appendTranscript(partial); err != nil {
 		t.Fatal(err)
 	}
-	discard.ID = "other"
+	discard.ID = fixtureOtherID
 	if _, _, err := room.appendTranscript(discard); err != ErrTranscriptContent {
 		t.Fatal("discard removed an established final quote")
 	}

@@ -119,6 +119,10 @@ smoke-tests `/`, `/v2`, a direct room URL and backend startup, and pushes those
 same images without rebuilding. Both components are built even if only one
 changed. No `latest` or `main` image tags are updated by this beta workflow.
 
+Use **golangci-lint 2.15.0** locally to match the pinned backend CI version.
+`npm run check` explicitly generates Paraglide translations before checking types,
+so it also works from a fresh checkout without an earlier Vite build.
+
 Download the successful run's **`beta-images`** artifact: `beta-images.json`
 records the source commit, public origins and both `image@sha256:…` references.
 Deploy using those digests, not mutable tags. Use a fresh beta version for each

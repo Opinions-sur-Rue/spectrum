@@ -38,7 +38,7 @@ func TestTranscriptIsVisibleToSpectatorsAndOnlyAcceptsStageSpeakers(t *testing.T
 	memberID := room.memberIDs[guest.userID]
 
 	// Spectators have no microphone, so they cannot be a speaker.
-	if _, err := hub.AppendTranscript(room.id, memberID, "", "Bonjour", 0, 900, "fr", true); err != ErrTranscriptSpeaker {
+	if _, err := hub.AppendTranscript(room.id, memberID, "", fixtureTranscriptText, 0, 900, "fr", true); err != ErrTranscriptSpeaker {
 		t.Fatalf("spectator transcript accepted: %v", err)
 	}
 	if err := handleRoomPromote(admin, stageEnvelope(t, "room.promote", memberID)); err != nil {
@@ -93,11 +93,11 @@ func TestTranscriptPartialsReplaceAndSnapshotsPageBySequence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := hub.AppendTranscript(room.id, memberID, "utt-1", "Bonjour", 0, 500, "fr", true)
+	second, err := hub.AppendTranscript(room.id, memberID, "utt-1", fixtureTranscriptText, 0, 500, "fr", true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Sequence >= second.Sequence || second.Text != "Bonjour" || !second.Final {
+	if first.Sequence >= second.Sequence || second.Text != fixtureTranscriptText || !second.Final {
 		t.Fatalf("partial did not replace in place: %+v then %+v", first, second)
 	}
 	third, err := hub.AppendTranscript(room.id, memberID, "utt-2", "Ensuite", 500, 900, "fr", true)
@@ -123,7 +123,7 @@ func TestTranscriptIsRejectedWhenDisabled(t *testing.T) {
 	settings := room.Settings()
 	settings.TranscriptionEnabled = false
 	room.SetSettings(settings)
-	if _, err := hub.AppendTranscript(room.id, memberID, "", "Bonjour", 0, 100, "fr", true); err != ErrTranscriptDisabled {
+	if _, err := hub.AppendTranscript(room.id, memberID, "", fixtureTranscriptText, 0, 100, "fr", true); err != ErrTranscriptDisabled {
 		t.Fatalf("disabled transcript accepted: %v", err)
 	}
 }

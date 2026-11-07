@@ -18,7 +18,7 @@ func socialEnvelope(t *testing.T, op string, payload any) *valueobjects.Envelope
 
 func TestRaisedHandsAreAuthoritativeAndAdminCanOnlyLowerOthers(t *testing.T) {
 	_, admin, guest, room := stageFixture(t)
-	raise := socialEnvelope(t, "room.hand", map[string]any{"raised": true})
+	raise := socialEnvelope(t, "room.hand", map[string]any{fieldRaised: true})
 	if err := handleRoomHand(guest, raise); err != nil {
 		t.Fatal(err)
 	}
@@ -30,19 +30,19 @@ func TestRaisedHandsAreAuthoritativeAndAdminCanOnlyLowerOthers(t *testing.T) {
 		t.Fatal("idempotent raise lost queue order")
 	}
 	for _, payload := range []map[string]any{
-		{"memberId": room.memberIDs[admin.userID], "raised": false},
-		{"memberId": guest.userID, "raised": true},
-		{"memberId": "m_outside", "raised": false},
+		{fieldMemberID: room.memberIDs[admin.userID], fieldRaised: false},
+		{fieldMemberID: guest.userID, fieldRaised: true},
+		{fieldMemberID: fixtureOutsideMemberID, fieldRaised: false},
 		{},
 	} {
 		if err := handleRoomHand(guest, socialEnvelope(t, "room.hand", payload)); err == nil {
 			t.Fatal("untrusted hand update accepted")
 		}
 	}
-	if err := handleRoomHand(admin, socialEnvelope(t, "room.hand", map[string]any{"memberId": room.memberIDs[guest.userID], "raised": true})); err == nil {
+	if err := handleRoomHand(admin, socialEnvelope(t, "room.hand", map[string]any{fieldMemberID: room.memberIDs[guest.userID], fieldRaised: true})); err == nil {
 		t.Fatal("admin raised someone else's hand")
 	}
-	if err := handleRoomHand(admin, socialEnvelope(t, "room.hand", map[string]any{"memberId": room.memberIDs[guest.userID], "raised": false})); err != nil {
+	if err := handleRoomHand(admin, socialEnvelope(t, "room.hand", map[string]any{fieldMemberID: room.memberIDs[guest.userID], fieldRaised: false})); err != nil {
 		t.Fatal(err)
 	}
 	if len(room.raisedHands) != 0 {
@@ -67,10 +67,10 @@ func TestReactionsBoundedValidatedScopedAndPrivateIDsNeverBroadcast(t *testing.T
 	for len(hub.messages) > 0 {
 		<-hub.messages
 	}
-	if err := handleRoomReact(guest, socialEnvelope(t, "room.react", map[string]string{"emoji": "<script>"})); err == nil {
+	if err := handleRoomReact(guest, socialEnvelope(t, "room.react", map[string]string{fieldEmoji: "<script>"})); err == nil {
 		t.Fatal("arbitrary reaction accepted")
 	}
-	react := socialEnvelope(t, "room.react", map[string]string{"emoji": "👍"})
+	react := socialEnvelope(t, "room.react", map[string]string{fieldEmoji: "👍"})
 	if err := handleRoomReact(guest, react); err != nil {
 		t.Fatal(err)
 	}
@@ -101,11 +101,11 @@ func TestReactionsBoundedValidatedScopedAndPrivateIDsNeverBroadcast(t *testing.T
 
 func TestOnlyStageMembersCanReactButSpectatorsCanRaiseHands(t *testing.T) {
 	_, admin, guest, room := stageFixture(t)
-	react := socialEnvelope(t, "room.react", map[string]string{"emoji": "👍"})
+	react := socialEnvelope(t, "room.react", map[string]string{fieldEmoji: "👍"})
 	if err := handleRoomReact(guest, react); err != ErrForbidden {
 		t.Fatalf("spectator reaction = %v", err)
 	}
-	if err := handleRoomHand(guest, socialEnvelope(t, "room.hand", map[string]bool{"raised": true})); err != nil {
+	if err := handleRoomHand(guest, socialEnvelope(t, "room.hand", map[string]bool{fieldRaised: true})); err != nil {
 		t.Fatal(err)
 	}
 	if err := handleRoomReact(admin, react); err != nil {

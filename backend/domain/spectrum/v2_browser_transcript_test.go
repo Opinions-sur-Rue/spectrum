@@ -28,7 +28,7 @@ func browserEnvelope(t *testing.T, op string, payload any) *valueobjects.Envelop
 
 func startBrowserTranscript(t *testing.T, c *Client, room *Room) string {
 	t.Helper()
-	if err := handleBrowserTranscriptStart(c, browserEnvelope(t, "transcript.start", map[string]any{"requestId": "request", "generation": room.voiceGeneration, "consent": true})); err != nil {
+	if err := handleBrowserTranscriptStart(c, browserEnvelope(t, "transcript.start", map[string]any{"requestId": "request", fieldGeneration: room.voiceGeneration, "consent": true})); err != nil {
 		t.Fatal(err)
 	}
 	var event valueobjects.Envelope
@@ -50,7 +50,7 @@ func TestBrowserTranscriptIsOptionalAndNeverSubscribesServerWorker(t *testing.T)
 	if _, err := h.TranscriptionJobs(); err != ErrTranscriptDisabled {
 		t.Fatal("browser mode granted server worker admission", err)
 	}
-	if _, err := h.AppendWorkerTranscript(TranscriptAdmission{}, room.id, room.memberIDs[actor.userID], "forged", "Bonjour", 0, 200, "fr", true); err != ErrTranscriptDisabled {
+	if _, err := h.AppendWorkerTranscript(TranscriptAdmission{}, room.id, room.memberIDs[actor.userID], "forged", fixtureTranscriptText, 0, 200, "fr", true); err != ErrTranscriptDisabled {
 		t.Fatal("worker wrote in browser-only mode", err)
 	}
 }
@@ -58,7 +58,7 @@ func TestBrowserTranscriptIsOptionalAndNeverSubscribesServerWorker(t *testing.T)
 func TestBrowserTranscriptOwnAttributionAndSequenceOnly(t *testing.T) {
 	_, admin, actor, room := browserTranscriptFixture(t)
 	id := startBrowserTranscript(t, actor, room)
-	payload := map[string]any{"sessionId": id, "generation": room.voiceGeneration, "sequence": 1, "text": "<b>Bonjour</b>", "start": 0, "end": 100, "language": "fr", "speakerId": room.memberIDs[admin.userID], "roomId": "another-room", "id": "overwrite"}
+	payload := map[string]any{"sessionId": id, fieldGeneration: room.voiceGeneration, "sequence": 1, "text": "<b>Bonjour</b>", "start": 0, "end": 100, "language": "fr", "speakerId": room.memberIDs[admin.userID], "roomId": "another-room", "id": "overwrite"}
 	if err := handleBrowserTranscriptPublish(actor, browserEnvelope(t, "transcript.publish", payload)); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestBrowserTranscriptOwnAttributionAndSequenceOnly(t *testing.T) {
 func TestBrowserTranscriptRejectsEpochRevocationBoundsAndSpoofedConnection(t *testing.T) {
 	_, admin, actor, room := browserTranscriptFixture(t)
 	id := startBrowserTranscript(t, actor, room)
-	valid := browserTranscriptPayload{SessionID: id, Generation: room.voiceGeneration, Sequence: 1, Text: "Bonjour", Start: 0, End: 100, Language: "fr"}
+	valid := browserTranscriptPayload{SessionID: id, Generation: room.voiceGeneration, Sequence: 1, Text: fixtureTranscriptText, Start: 0, End: 100, Language: "fr"}
 	invalid := []browserTranscriptPayload{valid, valid, valid, valid, valid}
 	invalid[0].Text = strings.Repeat("x", TranscriptTextLimit+1)
 	invalid[1].End = 20000
@@ -110,7 +110,7 @@ func TestBrowserTranscriptRejectsEpochRevocationBoundsAndSpoofedConnection(t *te
 func TestBrowserTranscriptStopExpiryPauseAndSpectator(t *testing.T) {
 	_, _, actor, room := browserTranscriptFixture(t)
 	id := startBrowserTranscript(t, actor, room)
-	payload := browserTranscriptPayload{SessionID: id, Generation: room.voiceGeneration, Sequence: 1, Text: "Bonjour", Start: 0, End: 100, Language: "fr"}
+	payload := browserTranscriptPayload{SessionID: id, Generation: room.voiceGeneration, Sequence: 1, Text: fixtureTranscriptText, Start: 0, End: 100, Language: "fr"}
 	session := room.browserTranscripts[room.memberIDs[actor.userID]]
 	session.seen = time.Now().Add(-20 * time.Second)
 	if err := handleBrowserTranscriptPublish(actor, browserEnvelope(t, "transcript.publish", payload)); err == nil {
@@ -131,7 +131,7 @@ func TestBrowserTranscriptStopExpiryPauseAndSpectator(t *testing.T) {
 	if err := room.Demote(actor.userID); err != nil {
 		t.Fatal(err)
 	}
-	if err := handleBrowserTranscriptStart(actor, browserEnvelope(t, "transcript.start", map[string]any{"requestId": "next", "generation": room.voiceGeneration, "consent": true})); err == nil {
+	if err := handleBrowserTranscriptStart(actor, browserEnvelope(t, "transcript.start", map[string]any{"requestId": "next", fieldGeneration: room.voiceGeneration, "consent": true})); err == nil {
 		t.Fatal("spectator opted in")
 	}
 }

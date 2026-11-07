@@ -19,6 +19,7 @@ import (
 
 const liveUserLimit = 1000
 const liveSelectionLimit = 20
+const liveDisconnected = "disconnected"
 
 var liveVotePattern = regexp.MustCompile(`(?i)^\s*spectrum\s+(-?[0-4]|i)\s*$`)
 var liveChannelPattern = regexp.MustCompile(`^[a-zA-Z0-9_@.\-]{1,100}$`)
@@ -76,7 +77,7 @@ func (h *Hub) shutdownLive() {
 }
 
 func (r *Room) liveFor(role Role) liveSnapshot {
-	state := liveSnapshot{RoomID: r.id, Status: "disconnected", Limit: liveUserLimit, Users: []liveUser{}}
+	state := liveSnapshot{RoomID: r.id, Status: liveDisconnected, Limit: liveUserLimit, Users: []liveUser{}}
 	state.Revision = r.spectrumRevision
 	state.TikTokAvailable = os.Getenv("SPECTRUM_TIKTOK_SIGNER_URL") != ""
 	if r.live == nil {
@@ -188,7 +189,7 @@ func (h *Hub) runLive(ctx context.Context, roomID, channel string, session *live
 		if err != nil {
 			session.status = "error"
 		} else {
-			session.status = "disconnected"
+			session.status = liveDisconnected
 		}
 		room.spectrumRevision++
 		h.scheduleLiveLocked(room, session)
@@ -270,7 +271,7 @@ func (h *Hub) ingestLive(roomID string, session *liveSession, event *valueobject
 		return
 	}
 	_ = h.WithRoom(roomID, func(room *Room) error {
-		if room.live != session || session.status == "error" || session.status == "disconnected" {
+		if room.live != session || session.status == "error" || session.status == liveDisconnected {
 			return nil
 		}
 		var vote *int

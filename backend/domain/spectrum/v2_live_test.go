@@ -14,7 +14,7 @@ import (
 func liveFixture(t *testing.T) (*Hub, *Client, *Client, *Room, *liveSession) {
 	t.Helper()
 	h, admin, guest, room := stageFixture(t)
-	session := &liveSession{platform: "twitch", status: "connected", users: make(map[string]*liveUser), cancel: func() {}}
+	session := &liveSession{platform: fixtureTwitch, status: "connected", users: make(map[string]*liveUser), cancel: func() {}}
 	room.live = session
 	t.Cleanup(h.shutdownLive)
 	return h, admin, guest, room, session
@@ -132,7 +132,7 @@ type fakeLiveListener struct {
 func (f *fakeLiveListener) SetOnReady(fn func())    { f.ready = fn }
 func (f *fakeLiveListener) SetSecret(string)        {}
 func (f *fakeLiveListener) SetMessageFilter(string) {}
-func (f *fakeLiveListener) GetType() string         { return "twitch" }
+func (f *fakeLiveListener) GetType() string         { return fixtureTwitch }
 func (f *fakeLiveListener) Disconnect() error       { return nil }
 func (f *fakeLiveListener) Connect(ctx context.Context, _ string, _ social.OnEvent) error {
 	if f.ready != nil {
@@ -150,7 +150,7 @@ func TestLiveConnectIsAdminOnlyCancelsOnRoomCloseAndHasNoImplicitTikTokCloud(t *
 	fake := &fakeLiveListener{started: make(chan struct{}), stopped: make(chan struct{})}
 	calls := 0
 	h.liveFactory = func(_, _, _ string) (social.ChatListener, error) { calls++; return fake, nil }
-	request := socialEnvelope(t, "live.connect", map[string]string{"platform": "twitch", "channel": "test_channel", "secret": "never-broadcast-this"})
+	request := socialEnvelope(t, "live.connect", map[string]string{"platform": fixtureTwitch, "channel": "test_channel", "secret": "never-broadcast-this"})
 	if err := handleLiveConnect(guest, request); err == nil || calls != 0 {
 		t.Fatal("spectator started live connection")
 	}

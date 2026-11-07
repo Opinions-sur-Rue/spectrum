@@ -8,9 +8,9 @@ import (
 
 func TestV2PinAuthorizationAndMoveProtection(t *testing.T) {
 	hub := NewHub()
-	hub.users["admin"] = NewUser("admin")
+	hub.users[fixtureAdminID] = NewUser(fixtureAdminID)
 	hub.users["spectator"] = NewUser("spectator")
-	roomID, _, err := hub.NewRoom("admin")
+	roomID, _, err := hub.NewRoom(fixtureAdminID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func TestV2PinAuthorizationAndMoveProtection(t *testing.T) {
 	if err := handleNotePin(spectator, envelope); err != ErrForbidden {
 		t.Fatalf("spectator error = %v", err)
 	}
-	admin := &Client{hub: hub, userID: "admin", send: make(chan []byte, 10)}
+	admin := &Client{hub: hub, userID: fixtureAdminID, send: make(chan []byte, 10)}
 	if err := handleNotePin(admin, envelope); err != nil {
 		t.Fatal(err)
 	}

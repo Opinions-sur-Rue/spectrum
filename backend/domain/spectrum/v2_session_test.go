@@ -16,7 +16,7 @@ func TestSessionTransferIsScopedAndRemovesFormerAdmin(t *testing.T) {
 	if err := handleRoomPromote(admin, target); err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{admin.userID, guest.userID, "m_outside"} {
+	for _, id := range []string{admin.userID, guest.userID, fixtureOutsideMemberID} {
 		if err := handleRoomTransfer(admin, stageEnvelope(t, "room.transfer", id)); err == nil {
 			t.Fatal("accepted invalid member selector", id)
 		}
@@ -78,15 +78,15 @@ func TestSessionLeaveReassignsAdminToRemainingStageMember(t *testing.T) {
 
 func TestSessionKickAllowsSpectatorsButRejectsUntrustedSelectors(t *testing.T) {
 	hub, admin, guest, room := stageFixture(t)
-	for _, id := range []string{room.memberIDs[admin.userID], guest.userID, "m_outside"} {
-		if err := handleRoomKick(admin, stageEnvelope(t, "room.kick", id)); err == nil {
+	for _, id := range []string{room.memberIDs[admin.userID], guest.userID, fixtureOutsideMemberID} {
+		if err := handleRoomKick(admin, stageEnvelope(t, fixtureKickOperation, id)); err == nil {
 			t.Fatal("accepted forbidden selector", id)
 		}
 	}
-	if err := handleRoomKick(guest, stageEnvelope(t, "room.kick", room.memberIDs[admin.userID])); err == nil {
+	if err := handleRoomKick(guest, stageEnvelope(t, fixtureKickOperation, room.memberIDs[admin.userID])); err == nil {
 		t.Fatal("spectator kicked admin")
 	}
-	if err := handleRoomKick(admin, stageEnvelope(t, "room.kick", room.memberIDs[guest.userID])); err != nil {
+	if err := handleRoomKick(admin, stageEnvelope(t, fixtureKickOperation, room.memberIDs[guest.userID])); err != nil {
 		t.Fatal(err)
 	}
 	if _, present := room.RoleOf(guest.userID); present || hub.users[guest.userID].Room() != "" {
@@ -95,18 +95,18 @@ func TestSessionKickAllowsSpectatorsButRejectsUntrustedSelectors(t *testing.T) {
 }
 
 func TestSessionRemovalRequiresSFURevocation(t *testing.T) {
-	for _, op := range []string{"room.kick", "room.leave", "room.stop"} {
+	for _, op := range []string{fixtureKickOperation, fixtureLeaveOperation, fixtureStopOperation} {
 		t.Run(op, func(t *testing.T) {
 			hub, admin, actor, room, driver := voiceFixture(t)
 			driver.deleteErr = errors.New("SFU unavailable")
 			envelope := stageEnvelope(t, op, room.memberIDs[actor.userID])
 			var err error
 			switch op {
-			case "room.kick":
+			case fixtureKickOperation:
 				err = handleRoomKick(admin, envelope)
-			case "room.leave":
+			case fixtureLeaveOperation:
 				err = handleRoomLeave(actor, envelope)
-			case "room.stop":
+			case fixtureStopOperation:
 				err = handleRoomStop(admin, envelope)
 			}
 			if err == nil {
@@ -120,9 +120,9 @@ func TestSessionRemovalRequiresSFURevocation(t *testing.T) {
 			}
 			driver.deleteErr = nil
 			switch op {
-			case "room.kick":
+			case fixtureKickOperation:
 				err = handleRoomKick(admin, envelope)
-			case "room.leave":
+			case fixtureLeaveOperation:
 				err = handleRoomLeave(actor, envelope)
 			case "room.stop":
 				err = handleRoomStop(admin, envelope)

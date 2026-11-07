@@ -24,6 +24,7 @@ jobs:
       - name: 🔍 Lint code
         uses: golangci/golangci-lint-action@v9
         with:
+          version: v2.15.0
           working-directory: backend
           args: --timeout=5m
 

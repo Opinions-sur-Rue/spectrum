@@ -13,8 +13,8 @@ func roomCode(roomID string) string {
 
 func TestV2RoomCodesResistGuessing(t *testing.T) {
 	hub := NewHub()
-	hub.users["admin"] = NewUser("admin")
-	client := &Client{hub: hub, userID: "admin", send: make(chan []byte, 10)}
+	hub.users[fixtureAdminID] = NewUser(fixtureAdminID)
+	client := &Client{hub: hub, userID: fixtureAdminID, send: make(chan []byte, 10)}
 	envelope, err := valueobjects.NewEnvelope("room.create", struct{}{})
 	if err != nil {
 		t.Fatal(err)
@@ -33,8 +33,8 @@ func TestV2RoomCodesResistGuessing(t *testing.T) {
 
 func TestLegacyRoomCodesKeepTheirLength(t *testing.T) {
 	hub := NewHub()
-	hub.users["admin"] = NewUser("admin")
-	roomID, _, err := hub.NewRoom("admin")
+	hub.users[fixtureAdminID] = NewUser(fixtureAdminID)
+	roomID, _, err := hub.NewRoom(fixtureAdminID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,9 +45,9 @@ func TestLegacyRoomCodesKeepTheirLength(t *testing.T) {
 
 func TestRoomCodeLengthIsBounded(t *testing.T) {
 	hub := NewHub()
-	hub.users["admin"] = NewUser("admin")
+	hub.users[fixtureAdminID] = NewUser(fixtureAdminID)
 	for _, length := range []int{0, 3, 65} {
-		if _, _, err := hub.NewRoomWithCode("admin", length); err == nil {
+		if _, _, err := hub.NewRoomWithCode(fixtureAdminID, length); err == nil {
 			t.Fatalf("accepted room code length %d", length)
 		}
 	}
