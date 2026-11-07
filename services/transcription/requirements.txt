@@ -1,0 +1,5 @@
+livekit==1.2.0
+faster-whisper==1.2.1
+httpx==0.28.1
+numpy==2.5.4
+webrtcvad-wheels==2.0.14.post1

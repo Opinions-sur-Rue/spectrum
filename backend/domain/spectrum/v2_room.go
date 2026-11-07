@@ -3,6 +3,7 @@ package spectrum
 import (
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
@@ -13,20 +14,22 @@ type roomJoinPayload struct {
 }
 
 type roomStatePayload struct {
-	RoomID   string              `json:"roomId"`
-	UserID   string              `json:"userId"`
-	Role     Role                `json:"role"`
-	Settings RoomSettings        `json:"settings"`
-	Members  []roomMemberPayload `json:"members"`
-	Spectrum spectrumPayload     `json:"spectrum"`
-	Voice    voiceStatus         `json:"voice"`
+	RoomID        string              `json:"roomId"`
+	UserID        string              `json:"userId"`
+	Role          Role                `json:"role"`
+	Settings      RoomSettings        `json:"settings"`
+	Members       []roomMemberPayload `json:"members"`
+	Spectrum      spectrumPayload     `json:"spectrum"`
+	Voice         voiceStatus         `json:"voice"`
+	Transcription transcriptionStatus `json:"transcription"`
 }
 
 type roomMemberPayload struct {
-	ID       string `json:"id"`
-	Nickname string `json:"nickname"`
-	Role     Role   `json:"role"`
-	Color    string `json:"color,omitempty"`
+	ID           string `json:"id"`
+	Nickname     string `json:"nickname"`
+	Role         Role   `json:"role"`
+	Color        string `json:"color,omitempty"`
+	HandRaisedAt int64  `json:"handRaisedAt,omitempty"`
 }
 
 func init() {
@@ -40,6 +43,19 @@ func init() {
 }
 
 func handleRoomCreate(c *Client, envelope *valueobjects.Envelope) error {
+	var payload struct {
+		spectrumConfiguration
+		Topic string `json:"topic"`
+	}
+	if err := envelope.DecodePayload(&payload); err != nil {
+		c.v2Error(envelope, "invalid_payload", err)
+		return err
+	}
+	payload.Topic = strings.TrimSpace(payload.Topic)
+	if !payload.valid() || utf8.RuneCountInString(payload.Topic) > 500 {
+		c.v2Error(envelope, "invalid_spectrum_configuration", ErrInvalidSpectrumConfiguration)
+		return ErrInvalidSpectrumConfiguration
+	}
 	user := c.hub.GetUser(c.userID)
 	if c.userID == "" || user == nil {
 		c.v2Error(envelope, "not_signed_in", ErrNotSignedIn)
@@ -56,6 +72,8 @@ func handleRoomCreate(c *Client, envelope *valueobjects.Envelope) error {
 	user.SetRoom(roomID)
 	user.SetColor(color)
 	_ = c.hub.WithRoom(roomID, func(room *Room) error {
+		room.configureSpectrum(payload.spectrumConfiguration)
+		room.SetTopic(payload.Topic)
 		// Keep legacy rooms at eight slots; v2 defaults to six.
 		if slots, overridden := envInt("SPECTRUM_PARTICIPANT_SLOTS"); !overridden || slots <= 0 {
 			settings := room.Settings()
@@ -108,10 +126,22 @@ func handleRoomGet(c *Client, envelope *valueobjects.Envelope) error {
 		for _, member := range append(room.Participants(), room.Spectators()...) {
 			memberRole, _ := room.RoleOf(member.UserID)
 			publicID := room.memberIDs[member.UserID]
-			state.Members = append(state.Members, roomMemberPayload{ID: publicID, Nickname: room.memberName(member), Role: memberRole, Color: member.Color})
+			state.Members = append(state.Members, roomMemberPayload{ID: publicID, Nickname: room.memberName(member), Role: memberRole, Color: member.Color, HandRaisedAt: room.raisedHands[member.UserID]})
 		}
 		state.Spectrum = room.spectrumFor(user.UserID, state.Role)
 		state.Voice = voiceStatus{Available: c.hub.voiceEnabled && c.hub.voiceBackend != nil && c.hub.voiceError == nil, Generation: room.voiceGeneration}
+		state.Transcription = transcriptionStatus{Available: c.hub.transcriptionConfigured(), Ready: time.Since(c.hub.transcriptionHeartbeat) < 5*time.Second}
+		state.Transcription.Mode = transcriptionModeServer
+		if browserTranscriptionEnabled() {
+			state.Transcription.Mode = transcriptionModeBrowser
+			state.Transcription.Ready = state.Transcription.Available
+			for id, session := range room.browserTranscripts {
+				role, present := room.RoleOf(session.owner.userID)
+				if present && role.CanPublishVoice() && session.generation == room.voiceGeneration && time.Since(session.seen) < 15*time.Second {
+					state.Transcription.Speakers = append(state.Transcription.Speakers, id)
+				}
+			}
+		}
 	})
 	if !present {
 		c.v2Error(envelope, "not_in_room", ErrNotInRoom)
@@ -119,7 +149,10 @@ func handleRoomGet(c *Client, envelope *valueobjects.Envelope) error {
 	}
 	sort.Slice(state.Members, func(i, j int) bool { return state.Members[i].ID < state.Members[j].ID })
 	c.SendV2("room.state", state)
-	return handleCanvasGet(c, envelope)
+	if err := handleCanvasGet(c, envelope); err != nil {
+		return err
+	}
+	return handleLiveGet(c, envelope)
 }
 
 func (r *Room) memberName(member *User) string {
@@ -231,10 +264,12 @@ func handleRoomProfile(c *Client, envelope *valueobjects.Envelope) error {
 
 func handleRoomSettings(c *Client, envelope *valueobjects.Envelope) error {
 	var payload struct {
-		NotesVisibleToSpectators   *bool `json:"notesVisibleToSpectators"`
-		PelletsVisibleToSpectators *bool `json:"pelletsVisibleToSpectators"`
-		PelletsHidden              *bool `json:"pelletsHidden"`
-		SpectatorChatEnabled       *bool `json:"spectatorChatEnabled"`
+		NotesVisibleToSpectators   *bool   `json:"notesVisibleToSpectators"`
+		PelletsVisibleToSpectators *bool   `json:"pelletsVisibleToSpectators"`
+		PelletsHidden              *bool   `json:"pelletsHidden"`
+		SpectatorChatEnabled       *bool   `json:"spectatorChatEnabled"`
+		TranscriptionEnabled       *bool   `json:"transcriptionEnabled"`
+		TranscriptionLanguage      *string `json:"transcriptionLanguage"`
 	}
 	if err := envelope.DecodePayload(&payload); err != nil {
 		c.v2Error(envelope, "invalid_payload", err)
@@ -245,13 +280,27 @@ func handleRoomSettings(c *Client, envelope *valueobjects.Envelope) error {
 		c.v2Error(envelope, "not_in_room", err)
 		return err
 	}
-	err = c.hub.WithRoom(roomID, func(room *Room) error {
+	err = c.hub.voiceMutation(roomID, payload.TranscriptionEnabled != nil || payload.TranscriptionLanguage != nil, func(room *Room) error {
 		if !room.IsAdmin(c.userID) {
 			return ErrForbidden
 		}
+		if payload.TranscriptionLanguage != nil && !validTranscriptionLanguage(*payload.TranscriptionLanguage) {
+			return ErrTranscriptContent
+		}
+		if payload.TranscriptionEnabled != nil && *payload.TranscriptionEnabled && !c.hub.transcriptionConfigured() {
+			return ErrTranscriptDisabled
+		}
+		return nil
+	}, func(room *Room) error {
 		settings := room.Settings()
 		if payload.SpectatorChatEnabled != nil {
 			settings.SpectatorChatEnabled = *payload.SpectatorChatEnabled
+		}
+		if payload.TranscriptionEnabled != nil {
+			settings.TranscriptionEnabled = *payload.TranscriptionEnabled
+		}
+		if payload.TranscriptionLanguage != nil {
+			settings.TranscriptionLanguage = *payload.TranscriptionLanguage
 		}
 		if payload.NotesVisibleToSpectators != nil {
 			settings.NotesVisibleToSpectators = *payload.NotesVisibleToSpectators

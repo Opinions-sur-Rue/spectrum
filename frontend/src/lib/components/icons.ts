@@ -30,6 +30,7 @@ import headphones from 'iconoir/icons/regular/headset.svg';
 import mic from 'iconoir/icons/regular/microphone.svg';
 import micOff from 'iconoir/icons/regular/microphone-mute.svg';
 import speaker from 'iconoir/icons/regular/sound-high.svg';
+import history from 'iconoir/icons/regular/clock-rotate-right.svg';
 
 export const icons = {
 	save,
@@ -62,6 +63,7 @@ export const icons = {
 	headphones,
 	mic,
 	micOff,
-	speaker
+	speaker,
+	history
 };
 export type IconName = keyof typeof icons;

@@ -33,6 +33,8 @@ function fixture(roomId = 'ROOM') {
 		chat: vi.fn(),
 		chatError: vi.fn(),
 		roomClosed: vi.fn(),
+		reaction: vi.fn(),
+		live: vi.fn(),
 		error: vi.fn()
 	};
 	const client = new RoomClient('anonymous-user', roomId, callbacks);
@@ -43,6 +45,108 @@ function fixture(roomId = 'ROOM') {
 }
 
 describe('RoomClient', () => {
+	it('keeps a failed admission error instead of refreshing a nonexistent room', () => {
+		const { client, socket, callbacks } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		const count = socket.sent.length;
+		socket.receive({
+			v: 2,
+			op: 'error',
+			payload: { code: 'room_join_failed', message: 'room not found' }
+		});
+		expect(socket.sent).toHaveLength(count);
+		expect(callbacks.error).toHaveBeenLastCalledWith('room not found');
+		socket.receive({
+			v: 2,
+			op: 'error',
+			payload: { code: 'not_in_room', message: 'Stale refresh' }
+		});
+		expect(callbacks.error).toHaveBeenCalledTimes(1);
+		client.destroy();
+	});
+
+	it('retires a stale room when re-admission fails after a connection loss', () => {
+		const { client, socket, callbacks } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		socket.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM', role: 'admin' } });
+		socket.close();
+		vi.advanceTimersByTime(2000);
+		const next = FakeSocket.instances.at(-1)!;
+		next.onopen?.();
+		next.receive({ procedure: 'ack', arguments: ['signin'] });
+		next.receive({
+			v: 2,
+			op: 'error',
+			payload: { code: 'room_join_failed', message: 'room not found' }
+		});
+		expect(callbacks.roomClosed).toHaveBeenCalledOnce();
+		expect(callbacks.error).toHaveBeenLastCalledWith('room not found');
+		const received = callbacks.room.mock.calls.length;
+		next.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM', role: 'admin' } });
+		expect(callbacks.room).toHaveBeenCalledTimes(received);
+		client.destroy();
+	});
+	it('filters live snapshots by room/revision and strips voters after authority transfer', () => {
+		const { client, socket, callbacks } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		const scene = { revision: 10, topic: '', sliceCount: 7, hidden: false, pellets: [] };
+		const room = { roomId: 'ROOM', role: 'admin', spectrum: scene };
+		socket.receive({ v: 2, op: 'room.state', payload: room });
+		const live = {
+			roomId: 'ROOM',
+			revision: 10,
+			platform: 'twitch',
+			status: 'connected',
+			count: 1,
+			limit: 1000,
+			tiktokAvailable: false,
+			users: [{ id: 'l_one', nickname: 'Voter', vote: 1, selected: false }]
+		};
+		socket.receive({ v: 2, op: 'live.snapshot', payload: { ...live, roomId: 'OTHER' } });
+		socket.receive({ v: 2, op: 'live.snapshot', payload: { ...live, revision: 9 } });
+		expect(callbacks.live).not.toHaveBeenCalled();
+		expect(JSON.parse(socket.sent.at(-1)!).op).toBe('live.get');
+		socket.receive({ v: 2, op: 'live.snapshot', payload: live });
+		expect(callbacks.live.mock.lastCall?.[0].users).toHaveLength(1);
+		socket.receive({ v: 2, op: 'room.state', payload: { ...room, role: 'participant' } });
+		expect(callbacks.live.mock.lastCall?.[0].users).toEqual([]);
+		socket.receive({ v: 2, op: 'live.snapshot', payload: live });
+		expect(callbacks.live.mock.lastCall?.[0].users).toEqual([]);
+		client.destroy();
+	});
+	it('scopes transient reactions and does not auto-rejoin a room after leaving', () => {
+		const { client, socket, callbacks } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		const reaction = { roomId: 'ROOM', memberId: 'm_guest', nickname: 'Guest', emoji: '👍' };
+		socket.receive({ v: 2, op: 'room.reaction', payload: { ...reaction, roomId: 'OTHER' } });
+		expect(callbacks.reaction).not.toHaveBeenCalled();
+		socket.receive({ v: 2, op: 'room.reaction', payload: reaction });
+		expect(callbacks.reaction).toHaveBeenCalledWith(reaction);
+		socket.receive({ v: 2, op: 'room.closed', payload: { roomId: 'OTHER' } });
+		expect(callbacks.roomClosed).not.toHaveBeenCalled();
+		socket.receive({ v: 2, op: 'room.closed', payload: { roomId: 'ROOM', reason: 'left' } });
+		expect(callbacks.roomClosed).toHaveBeenCalledOnce();
+		socket.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM' } });
+		expect(callbacks.room).not.toHaveBeenCalled();
+		socket.receive({ v: 2, op: 'room.reaction', payload: reaction });
+		expect(callbacks.reaction).toHaveBeenCalledTimes(1);
+		socket.receive({
+			v: 2,
+			op: 'error',
+			payload: { code: 'not_in_room', message: 'Stale refresh' }
+		});
+		expect(callbacks.error).not.toHaveBeenCalled();
+		socket.close();
+		vi.advanceTimersByTime(2000);
+		const next = FakeSocket.instances.at(-1)!;
+		next.onopen?.();
+		next.receive({ procedure: 'ack', arguments: ['signin'] });
+		expect(next.sent).toHaveLength(1);
+		client.send('room.join', { roomId: 'ROOM' });
+		next.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM' } });
+		expect(callbacks.room).toHaveBeenCalledOnce();
+		client.destroy();
+	});
 	it('loads chat once per connection, merges history, and clears it when the room closes', () => {
 		const { client, socket, callbacks } = fixture();
 		socket.receive({ procedure: 'ack', arguments: ['signin'] });

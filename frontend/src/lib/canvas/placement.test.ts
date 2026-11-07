@@ -1,9 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { nextNotePosition, revealNote } from './placement';
+import { nextNotePosition, revealNote, focusNote } from './placement';
 import { worldToScreen } from './camera';
 import type { NoteModel } from './models';
 
 describe('note placement beside spectrum', () => {
+	it.each([
+		{ width: 1280, height: 700 },
+		{ width: 390, height: 500 },
+		{ width: 640, height: 300 }
+	])('frames resized notes at %j', (viewport) => {
+		const note = { x: 2000, y: -1400, width: 1000, height: 800 };
+		const camera = focusNote({ x: 0, y: 0, scale: 3 }, viewport, note);
+		const top = worldToScreen(camera, viewport, note);
+		const bottom = worldToScreen(camera, viewport, {
+			x: note.x + note.width,
+			y: note.y + note.height
+		});
+		expect(top.x).toBeGreaterThanOrEqual(23);
+		expect(top.y).toBeGreaterThanOrEqual(23);
+		expect(bottom.x).toBeLessThanOrEqual(viewport.width - 23);
+		expect(bottom.y).toBeLessThanOrEqual(viewport.height - 60);
+	});
+	it('leaves camera unchanged when there is no room to frame a note', () => {
+		const camera = { x: 20, y: -30, scale: 1 };
+		expect(
+			focusNote(camera, { width: 0, height: 0 }, { x: 100, y: 100, width: 360, height: 340 })
+		).toBe(camera);
+	});
 	it('keeps first notes off the spectrum and apart', () => {
 		const camera = { x: 0, y: 0, scale: 1 };
 		const first = nextNotePosition(camera, []);

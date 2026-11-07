@@ -1,26 +1,28 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import IconButton from '$lib/components/IconButton.svelte';
 	import type { RoomState, SpectrumState, Pellet } from './room-client';
 	import { createCellDetector, cellLabel, type SpectrumCell } from './cells';
 	import { createMovementStream } from './movement-stream';
+	import { m } from '$lib/paraglide/messages.js';
 	let {
 		state: board,
 		cells,
+		labels,
 		room,
 		ready,
 		scale,
+		speakers = [],
 		send
 	}: {
 		state: SpectrumState;
 		cells: SpectrumCell[];
+		labels: string;
 		room: RoomState;
 		ready: boolean;
 		scale: number;
+		speakers?: string[];
 		send: (op: string, payload: unknown) => void;
 	} = $props();
-	let topic = $state('');
-	let topicDirty = $state(false);
 	let pending = $state<{ memberId: string; x: number; y: number } | null>(null);
 	let dragging = $state(false);
 	let pendingRevision = 0;
@@ -50,12 +52,6 @@
 	onDestroy(() => stream.cancel());
 
 	$effect(() => {
-		if (!topicDirty || board.topic === topic) {
-			topic = board.topic;
-			topicDirty = false;
-		}
-	});
-	$effect(() => {
 		// Old echoes of intermediate drag points must never roll back the final point.
 		const own = board.pellets.find((pellet) => pellet.memberId === room.userId);
 		if (
@@ -63,6 +59,7 @@
 			room.role === 'spectator' ||
 			!own ||
 			(drag && board.revision !== drag.revision) ||
+			(drag && drag.scale !== scale) ||
 			(pending && board.revision !== pendingRevision)
 		) {
 			stream.cancel();
@@ -159,7 +156,12 @@
 	}
 </script>
 
-<div class="spectrum-board" data-testid="spectrum-board">
+<div
+	class="spectrum-board"
+	data-testid="spectrum-board"
+	data-slice-count={board.sliceCount}
+	data-neutral-circle={board.showNeutralCircle ?? true}
+>
 	{#if selectedCell}
 		<svg
 			class="cell-highlight"
@@ -169,33 +171,14 @@
 			data-cell-id={selectedCell.id}><path d={selectedCell.path} /></svg
 		>
 	{/if}
-	<div class="topic">
-		{#if admin}
-			<form
-				onsubmit={(event) => {
-					event.preventDefault();
-					send('spectrum.topic', { topic });
-				}}
-			>
-				<input
-					aria-label="Discussion topic"
-					placeholder="What are we discussing?"
-					maxlength="500"
-					disabled={!ready}
-					bind:value={topic}
-					oninput={() => {
-						topicDirty = true;
-					}}
-				/>
-				{#if topicDirty}<IconButton
-						icon="save"
-						label="Save topic"
-						disabled={!ready}
-						type="submit"
-					/>{/if}
-			</form>
-		{:else}<h1>{board.topic || 'Spectrum'}</h1>{/if}
-	</div>
+	{#if labels}<img
+			class="spectrum-labels"
+			src={labels}
+			alt=""
+			aria-hidden="true"
+			data-testid="spectrum-labels"
+			draggable="false"
+		/>{/if}
 	{#each board.pellets as pellet (pellet.memberId)}
 		{@const point = coordinates(pellet)}
 		{@const own = pellet.memberId === room.userId && room.role !== 'spectator'}
@@ -203,13 +186,24 @@
 		<button
 			class="pellet"
 			class:own
+			class:speaking={speakers.includes(pellet.memberId)}
+			data-speaking={speakers.includes(pellet.memberId)}
 			class:dragging={dragging && own}
 			disabled={!ready || !own}
-			aria-label={own ? 'Your position' : `${pellet.nickname}'s position`}
-			title={`${pellet.nickname}${cell ? ` · ${cellLabel(cell.id)}` : ''}${own ? ' · drag or use arrow keys' : ''}`}
+			aria-label={own
+				? m.v2_your_position()
+				: m.v2_member_position({
+						name: pellet.memberId === 'live_average' ? m.v2_live_average() : pellet.nickname
+					})}
+			title={`${pellet.memberId === 'live_average' ? m.v2_live_average() : pellet.nickname}${cell ? ` · ${cellLabel(cell.id)}` : ''}${own ? ` · ${m.v2_position_hint()}` : ''}`}
+			class:live={pellet.memberId.startsWith('l_') || pellet.memberId === 'live_average'}
 			style:left="{point.x - 14}px"
 			style:top="{point.y - 14}px"
 			style:background-color="#{pellet.color}"
+			style:--hit-space="{Math.max(0, (44 / scale - 28) / 2)}px"
+			style:--label-scale={1 / scale}
+			style:--ring-space="{Math.max(8, 8 / scale)}px"
+			style:--ring-width="{Math.max(3, 3 / scale)}px"
 			data-pellet-id={pellet.memberId}
 			data-own={own}
 			data-x={point.x}
@@ -221,9 +215,13 @@
 			onpointercancel={cancel}
 			onlostpointercapture={cancel}
 			onkeydown={(event) => keyMove(event, pellet)}
-		></button>
+			>{#if own}<span class="own-label" aria-hidden="true">{m.ux_own_pellet()}</span><span
+					class="own-mark"
+					aria-hidden="true">●</span
+				>{/if}</button
+		>
 	{/each}
-	{#if admin && board.hidden}<span class="hidden-status">Positions hidden from others</span>{/if}
+	{#if admin && board.hidden}<span class="hidden-status">{m.v2_hidden_positions()}</span>{/if}
 </div>
 
 <style>
@@ -235,42 +233,8 @@
 		height: 735px;
 		pointer-events: none;
 	}
-	.topic {
-		position: absolute;
-		top: -58px;
-		left: 0;
-		width: 100%;
-		min-height: 38px;
-		text-align: center;
-	}
-	.topic h1 {
-		font-size: 22px;
-		font-weight: 600;
-		overflow-wrap: anywhere;
-	}
-	.topic form {
-		display: flex;
-		justify-content: center;
-		gap: 8px;
-		align-items: center;
-		pointer-events: auto;
-	}
-	.topic input {
-		flex: 1;
-		min-width: 0;
-		background: transparent;
-		font-size: 22px;
-		font-weight: 600;
-		text-align: center;
-		border: 0;
-		border-bottom: 1px solid transparent;
-		outline: none;
-	}
-	.topic input:hover,
-	.topic input:focus {
-		border-color: #94a3b8;
-	}
 	.pellet {
+		z-index: 2;
 		position: absolute;
 		width: 28px;
 		height: 28px;
@@ -280,9 +244,70 @@
 		pointer-events: auto;
 		opacity: 1;
 	}
+	.pellet.speaking {
+		z-index: 3;
+	}
+	.pellet.speaking::after {
+		content: '';
+		position: absolute;
+		inset: calc(-1 * var(--ring-space));
+		border: var(--ring-width) solid #22c55e;
+		border-radius: 50%;
+		box-shadow:
+			0 0 0 2px #052e16,
+			0 0 16px #22c55e99;
+		pointer-events: none;
+		animation: speaking-pulse 900ms ease-in-out infinite alternate;
+	}
+	@keyframes speaking-pulse {
+		from {
+			transform: scale(1);
+			opacity: 1;
+		}
+		to {
+			transform: scale(1.18);
+			opacity: 0.65;
+		}
+	}
+	.own-label {
+		position: absolute;
+		left: 50%;
+		bottom: calc(100% + var(--ring-space) + 8px);
+		transform: translateX(-50%) scale(var(--label-scale));
+		transform-origin: bottom center;
+		border: 1px solid var(--color-base-content);
+		border-radius: 999px;
+		padding: 3px 9px;
+		background: var(--color-base-100);
+		color: var(--color-base-content);
+		font-size: 12px;
+		font-weight: 700;
+		line-height: 1.3;
+		white-space: nowrap;
+		pointer-events: none;
+	}
+	.own-mark {
+		color: white;
+		font-size: 13px;
+		line-height: 24px;
+		text-shadow: 0 1px 3px black;
+		pointer-events: none;
+	}
+	.pellet.live {
+		border: 3px dashed white;
+	}
 	.cell-highlight {
+		z-index: 0;
 		position: absolute;
 		inset: 0;
+		width: 980px;
+		height: 735px;
+		pointer-events: none;
+	}
+	.spectrum-labels {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
 		width: 980px;
 		height: 735px;
 		pointer-events: none;
@@ -301,12 +326,22 @@
 		.pellet:not(.own) {
 			transition: none;
 		}
+		.pellet.speaking::after {
+			animation: none;
+		}
 	}
 	.pellet.own {
+		z-index: 4;
 		cursor: grab;
 		touch-action: none;
 		outline: 2px solid #334155;
 		outline-offset: 2px;
+	}
+	.pellet.own::before {
+		content: '';
+		position: absolute;
+		inset: calc(-1 * var(--hit-space));
+		border-radius: 50%;
 	}
 	.pellet.own:focus-visible {
 		outline: 3px solid #2563eb;

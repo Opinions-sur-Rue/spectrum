@@ -22,7 +22,8 @@ type Client struct {
 	//
 	userID string
 
-	hub *Hub
+	hub                        *Hub
+	browserTranscriptLastStart time.Time
 }
 
 const (

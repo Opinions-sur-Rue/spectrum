@@ -91,6 +91,49 @@ docker-compose up -d
 
 We recommend using Traefik as a web server/reverse proxy as it is pretty straightforward to setup as you can see in our `docker-compose.yml`.
 
+### v2 beta release pipeline
+
+Frontend development and builds now require **Node 24** (`cd frontend && nvm use`).
+The root/v1 route remains available; v2 is accessed through `/v2`. A separate
+`.github/workflows/release-v2-beta.yml` publishes a tested image pair, **not a
+deployment**. Existing `main` publishers and Utile auto-deployment remain active:
+use a beta branch/tag before merging changes into `main` if production must not
+change yet.
+
+Before the first beta run:
+
+- Set repository variables `BETA_API_URL` and `BETA_PUBLIC_URL` to the target
+  HTTPS origins (no paths, credentials or trailing query strings). Vite embeds
+  these public values at build time; they are not runtime backend settings.
+- Create the GitHub environment `beta`, with required reviewers if publishing
+  needs approval. Allow the workflow to write GitHub Packages/GHCR.
+- Commit the complete source, then create a new tag such as `v2.0.0-beta.1` on
+  the intended commit. Pushing the tag runs validation and publishing. The manual
+  workflow accepts an **existing beta tag**, never an arbitrary branch.
+
+The workflow resolves the tag to one commit, runs full Go race tests/lint,
+frontend lint/check/unit/v1 tests, v2 Chromium/Firefox/WebKit UI tests and
+Chromium/Firefox voice tests against isolated local fixtures. Experimental ASR
+inference is not a release gate. It then builds both production containers,
+smoke-tests `/`, `/v2`, a direct room URL and backend startup, and pushes those
+same images without rebuilding. Both components are built even if only one
+changed. No `latest` or `main` image tags are updated by this beta workflow.
+
+Download the successful run's **`beta-images`** artifact: `beta-images.json`
+records the source commit, public origins and both `image@sha256:…` references.
+Deploy using those digests, not mutable tags. Use a fresh beta version for each
+candidate; a partial publishing failure is not a deployable pair. Test logs are
+retained for seven days. No deployment dispatch is sent to `utile-compose`.
+
+Deployment remains a separate approval: configure production voice networking,
+TLS/TURN and secrets, set `SPECTRUM_TRANSCRIPTION_ENABLED=false` initially, and
+retain previous image digests for rollback. Development LiveKit/STUN credentials
+are test fixtures only. Backend replacement erases active ephemeral rooms;
+rollback cannot recover them. Local `static/stt` assets/models are excluded from
+the frontend image in this beta pipeline; enabling experimental ASR later needs
+an explicit asset-delivery plan. Real Safari audio and dependency-audit triage
+remain pre-promotion checks.
+
 
 ---
 

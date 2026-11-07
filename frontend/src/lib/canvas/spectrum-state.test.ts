@@ -16,6 +16,18 @@ function snapshot(): SpectrumState {
 }
 
 describe('spectrum synchronization', () => {
+	it('does not revive an old layout or neutral circle from a delayed snapshot', () => {
+		const previous = { ...snapshot(), showNeutralCircle: true };
+		const configured = mergeSpectrumSnapshot(previous, {
+			...previous,
+			revision: 11,
+			sliceCount: 3,
+			showNeutralCircle: false
+		});
+		expect(mergeSpectrumSnapshot(configured, previous)).toBe(configured);
+		expect(configured.sliceCount).toBe(3);
+		expect(configured.showNeutralCircle).toBe(false);
+	});
 	it('keeps independent participant movements even if messages arrive in reverse order', () => {
 		let current = snapshot();
 		current = applySpectrumMovement(current, {

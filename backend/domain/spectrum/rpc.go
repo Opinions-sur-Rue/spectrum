@@ -262,6 +262,9 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 		if user.IsInRoom() {
 			roomID := user.Room()
 			err := c.hub.WithRoom(roomID, func(room *Room) error {
+				if !room.IsAdmin(c.userID) {
+					return ErrForbidden
+				}
 				return room.SetAdminByColor(rpc.Arguments[0])
 			})
 			if err != nil {
@@ -494,7 +497,7 @@ func (c *Client) EvaluateRPC(rpc *valueobjects.MessageContent) error {
 				c.send <- reply.Export()
 				break
 			}
-			if err := c.hub.StopRoom(roomID); err != nil {
+			if err := c.hub.stopRoom(roomID, c.userID); err != nil {
 				log.Error(err.Error())
 			}
 		}

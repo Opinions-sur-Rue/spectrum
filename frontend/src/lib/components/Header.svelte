@@ -109,11 +109,10 @@
 				<div tabindex="0" class="card-body">
 					<h2 class="card-title">{m.info_do_you_have_a_moment()}</h2>
 					<p>
-						{m.info_help_us_form()}<a
-							class="link link-info"
-							target="_blank"
-							rel="noopener"
-							href={m.link_feedback_form()}>{m.google_form()}</a
+						{m.info_help_us_form()}
+						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Absolute external URL from the translation catalog, not an app route. -->
+						<a class="link link-info" target="_blank" rel="noopener" href={m.link_feedback_form()}
+							>{m.google_form()}</a
 						>
 					</p>
 				</div>

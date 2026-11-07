@@ -23,6 +23,9 @@ func TestDefaultRoomSettings(t *testing.T) {
 	if !settings.TranscriptionEnabled {
 		t.Fatal("transcription must be enabled by default")
 	}
+	if settings.TranscriptionLanguage != "fr" {
+		t.Fatal("transcription language must default to French")
+	}
 }
 
 func TestLoadRoomSettingsEnvOverrides(t *testing.T) {

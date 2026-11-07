@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	transcriptionLanguageAuto = "auto"
 	// DefaultParticipantSlots is the legacy maximum number of pellets.
 	// v2 rooms created by the frontend set 6 explicitly.
 	DefaultParticipantSlots = 8
@@ -37,6 +38,8 @@ type RoomSettings struct {
 
 	// TranscriptionEnabled turns the speech-to-text pipeline on for the room.
 	TranscriptionEnabled bool `json:"transcriptionEnabled"`
+	// TranscriptionLanguage pins recognition instead of redetecting short clips.
+	TranscriptionLanguage string `json:"transcriptionLanguage"`
 }
 
 // DefaultRoomSettings returns the v2 defaults, before environment overrides.
@@ -48,6 +51,7 @@ func DefaultRoomSettings() RoomSettings {
 		PelletsVisibleToSpectators: true,
 		NotesVisibleToSpectators:   false,
 		TranscriptionEnabled:       true,
+		TranscriptionLanguage:      "fr",
 	}
 }
 
@@ -81,7 +85,14 @@ func (s RoomSettings) Sanitize() RoomSettings {
 	if s.SpectatorLimit <= 0 {
 		s.SpectatorLimit = DefaultSpectatorLimit
 	}
+	if !validTranscriptionLanguage(s.TranscriptionLanguage) {
+		s.TranscriptionLanguage = "fr"
+	}
 	return s
+}
+
+func validTranscriptionLanguage(language string) bool {
+	return language == "fr" || language == "en" || language == transcriptionLanguageAuto
 }
 
 func envInt(key string) (int, bool) {

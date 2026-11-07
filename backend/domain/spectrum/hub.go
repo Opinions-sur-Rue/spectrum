@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"Opinions-sur-Rue/spectrum/domain/social"
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 	voicedomain "Opinions-sur-Rue/spectrum/domain/voice"
 	"Opinions-sur-Rue/spectrum/utils"
@@ -20,10 +21,11 @@ type Hub struct {
 	// Use RLock/RUnlock for reads, Lock/Unlock for writes.
 	mu sync.RWMutex
 	// Lock order: voiceMu, then mu. SFU HTTP calls never hold mu.
-	voiceMu      sync.Mutex
-	voiceBackend voicedomain.Backend
-	voiceEnabled bool
-	voiceError   error
+	voiceMu                sync.Mutex
+	voiceBackend           voicedomain.Backend
+	voiceEnabled           bool
+	voiceError             error
+	transcriptionHeartbeat time.Time
 
 	// Registered clients.
 	clients map[*Client]bool
@@ -42,7 +44,8 @@ type Hub struct {
 	// Unregister requests from clients.
 	unregister chan *Client
 
-	context context.Context
+	context     context.Context
+	liveFactory func(string, string, string) (social.ChatListener, error)
 
 	// gracePeriodSeconds is how long a disconnected participant is kept in a room
 	// before being evicted. Configurable via SPECTRUM_GRACE_PERIOD_SECONDS (default: 60).
@@ -295,6 +298,7 @@ func (h *Hub) WithRoomRead(roomID string, fn func(room *Room)) {
 // LeaveRoom removes a participant from a room and reassigns admin if needed.
 func (h *Hub) LeaveRoom(roomID string, color string, userID string) error {
 	var notice *valueobjects.MessageContent
+	var closedRecipients []string
 	err := h.voiceMutation(roomID, true, func(room *Room) error {
 		if _, present := room.RoleOf(userID); !present {
 			return ErrUserCannotJoin
@@ -320,9 +324,23 @@ func (h *Hub) LeaveRoom(roomID string, color string, userID string) error {
 				notice = h.reassignAdminLocked(roomID, room)
 			}
 		}
+		// Nobody on stage can inherit administration: close rather than leave
+		// spectators stranded in an ownerless room with retained private data.
+		if len(room.admins) == 0 && len(room.participants) == 0 {
+			room.cancelLive()
+			for _, member := range room.Spectators() {
+				closedRecipients = append(closedRecipients, member.UserID)
+				member.SetRoom("")
+				member.SetColor("")
+			}
+			delete(h.rooms, roomID)
+		}
 		return nil
 	})
 	if err == nil {
+		for _, recipient := range closedRecipients {
+			h.MessageUser(userID, recipient, valueobjects.NewMessageContentWithArgs(valueobjects.RPC_STOPPED))
+		}
 		if notice != nil {
 			h.MessageRoom(roomID, notice)
 		}
@@ -458,8 +476,17 @@ func (h *Hub) Demote(roomID string, requesterID string, targetID string) error {
 
 // StopRoom broadcasts RPC_STOPPED to all participants and deletes the room.
 func (h *Hub) StopRoom(roomID string) error {
+	return h.stopRoom(roomID, "")
+}
+
+func (h *Hub) stopRoom(roomID, requester string) error {
 	var recipients []string
-	err := h.voiceMutation(roomID, true, func(room *Room) error { return nil }, func(room *Room) error {
+	err := h.voiceMutation(roomID, true, func(room *Room) error {
+		if requester != "" && !room.IsAdmin(requester) {
+			return ErrForbidden
+		}
+		return nil
+	}, func(room *Room) error {
 		for _, member := range append(room.Participants(), room.Spectators()...) {
 			recipients = append(recipients, member.UserID)
 			member.SetRoom("")
@@ -467,6 +494,7 @@ func (h *Hub) StopRoom(roomID string) error {
 			member.SetMicrophoneEnabled(false)
 			member.SetLastVoiceId("")
 		}
+		room.cancelLive()
 		delete(h.rooms, roomID)
 		return nil
 	})
@@ -558,6 +586,7 @@ func (h *Hub) Run(ctx context.Context) {
 	h.context = ctx
 	go h.prepareVoice(ctx)
 	defer h.shutdownVoice()
+	defer h.shutdownLive()
 	go h.Routine(ctx)
 
 	log.Debug("Hub runner starting...")
@@ -578,6 +607,12 @@ func (h *Hub) Run(ctx context.Context) {
 				}).Debug("Unregistering client")
 
 				if client.UserID() != "" && h.users[client.UserID()].IsInRoom() {
+					if room := h.rooms[h.users[client.UserID()].Room()]; room != nil {
+						id := room.memberIDs[client.UserID()]
+						if session := room.browserTranscripts[id]; session != nil && session.owner == client {
+							delete(room.browserTranscripts, id)
+						}
+					}
 					h.users[client.UserID()].beginningGracePeriod = time.Now().Unix()
 				}
 				delete(h.clients, client)

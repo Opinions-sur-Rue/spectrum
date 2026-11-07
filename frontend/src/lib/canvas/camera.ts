@@ -33,7 +33,7 @@ export const MIN_SCALE = 0.2;
 export const MAX_SCALE = 3;
 
 /** Padding kept around the spectrum when fitting it in the viewport. */
-const FIT_PADDING = 120;
+const FIT_PADDING = 64;
 
 export function createCamera(): Camera {
 	return { x: 0, y: 0, scale: 1 };
@@ -118,12 +118,10 @@ export function panBy(camera: Camera, viewport: Viewport, dx: number, dy: number
 export function fitSpectrum(viewport: Viewport): Camera {
 	const width = viewport.width > 0 ? viewport.width : SPECTRUM_WIDTH + FIT_PADDING * 2;
 	const height = viewport.height > 0 ? viewport.height : SPECTRUM_HEIGHT + FIT_PADDING * 2;
+	const padding = Math.min(FIT_PADDING, Math.max(20, width * 0.04));
 
 	const scale = clampScale(
-		Math.min(
-			(width - FIT_PADDING * 2) / SPECTRUM_WIDTH,
-			(height - FIT_PADDING * 2) / SPECTRUM_HEIGHT
-		)
+		Math.min((width - padding * 2) / SPECTRUM_WIDTH, (height - padding * 2) / SPECTRUM_HEIGHT)
 	);
 
 	return clampCamera({ x: 0, y: 0, scale }, viewport);

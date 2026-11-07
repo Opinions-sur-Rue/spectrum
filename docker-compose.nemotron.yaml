@@ -1,0 +1,51 @@
+# Opt-in override. Base Compose alone keeps Whisper; no room/backend reset needed.
+services:
+  stt:
+    environment:
+      STT_ENGINE: nemotron
+    networks: [default, asr-private]
+    depends_on:
+      nemotron:
+        condition: service_healthy
+
+  nemotron:
+    build:
+      context: ./services/transcription
+      dockerfile: Dockerfile.nemotron
+    platform: linux/amd64
+    profiles: [transcription]
+    command:
+      - --quiet
+      - serve
+      - --asr-model
+      - /models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+      - --device
+      - cpu
+      - --asr.backend.threads
+      - "4"
+      - --threads
+      - "2"
+      - --host
+      - 0.0.0.0
+      - --no-ui
+      - --max-upload-mb
+      - "4"
+    volumes:
+      - stt-models:/models:ro
+    # No published ports and no Internet route. Audio/uploads stay in RAM.
+    networks: [asr-private]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: none
+    healthcheck:
+      test: [CMD, nemo-speech, health, --url, "http://127.0.0.1:8080/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+networks:
+  asr-private:
+    internal: true

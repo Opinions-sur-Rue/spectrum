@@ -14,7 +14,7 @@ services:
   # -f docker-compose.dev.yaml --profile voice up -d --build
   livekit:
     image: livekit/livekit-server:v1.13.11
-    profiles: [voice]
+    profiles: [voice, transcription]
     command: --config /etc/livekit.yaml
     volumes:
       - ./dev/livekit.yaml:/etc/livekit.yaml:ro
@@ -28,7 +28,7 @@ services:
 
   stun:
     image: coturn/coturn:4.18.0-r0
-    profiles: [voice]
+    profiles: [voice, transcription]
     command: -c /etc/turnserver.conf
     volumes:
       - ./dev/turnserver.conf:/etc/turnserver.conf:ro
@@ -49,14 +49,32 @@ services:
       SPECTRUM_PARTICIPANT_SLOTS: "6"
       SPECTRUM_SPECTATOR_LIMIT: "50"
       SPECTRUM_SPECTATOR_CHAT: "false"
-      # No speech-to-text pipeline yet
-      SPECTRUM_TRANSCRIPTION_ENABLED: "false"
+      SPECTRUM_TRANSCRIPTION_ENABLED: "${SPECTRUM_TRANSCRIPTION_ENABLED:-false}"
+      # Optional operator-provided compatible signer; no hosted default in v2.
+      SPECTRUM_TIKTOK_SIGNER_URL: "${SPECTRUM_TIKTOK_SIGNER_URL:-}"
+      # Public local fixture only. Never reuse in production.
+      SPECTRUM_TRANSCRIPTION_TOKEN: "${SPECTRUM_TRANSCRIPTION_TOKEN:-spectrum-local-stt-fixture-not-for-production}"
       # Opt in with SPECTRUM_VOICE_ENABLED=true and --profile voice.
       SPECTRUM_VOICE_ENABLED: "${SPECTRUM_VOICE_ENABLED:-false}"
       LIVEKIT_INTERNAL_URL: "http://livekit:7880"
       LIVEKIT_PUBLIC_URL: "ws://127.0.0.1:7880"
       LIVEKIT_API_KEY: "spectrum-dev"
       LIVEKIT_API_SECRET: "spectrum-local-development-secret-not-for-production"
+    restart: unless-stopped
+
+  stt:
+    build: ./services/transcription
+    profiles: [transcription]
+    environment:
+      SPECTRUM_BACKEND_URL: "http://backend:3000"
+      SPECTRUM_TRANSCRIPTION_TOKEN: "${SPECTRUM_TRANSCRIPTION_TOKEN:-spectrum-local-stt-fixture-not-for-production}"
+      LIVEKIT_URL: "ws://livekit:7880"
+      WHISPER_MODEL: "small"
+      WHISPER_MODEL_PATH: "/models/whisper-small"
+      HF_HUB_OFFLINE: "1"
+    volumes:
+      - stt-models:/models
+    depends_on: [backend, livekit]
     restart: unless-stopped
 
   frontend:
@@ -77,3 +95,6 @@ services:
       VITE_PUBLIC_URL: "http://localhost:5173"
       VITE_DEBUG: "true"
     restart: unless-stopped
+
+volumes:
+  stt-models:

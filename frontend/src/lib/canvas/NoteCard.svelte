@@ -6,9 +6,18 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import type { EdgeModel, NoteModel, Relation } from './models';
+	import { m } from '$lib/paraglide/messages.js';
+	import { relationLabel } from './labels';
+	import type { NoteDrafts } from './note-drafts';
+	import { noteInspector } from './note-inspector';
+	import { noteDock } from './note-dock';
+	import { MIN_NOTE_WIDTH, MIN_NOTE_HEIGHT, MAX_NOTE_WIDTH, MAX_NOTE_HEIGHT } from './note-layout';
 
 	let {
 		note,
+		drafts,
+		hidden = false,
+		presentation = false,
 		editable,
 		admin,
 		ready,
@@ -21,6 +30,9 @@
 		resize
 	}: {
 		note: NoteModel;
+		drafts: NoteDrafts;
+		hidden?: boolean;
+		presentation?: boolean;
 		editable: boolean;
 		admin: boolean;
 		ready: boolean;
@@ -43,6 +55,17 @@
 	let relation = $state<Relation>('supports');
 	let dragging = $state(false);
 	let resizing = $state(false);
+	let compact = $state(false);
+	let inspecting = $state(false);
+	$effect(() => {
+		if (presentation) inspecting = false;
+	});
+	const nudges = [
+		{ label: () => m.ux_note_left(), symbol: '←', dx: -40, dy: 0 },
+		{ label: () => m.ux_note_up(), symbol: '↑', dx: 0, dy: -40 },
+		{ label: () => m.ux_note_down(), symbol: '↓', dx: 0, dy: 40 },
+		{ label: () => m.ux_note_right(), symbol: '→', dx: 40, dy: 0 }
+	];
 	let sizeDrag: {
 		pointerId: number;
 		width: number;
@@ -62,33 +85,49 @@
 	} | null = null;
 	const visibility = $derived(
 		note.moderation !== 'approved'
-			? note.moderation
+			? note.moderation === 'pending'
+				? m.v2_note_pending()
+				: m.v2_note_rejected()
 			: !note.visible
-				? 'Hidden — only admin / author'
+				? m.v2_note_hidden()
 				: audienceEnabled
-					? 'Visible to spectators'
-					: 'Revealed — spectators disabled'
+					? m.v2_note_visible()
+					: m.v2_note_revealed()
 	);
 
 	onMount(() => {
-		confirmedMarkdown = note.markdown;
-		draft = note.markdown;
-		baseVersion = note.version;
+		const media = window.matchMedia('(max-width: 1023px)');
+		function updateCompact() {
+			compact = media.matches;
+			if (!compact) inspecting = false;
+		}
+		updateCompact();
+		media.addEventListener('change', updateCompact);
+		const saved = editable || presentation ? drafts.get(note.id) : undefined;
+		confirmedMarkdown = saved?.baseMarkdown ?? note.markdown;
+		draft = saved?.markdown ?? note.markdown;
+		baseVersion = saved ? saved.baseVersion : note.version;
+		dirty = draft !== note.markdown;
+		conflict =
+			!!saved &&
+			dirty &&
+			(note.version !== saved.baseVersion || note.markdown !== saved.baseMarkdown);
 		const instance = new Editor({
 			element,
 			extensions: [
 				StarterKit.configure({ link: { openOnClick: false }, heading: { levels: [1, 2, 3] } }),
 				Markdown
 			],
-			content: note.markdown,
+			content: draft,
 			contentType: 'markdown',
 			editable: editable && ready,
 			editorProps: {
-				attributes: { role: 'textbox', 'aria-label': 'Note content', 'aria-multiline': 'true' }
+				attributes: { role: 'textbox', 'aria-label': m.v2_note_content(), 'aria-multiline': 'true' }
 			},
 			onUpdate: ({ editor: current }) => {
 				draft = current.getMarkdown();
 				dirty = draft !== confirmedMarkdown;
+				drafts.set(note.id, { markdown: draft, baseMarkdown: confirmedMarkdown, baseVersion });
 			}
 		});
 		editor = instance;
@@ -100,6 +139,7 @@
 		element.addEventListener('lostpointercapture', cancelDrag, { signal: events.signal });
 		element.addEventListener('click', swallowDragClick, { capture: true, signal: events.signal });
 		return () => {
+			media.removeEventListener('change', updateCompact);
 			events.abort();
 			drag = null;
 			editor = null;
@@ -109,6 +149,11 @@
 
 	$effect(() => {
 		editor?.setEditable(editable && ready, false);
+		if (editor && !editable && !presentation) {
+			// Approval or role revocation must not expose a retained private draft.
+			if (dirty) reload();
+			drafts.delete(note.id);
+		}
 	});
 	$effect(() => {
 		if (!editor) return;
@@ -121,19 +166,34 @@
 			baseVersion = note.version;
 			dirty = false;
 			conflict = false;
-		} else if (note.version !== baseVersion) {
+			drafts.delete(note.id);
+		} else if (incoming === confirmedMarkdown) {
+			// Geometry-only updates do not conflict with an unsaved text edit.
+			baseVersion = note.version;
+			conflict = false;
+			drafts.set(note.id, { markdown: draft, baseMarkdown: confirmedMarkdown, baseVersion });
+		} else {
 			conflict = true;
 		}
 	});
 
 	function reload() {
 		if (!editor) return;
+		if (editable && ready) editor.view.focus();
 		editor.commands.setContent(note.markdown, { contentType: 'markdown', emitUpdate: false });
 		confirmedMarkdown = note.markdown;
 		draft = note.markdown;
 		baseVersion = note.version;
 		dirty = false;
 		conflict = false;
+		drafts.delete(note.id);
+	}
+	function save() {
+		if (!editor || !editable || !ready || !dirty || conflict) return;
+		// Saving disables/removes dock controls after acknowledgment. Keep focus in
+		// the editor so the dock does not collapse or move away from the pointer.
+		editor.view.focus();
+		send('note.update', { noteId: note.id, version: baseVersion, markdown: draft });
 	}
 
 	function moderate(decision: 'approved' | 'rejected') {
@@ -143,6 +203,7 @@
 	}
 
 	function startDrag(event: PointerEvent) {
+		if (compact || inspecting) return;
 		if (drag) return;
 		suppressClick = false;
 		if (!editable || !ready || note.pinned || event.button !== 0 || !event.isPrimary) return;
@@ -271,9 +332,16 @@
 </script>
 
 <article
+	use:noteInspector={{
+		open: compact && inspecting && !presentation,
+		label: note.title,
+		close: () => (inspecting = false)
+	}}
+	style:display={hidden || (presentation && dirty) ? 'none' : undefined}
 	class="note-card"
 	class:dragging
 	class:resizing
+	class:inspecting={compact && inspecting}
 	class:movable={editable && ready && !note.pinned}
 	style:left="{note.x}px"
 	style:top="{note.y}px"
@@ -284,23 +352,42 @@
 	data-width={note.width}
 	data-height={note.height}
 	aria-label={note.title}
+	tabindex="-1"
 >
+	{#if compact && !inspecting && !presentation}<button
+			class="note-inspect"
+			data-note-inspect
+			aria-label={m.ux_open_note({ title: note.title })}
+			onclick={() => (inspecting = true)}
+		></button>{/if}
+	{#if compact && inspecting}<header class="inspector-heading">
+			<strong>{editable ? m.ux_note_editor() : m.ux_note_reader()}</strong>
+			<button
+				type="button"
+				class="btn btn-sm"
+				data-note-inspector-close
+				onclick={() => (inspecting = false)}>{m.close()}</button
+			>
+		</header>{/if}
 	{#if note.pinned}<span
 			class="pin-indicator"
 			role="img"
-			aria-label="Pinned note"
-			title="Pinned note"><Icon name="pin" size={16} /></span
+			aria-label={m.v2_note_pinned()}
+			title={m.v2_note_pinned()}><Icon name="pin" size={16} /></span
 		>{/if}
 	<div class="note-topbar">
 		<span class="visibility" title={visibility}>{visibility}</span>
-		{#if dirty}<span class="unsaved">Unsaved</span>{/if}
+		{#if !editable && !presentation && note.moderation === 'approved'}<span
+				>{m.ux_note_approved_readonly()}</span
+			>{/if}
+		{#if dirty}<span class="unsaved">{m.v2_note_unsaved()}</span>{/if}
 	</div>
 	<div bind:this={element} class="note-editor" class:readonly={!editable}></div>
 	{#if editable && !note.pinned}
 		<button
 			class="resize-handle"
-			aria-label="Resize note"
-			title="Resize note · drag or use arrow keys"
+			aria-label={m.v2_note_resize()}
+			title={m.v2_note_resize_hint()}
 			disabled={!ready}
 			onpointerdown={startResize}
 			onpointermove={(event) => moveResize(event)}
@@ -310,24 +397,24 @@
 			onkeydown={keyResize}><Icon name="resize" size={16} /></button
 		>
 	{/if}
-	<div class="note-tools">
+	<span class="note-dock-bridge" aria-hidden="true" style:--bridge-size="{12 / scale}px"></span>
+	<div class="note-tools" use:noteDock>
 		{#if conflict}<p class="conflict" role="status">
-				Remote change. Draft kept. <button onclick={reload}>Reload saved content</button>
+				{m.v2_note_conflict()} <button onclick={reload}>{m.v2_note_reload()}</button>
 			</p>{/if}
 		{#if editable || admin}
 			<div class="note-actions">
 				{#if editable}
 					<IconButton
 						icon="save"
-						label="Save note"
+						label={m.v2_note_save()}
 						disabled={!ready || !dirty || conflict}
-						onclick={() =>
-							send('note.update', { noteId: note.id, version: baseVersion, markdown: draft })}
+						onclick={save}
 					/>
-					{#if dirty}<IconButton icon="cancel" label="Cancel" onclick={reload} />{/if}
+					{#if dirty}<IconButton icon="cancel" label={m.cancel()} onclick={reload} />{/if}
 					<IconButton
 						icon={note.pinned ? 'unpin' : 'pin'}
-						label={note.pinned ? 'Unpin note' : 'Pin note'}
+						label={note.pinned ? m.v2_note_unpin() : m.v2_note_pin()}
 						aria-pressed={Boolean(note.pinned)}
 						disabled={!ready}
 						onclick={() => send('note.pin', { noteId: note.id, pinned: !note.pinned })}
@@ -336,21 +423,57 @@
 				{#if admin}
 					<IconButton
 						icon={note.visible ? 'eyeClosed' : 'eye'}
-						label={note.visible ? 'Hide' : 'Reveal'}
+						label={note.visible ? m.note_hide() : m.note_reveal()}
 						disabled={!ready || dirty || note.moderation !== 'approved'}
 						onclick={() => send('note.reveal', { noteId: note.id, visible: !note.visible })}
 					/>
 				{/if}
 				<IconButton
 					icon="more"
-					label="More note options"
+					label={m.v2_note_more()}
 					class="more-options"
 					onclick={() => element.querySelector<HTMLElement>('.tiptap')?.focus()}
 				/>
 			</div>
 		{/if}
 		{#if editable}
-			<div class="formatting advanced" aria-label="Text formatting">
+			{#if compact && inspecting}<details class="inspector-layout">
+					<summary>{m.ux_note_layout()}</summary>
+					<div class="note-actions">
+						{#each nudges as nudge (nudge.symbol)}<button
+								type="button"
+								aria-label={nudge.label()}
+								disabled={!ready || note.pinned}
+								onclick={() => move(note.id, note.x + nudge.dx, note.y + nudge.dy, true)}
+								>{nudge.symbol}</button
+							>{/each}
+					</div>
+					<div class="note-actions">
+						<label
+							>{m.ux_note_width()}<input
+								type="number"
+								min={MIN_NOTE_WIDTH}
+								max={MAX_NOTE_WIDTH}
+								value={note.width}
+								disabled={!ready || note.pinned}
+								onchange={(event) =>
+									resize(note.id, event.currentTarget.valueAsNumber, note.height, true)}
+							/></label
+						>
+						<label
+							>{m.ux_note_height()}<input
+								type="number"
+								min={MIN_NOTE_HEIGHT}
+								max={MAX_NOTE_HEIGHT}
+								value={note.height}
+								disabled={!ready || note.pinned}
+								onchange={(event) =>
+									resize(note.id, note.width, event.currentTarget.valueAsNumber, true)}
+							/></label
+						>
+					</div>
+				</details>{/if}
+			<div class="formatting advanced" aria-label={m.v2_note_formatting()}>
 				<IconButton
 					icon="heading"
 					label="H1"
@@ -359,19 +482,19 @@
 				/>
 				<IconButton
 					icon="bold"
-					label="Bold"
+					label={m.v2_bold()}
 					disabled={!ready}
 					onclick={() => editor?.chain().focus().toggleBold().run()}
 				/>
 				<IconButton
 					icon="italic"
-					label="Italic"
+					label={m.v2_italic()}
 					disabled={!ready}
 					onclick={() => editor?.chain().focus().toggleItalic().run()}
 				/>
 				<IconButton
 					icon="list"
-					label="Bullet list"
+					label={m.v2_list()}
 					disabled={!ready}
 					onclick={() => editor?.chain().focus().toggleBulletList().run()}
 				/>
@@ -381,20 +504,20 @@
 			<div class="note-actions advanced">
 				{#if editable}<IconButton
 						icon="trash"
-						label="Delete"
+						label={m.v2_delete()}
 						disabled={!ready}
 						onclick={() => send('note.delete', { noteId: note.id })}
 					/>{/if}
 				{#if admin}
 					{#if note.moderation !== 'approved'}<IconButton
 							icon="check"
-							label="Approve"
+							label={m.approve()}
 							disabled={!ready || dirty}
 							onclick={() => moderate('approved')}
 						/>{/if}
 					{#if note.moderation !== 'rejected'}<IconButton
 							icon="cancel"
-							label="Reject"
+							label={m.reject()}
 							disabled={!ready || dirty}
 							onclick={() => moderate('rejected')}
 						/>{/if}
@@ -403,20 +526,20 @@
 		{/if}
 		{#if admin}
 			<div class="note-links advanced">
-				<select aria-label="Target note" bind:value={targetId}
-					><option value="">Link to…</option
+				<select aria-label={m.v2_target_note()} bind:value={targetId}
+					><option value="">{m.v2_link_to()}</option
 					>{#each notes.filter((item) => item.id !== note.id) as other (other.id)}<option
 							value={other.id}>{other.title}</option
 						>{/each}</select
 				>
-				<select aria-label="Relation" bind:value={relation}
+				<select aria-label={m.v2_relation()} bind:value={relation}
 					>{#each ['supports', 'contradicts', 'questions', 'extends', 'related'] as value (value)}<option
-							{value}>{value}</option
+							{value}>{relationLabel(value as Relation)}</option
 						>{/each}</select
 				>
 				<IconButton
 					icon="link"
-					label="Create link"
+					label={m.v2_create_link()}
 					disabled={!ready || !notes.some((item) => item.id === targetId)}
 					onclick={() => send('edge.create', { from: note.id, to: targetId, relation, label: '' })}
 				/>
@@ -427,10 +550,10 @@
 				{#each edges.filter((edge) => edge.from === note.id) as edge (edge.id)}
 					{#if admin}<IconButton
 							icon="unlink"
-							label="Delete {edge.relation} link"
+							label={m.v2_delete_relation_link({ relation: relationLabel(edge.relation) })}
 							disabled={!ready}
 							onclick={() => send('edge.delete', { edgeId: edge.id })}
-						/>{:else}<span>{edge.relation}</span>{/if}
+						/>{:else}<span>{relationLabel(edge.relation)}</span>{/if}
 				{/each}
 			</div>
 		{/if}
@@ -443,18 +566,18 @@
 		pointer-events: auto;
 		display: flex;
 		flex-direction: column;
-		color: #1f2937;
-		background: white;
-		border: 1px solid #94a3b8;
-		border-radius: 12px;
-		box-shadow: 0 4px 16px #0002;
+		color: var(--color-base-content);
+		background: var(--color-base-100);
+		border: 1px solid color-mix(in oklab, var(--color-base-content) 22%, transparent);
+		border-radius: 16px;
+		box-shadow: 0 8px 24px #0002;
 		overflow: visible;
 	}
 	.pin-indicator {
 		position: absolute;
 		top: 8px;
 		right: 8px;
-		color: #64748b;
+		color: var(--color-base-content);
 		pointer-events: none;
 	}
 	.note-card:hover,
@@ -462,31 +585,147 @@
 	.resizing,
 	.dragging {
 		z-index: 2;
-		border-color: #3b82f6;
+		border-color: var(--color-primary);
 	}
 	.note-topbar {
-		display: none;
-		position: absolute;
-		bottom: 100%;
-		left: 0;
-		right: 0;
-		border-radius: 6px 6px 0 0;
+		display: flex;
+		flex-shrink: 0;
+		border-radius: 15px 15px 0 0;
 		align-items: center;
 		gap: 6px;
-		padding: 4px 8px;
-		background: #f1f5f9;
+		padding: 7px 12px;
+		background: transparent;
 		font-size: 11px;
 	}
+	.note-inspect {
+		position: absolute;
+		inset: 0;
+		z-index: 3;
+		width: 100%;
+		height: 100%;
+		border: 0;
+		background: transparent;
+	}
+	.note-inspect:focus-visible {
+		outline: 3px solid var(--color-primary);
+	}
+	:global(.mobile-note-dialog) {
+		width: min(42rem, calc(100% - 24px));
+		height: calc(100dvh - 24px);
+		max-height: calc(100dvh - 24px);
+		max-width: calc(100% - 24px);
+		margin: auto;
+		padding: 0;
+		border: 0;
+		border-radius: 16px;
+		background: var(--color-base-100);
+		color: var(--color-base-content);
+	}
+	:global(.mobile-note-dialog::backdrop) {
+		background: #0006;
+	}
+	.note-card.inspecting {
+		position: relative;
+		left: auto !important;
+		top: auto !important;
+		width: 100% !important;
+		height: 100% !important;
+		overflow: auto;
+	}
+	.inspector-heading {
+		position: sticky;
+		top: 0;
+		z-index: 4;
+		flex-shrink: 0;
+		background: var(--color-base-100);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 8px 12px;
+		border-bottom: 1px solid var(--color-base-300);
+	}
+	.inspecting .note-tools {
+		display: flex;
+		position: static;
+		flex-shrink: 0;
+		box-shadow: none;
+		opacity: 1;
+		visibility: visible;
+		pointer-events: auto;
+		transform: none;
+		padding: 8px;
+		transition: none;
+	}
+	.inspecting .note-editor {
+		min-height: 120px;
+	}
+	.inspecting .resize-handle {
+		display: none;
+	}
+	.inspecting :global(.icon-button),
+	.inspecting button,
+	.inspecting select {
+		min-width: 44px;
+		min-height: 44px;
+	}
+	.inspector-layout summary {
+		min-height: 44px;
+		padding: 12px;
+		cursor: pointer;
+		font-size: 13px;
+	}
+	.inspector-layout label {
+		flex: 1;
+		min-width: 0;
+	}
+	.inspector-layout input {
+		display: block;
+		width: 100%;
+		min-height: 44px;
+		padding: 8px;
+		border: 1px solid var(--color-base-300);
+		border-radius: 4px;
+		background: var(--color-base-200);
+		color: var(--color-base-content);
+	}
 	.note-tools {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		position: absolute;
+		top: var(--dock-top, calc(100% + 10px));
+		left: var(--dock-left, 0px);
+		width: var(--dock-width, 100%);
+		max-height: var(--dock-height, none);
+		overflow-y: auto;
+		overflow-x: hidden;
+		padding: 4px;
+		background: transparent;
+		opacity: 0;
+		visibility: hidden;
+		pointer-events: none;
+		transform: translateY(-6px);
+		transition:
+			opacity 160ms ease,
+			transform 180ms ease,
+			visibility 0s linear 160ms;
+	}
+	.note-dock-bridge {
 		display: none;
 		position: absolute;
-		top: 100%;
-		left: -1px;
-		right: -1px;
-		background: white;
-		border: 1px solid #cbd5e1;
-		border-radius: 0 0 8px 8px;
-		box-shadow: 0 5px 12px #0001;
+		bottom: calc(-1 * var(--bridge-size));
+		left: 0;
+		right: 0;
+		height: var(--bridge-size);
+		pointer-events: auto;
+	}
+	.note-card:global([data-dock-placement]):is(:hover, :focus-within) .note-dock-bridge {
+		display: block;
+	}
+	.note-card:global([data-dock-placement='above']) .note-dock-bridge {
+		top: calc(-1 * var(--bridge-size));
+		bottom: auto;
 	}
 	.note-card:hover .note-topbar,
 	.note-card:focus-within .note-topbar {
@@ -494,7 +733,11 @@
 	}
 	.note-card:hover .note-tools,
 	.note-card:focus-within .note-tools {
-		display: block;
+		opacity: 1;
+		visibility: visible;
+		pointer-events: auto;
+		transform: none;
+		transition-delay: 0s;
 	}
 	.visibility {
 		overflow: hidden;
@@ -503,24 +746,55 @@
 		flex: 1;
 	}
 	.unsaved {
-		color: #92400e;
+		font-weight: 600;
 	}
 	.formatting,
 	.note-actions,
 	.note-links {
 		display: flex;
-		gap: 5px;
+		align-items: center;
+		align-self: center;
+		width: max-content;
+		max-width: 100%;
+		gap: 6px;
 		flex-wrap: wrap;
-		padding: 5px 9px;
-		border-top: 1px solid #e2e8f0;
+		padding: 6px;
+		border: 1px solid color-mix(in oklab, var(--color-base-content) 14%, transparent);
+		border-radius: 16px;
+		background: color-mix(in oklab, var(--color-base-100) 88%, transparent);
+		backdrop-filter: blur(16px);
+		box-shadow: 0 6px 20px #0002;
 		font-size: 11px;
 	}
+	.note-tools :global(.icon-button) {
+		border-color: transparent;
+		border-radius: 10px;
+		color: var(--color-base-content);
+		background: transparent;
+		transition:
+			transform 150ms ease,
+			background-color 150ms ease,
+			box-shadow 150ms ease;
+	}
+	.note-tools :global(.icon-button:hover:not(:disabled)) {
+		transform: translateY(-3px) scale(1.08);
+		background: var(--color-base-200);
+		box-shadow: 0 4px 10px #0002;
+	}
+	.note-tools :global(.icon-button:active:not(:disabled)) {
+		transform: translateY(0) scale(0.96);
+	}
+	.note-tools :global(.icon-button[aria-pressed='true']) {
+		color: var(--color-primary);
+		background: color-mix(in oklab, var(--color-primary) 15%, var(--color-base-100));
+	}
 	button {
-		border: 1px solid #cbd5e1;
+		border: 1px solid var(--color-base-300);
 		border-radius: 4px;
 		padding: 2px 5px;
 		cursor: pointer;
-		background: #f8fafc;
+		background: var(--color-base-200);
+		color: var(--color-base-content);
 	}
 	button:disabled {
 		opacity: 0.45;
@@ -601,23 +875,29 @@
 		padding-left: 20px;
 	}
 	.note-editor :global(pre) {
-		background: #f1f5f9;
+		background: var(--color-base-200);
 		padding: 6px;
 		white-space: pre-wrap;
 	}
 	.note-editor :global(blockquote) {
-		border-left: 3px solid #cbd5e1;
+		border-left: 3px solid var(--color-base-300);
 		padding-left: 8px;
 	}
 	.note-links select {
 		min-width: 0;
 		max-width: 130px;
-		background: #f1f5f9;
-		border-radius: 4px;
+		background-color: var(--color-base-200);
+		color: var(--color-base-content);
+		border-radius: 8px;
+		padding-inline: 8px 26px;
+		min-height: 30px;
 	}
 	.conflict {
 		font-size: 11px;
-		color: #9a3412;
+		color: var(--color-base-content);
+		background: var(--color-base-100);
+		border: 1px solid var(--color-warning);
+		border-radius: 12px;
 		padding: 4px 10px;
 	}
 	.note-tools .advanced {
@@ -629,6 +909,16 @@
 	@media (hover: none) {
 		.note-card:focus-within .note-topbar {
 			display: flex;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.note-tools,
+		.note-tools :global(.icon-button) {
+			transition: none;
+		}
+		.note-tools :global(.icon-button:hover:not(:disabled)),
+		.note-tools :global(.icon-button:active:not(:disabled)) {
+			transform: none;
 		}
 	}
 </style>

@@ -146,7 +146,8 @@ func (c *Client) CreateRoom(ctx context.Context, room string) error {
 	if !strings.HasPrefix(room, Namespace) {
 		return ErrUnavailable
 	}
-	return c.call(ctx, "CreateRoom", map[string]any{"name": room, "emptyTimeout": 60, "departureTimeout": 10, "maxParticipants": 56}, nil)
+	// Keep a service slot beyond the six stage members and fifty spectators.
+	return c.call(ctx, "CreateRoom", map[string]any{"name": room, "emptyTimeout": 60, "departureTimeout": 10, "maxParticipants": 57}, nil)
 }
 
 func (c *Client) DeleteRoom(ctx context.Context, room string) error {

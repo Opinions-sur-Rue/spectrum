@@ -3,7 +3,11 @@
 	"private": true,
 	"version": "1.0.0",
 	"type": "module",
+	"engines": {
+		"node": ">=24 <25"
+	},
 	"scripts": {
+		"setup:browser-stt": "node scripts/setup-browser-stt.mjs",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
@@ -16,11 +20,15 @@
 		"test": "npm run test:unit -- --run && npm run test:e2e",
 		"test:e2e": "playwright test",
 		"test:e2e:v2": "playwright test --config playwright.v2.config.ts",
+		"test:e2e:webkit": "playwright test --config playwright.webkit.config.ts",
 		"test:e2e:voice": "playwright test --config playwright.voice.config.ts",
+		"test:e2e:transcription": "playwright test --config playwright.transcription.config.ts",
+		"test:e2e:browser-stt": "playwright test --config playwright.browser-stt.config.ts",
 		"cap:sync": "npm run build && npx cap sync android",
 		"cap:open": "npx cap open android"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "^4.14.0",
 		"@capacitor/cli": "^8.3.4",
 		"@eslint/compat": "^2.1.0",
 		"@eslint/js": "^10.0.1",
@@ -34,7 +42,8 @@
 		"@tailwindcss/vite": "^4.3.0",
 		"@testing-library/jest-dom": "^6.9.1",
 		"@testing-library/svelte": "^5.3.1",
-		"@types/node": "^25.9.1",
+		"@types/node": "^24.19.2",
+		"@types/qrcode": "^1.5.6",
 		"daisyui": "^5.5.19",
 		"eslint": "^10.4.0",
 		"eslint-config-prettier": "^10.1.8",
@@ -59,6 +68,7 @@
 		"@capacitor/android": "^8.3.3",
 		"@capacitor/core": "^8.3.4",
 		"@fortawesome/free-brands-svg-icons": "^7.2.0",
+		"@huggingface/transformers": "4.3.2",
 		"@inlang/paraglide-js": "^2.18.0",
 		"@tiptap/core": "^3.32.2",
 		"@tiptap/markdown": "^3.32.2",
@@ -67,6 +77,8 @@
 		"iconoir": "^7.12.1",
 		"konva": "^10.9.1",
 		"livekit-client": "^2.23.0",
-		"peerjs": "^1.5.5"
+		"onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
+		"peerjs": "^1.5.5",
+		"qrcode": "^1.5.4"
 	}
 }

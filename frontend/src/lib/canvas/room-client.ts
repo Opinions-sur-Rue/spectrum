@@ -3,12 +3,33 @@ import type { EdgeModel, NoteModel } from './models';
 import { applySpectrumMovement, mergeSpectrumSnapshot } from './spectrum-state';
 import { appendChatMessage, mergeChatSnapshot, type ChatState, type ChatError } from './chat-state';
 import type { VoiceCredentials, VoiceError } from './voice-connection';
+import { mergeTranscript, type TranscriptState } from './transcript-state';
+import type { BrowserTranscriptSession, BrowserTranscriptFailure } from './browser-stt';
 
 export interface RoomMember {
 	id: string;
 	nickname: string;
 	role: 'admin' | 'participant' | 'spectator';
 	color?: string;
+	handRaisedAt?: number;
+}
+
+export interface ReactionEvent {
+	roomId: string;
+	memberId: string;
+	nickname: string;
+	emoji: string;
+}
+
+export interface LiveState {
+	revision: number;
+	roomId: string;
+	platform?: string;
+	status: 'disconnected' | 'connecting' | 'connected' | 'error';
+	count: number;
+	limit: number;
+	tiktokAvailable: boolean;
+	users: { id: string; nickname: string; vote: number | null; selected: boolean }[];
 }
 
 export interface RoomState {
@@ -21,10 +42,18 @@ export interface RoomState {
 		participantSlots: number;
 		spectatorLimit: number;
 		spectatorChatEnabled: boolean;
+		transcriptionEnabled?: boolean;
+		transcriptionLanguage?: 'fr' | 'en' | 'auto';
 	};
 	members: RoomMember[];
 	spectrum: SpectrumState;
 	voice?: { available: boolean; generation: number };
+	transcription?: {
+		available: boolean;
+		ready: boolean;
+		mode?: 'server' | 'browser';
+		speakers?: string[];
+	};
 }
 
 export interface Pellet {
@@ -40,6 +69,7 @@ export interface SpectrumState {
 	revision: number;
 	topic: string;
 	sliceCount: number;
+	showNeutralCircle?: boolean;
 	hidden: boolean;
 	pellets: Pellet[];
 }
@@ -70,6 +100,11 @@ interface Callbacks {
 	voice?: (credentials: VoiceCredentials) => void;
 	voiceError?: (error: VoiceError) => void;
 	voiceInvalidated?: () => void;
+	transcript?: (transcript: TranscriptState) => void;
+	reaction?: (reaction: ReactionEvent) => void;
+	live?: (state: LiveState) => void;
+	browserTranscript?: (session: BrowserTranscriptSession) => void;
+	browserTranscriptError?: (failure: BrowserTranscriptFailure) => void;
 }
 
 /** Isolated v2 connection: never installs handlers in the v1 global dispatcher. */
@@ -83,7 +118,12 @@ export class RoomClient {
 	private spectrumRefreshPending = false;
 	private chatState: ChatState | null = null;
 	private chatRoomId: string | null = null;
+	private transcriptState: TranscriptState | null = null;
 	private closedRoomId: string | null = null;
+	private liveRevision = -1;
+	private role: RoomState['role'] | null = null;
+	private admittedRoom = false;
+	private liveState: LiveState | null = null;
 
 	constructor(
 		private readonly userId: string,
@@ -114,12 +154,22 @@ export class RoomClient {
 					this.signedIn = true;
 					this.callbacks.status('Connected');
 					if (this.roomId) this.send('room.join', { roomId: this.roomId });
-				} else if (message.procedure === 'stopped') {
+				} else if (
+					message.procedure === 'stopped' ||
+					(message.v === 2 &&
+						message.op === 'room.closed' &&
+						message.payload?.roomId === this.roomId)
+				) {
 					this.closedRoomId = this.roomId;
+					this.admittedRoom = false;
 					this.roomId = '';
 					this.chatRoomId = null;
 					this.chatState = null;
+					this.transcriptState = null;
 					this.spectrumState = null;
+					this.liveRevision = -1;
+					this.role = null;
+					this.liveState = null;
 					this.callbacks.roomClosed?.();
 				} else if (message.v === 2) {
 					const { op, payload } = message;
@@ -132,6 +182,12 @@ export class RoomClient {
 							continue;
 						}
 						this.roomId = payload.roomId;
+						this.admittedRoom = true;
+						this.role = payload.role ?? null;
+						if (this.role !== 'admin' && this.liveState) {
+							this.liveState = { ...this.liveState, users: [] };
+							this.callbacks.live?.(this.liveState);
+						}
 						this.spectrumRefreshPending = false;
 						this.spectrumState = payload.spectrum
 							? mergeSpectrumSnapshot(this.spectrumState, payload.spectrum)
@@ -139,9 +195,42 @@ export class RoomClient {
 						this.callbacks.room({ ...payload, spectrum: this.spectrumState });
 						if (this.chatRoomId !== payload.roomId) {
 							this.chatState = null;
+							this.transcriptState = null;
 							this.chatRoomId = payload.roomId;
 							this.send('chat.get');
+							this.send('transcript.get');
 						}
+					} else if (op === 'transcript.started') {
+						if (payload.roomId === this.roomId) this.callbacks.browserTranscript?.(payload);
+					} else if (op === 'room.reaction') {
+						if (payload.roomId === this.roomId) this.callbacks.reaction?.(payload);
+					} else if (op === 'live.snapshot') {
+						if (payload.roomId !== this.roomId) continue;
+						if (
+							payload.revision < this.liveRevision ||
+							payload.revision < (this.spectrumState?.revision ?? 0)
+						) {
+							this.send('live.get');
+							continue;
+						}
+						this.liveRevision = payload.revision;
+						const live: LiveState = {
+							...payload,
+							users: this.role === 'admin' ? payload.users : []
+						};
+						this.liveState = live;
+						this.callbacks.live?.(live);
+					} else if (op === 'live.invalidate') {
+						this.send('live.get');
+					} else if (op === 'transcript.snapshot' || op === 'transcript.segment') {
+						if (payload.roomId !== this.roomId) continue;
+						this.transcriptState = mergeTranscript(
+							this.transcriptState,
+							op === 'transcript.snapshot'
+								? payload
+								: { sequence: payload.sequence, segments: [payload] }
+						);
+						this.callbacks.transcript?.(this.transcriptState);
 					} else if (op === 'chat.snapshot') {
 						if (!this.chatRoomId || payload.roomId !== this.chatRoomId) continue;
 						this.chatState = mergeChatSnapshot(this.chatState, payload);
@@ -179,6 +268,35 @@ export class RoomClient {
 							this.callbacks.spectrum?.(next);
 						}
 					} else if (op === 'error') {
+						// Requests already queued during leave/revocation can finish
+						// after room.closed. Do not show their stale membership errors.
+						if (!this.roomId && payload.code === 'not_in_room') continue;
+						if (payload.code === 'room_join_failed' || payload.code === 'room_create_failed') {
+							if (!this.role) {
+								// A formerly admitted room may have disappeared while offline.
+								// Return to the lobby instead of stranding disabled room controls.
+								if (this.admittedRoom) {
+									this.admittedRoom = false;
+									this.closedRoomId = this.roomId;
+									this.transcriptState = null;
+									this.callbacks.roomClosed?.();
+									this.chatState = null;
+									this.chatRoomId = null;
+								}
+								this.roomId = '';
+							}
+							this.callbacks.error(payload.message);
+							// There is no canvas to refresh after a failed admission. Those
+							// requests would replace the useful error with not_in_room.
+							continue;
+						}
+						if (payload.code?.startsWith('browser_transcript_')) {
+							this.callbacks.browserTranscriptError?.({
+								requestId: payload.requestId,
+								message: payload.message
+							});
+							continue;
+						}
 						if (payload.code?.startsWith('voice_')) {
 							if (this.callbacks.voiceError)
 								this.callbacks.voiceError({
@@ -218,6 +336,9 @@ export class RoomClient {
 			this.signedIn = false;
 			this.spectrumState = null;
 			this.spectrumRefreshPending = false;
+			this.liveRevision = -1;
+			this.liveState = null;
+			this.role = null;
 			this.chatState = null;
 			this.chatRoomId = null;
 			if (this.disposed) return;

@@ -59,3 +59,10 @@ body {
 svg {
 	display: inline;
 }
+
+/* Forms plugin padding must not overfill DaisyUI's fixed-height native selects. */
+select:not([multiple]) {
+	padding-block: 0;
+	line-height: normal;
+	vertical-align: middle;
+}

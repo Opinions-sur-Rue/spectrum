@@ -11,6 +11,25 @@ import (
 )
 
 var ErrInvalidPosition = errors.New("invalid spectrum position")
+var ErrInvalidSpectrumConfiguration = errors.New("spectrum must have 3, 5, 7 or 9 slices")
+
+type spectrumConfiguration struct {
+	SliceCount        *int  `json:"sliceCount"`
+	ShowNeutralCircle *bool `json:"showNeutralCircle"`
+}
+
+func (p spectrumConfiguration) valid() bool {
+	return p.SliceCount == nil || *p.SliceCount == 3 || *p.SliceCount == 5 || *p.SliceCount == 7 || *p.SliceCount == 9
+}
+
+func (r *Room) configureSpectrum(p spectrumConfiguration) {
+	if p.SliceCount != nil {
+		r.sliceCount = *p.SliceCount
+	}
+	if p.ShowNeutralCircle != nil {
+		r.showNeutralCircle = *p.ShowNeutralCircle
+	}
+}
 
 type pelletPayload struct {
 	MemberID string  `json:"memberId"`
@@ -22,11 +41,12 @@ type pelletPayload struct {
 }
 
 type spectrumPayload struct {
-	Revision   uint64          `json:"revision"`
-	Topic      string          `json:"topic"`
-	SliceCount int             `json:"sliceCount"`
-	Hidden     bool            `json:"hidden"`
-	Pellets    []pelletPayload `json:"pellets"`
+	Revision          uint64          `json:"revision"`
+	Topic             string          `json:"topic"`
+	SliceCount        int             `json:"sliceCount"`
+	ShowNeutralCircle bool            `json:"showNeutralCircle"`
+	Hidden            bool            `json:"hidden"`
+	Pellets           []pelletPayload `json:"pellets"`
 }
 
 func init() {
@@ -34,10 +54,11 @@ func init() {
 	v2Handlers["spectrum.move"] = handleSpectrumMove
 	v2Handlers["spectrum.topic"] = handleSpectrumTopic
 	v2Handlers["spectrum.reset"] = handleSpectrumReset
+	v2Handlers["spectrum.configure"] = handleSpectrumConfigure
 }
 
 func (r *Room) spectrumFor(userID string, role Role) spectrumPayload {
-	state := spectrumPayload{Revision: r.spectrumRevision, Topic: r.Topic(), SliceCount: r.SliceCount(), Hidden: r.participantsHidden, Pellets: []pelletPayload{}}
+	state := spectrumPayload{Revision: r.spectrumRevision, Topic: r.Topic(), SliceCount: r.SliceCount(), ShowNeutralCircle: r.ShowNeutralCircle(), Hidden: r.participantsHidden, Pellets: []pelletPayload{}}
 	for _, member := range r.Participants() {
 		own := member.UserID == userID
 		if role != RoleAdmin && !own && (r.participantsHidden || (role == RoleSpectator && !r.settings.PelletsVisibleToSpectators)) {
@@ -45,6 +66,9 @@ func (r *Room) spectrumFor(userID string, role Role) spectrumPayload {
 		}
 		x, y := spectrumPosition(member)
 		state.Pellets = append(state.Pellets, pelletPayload{MemberID: r.memberIDs[member.UserID], Nickname: r.memberName(member), Color: member.Color, X: x, Y: y, Version: member.positionVersion})
+	}
+	if role == RoleAdmin || (!r.participantsHidden && (role != RoleSpectator || r.settings.PelletsVisibleToSpectators)) {
+		state.Pellets = append(state.Pellets, r.livePellets()...)
 	}
 	return state
 }
@@ -179,6 +203,21 @@ func handleSpectrumReset(c *Client, envelope *valueobjects.Envelope) error {
 			member.SetLastPosition("")
 		}
 	})
+}
+
+func handleSpectrumConfigure(c *Client, envelope *valueobjects.Envelope) error {
+	var payload spectrumConfiguration
+	if err := envelope.DecodePayload(&payload); err != nil {
+		c.v2Error(envelope, "invalid_payload", err)
+		return err
+	}
+	if !payload.valid() || (payload.SliceCount == nil && payload.ShowNeutralCircle == nil) {
+		c.v2Error(envelope, "invalid_spectrum_configuration", ErrInvalidSpectrumConfiguration)
+		return ErrInvalidSpectrumConfiguration
+	}
+	// Layout changes keep coordinates, but advance the structural revision so
+	// pending drags and delayed deltas cannot revive the previous layout.
+	return changeSpectrum(c, envelope, func(room *Room) { room.configureSpectrum(payload) })
 }
 
 func changeSpectrum(c *Client, envelope *valueobjects.Envelope, update func(*Room)) error {

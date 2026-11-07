@@ -74,3 +74,22 @@ export function revealNote(camera: Camera, viewport: Viewport, point: Point): Ca
 	else if (bottom > viewport.height - 24) next.y += (bottom - viewport.height + 24) / next.scale;
 	return clampCamera(next, viewport);
 }
+
+/** Frame an existing card using its real size, leaving room for canvas controls. */
+export function focusNote(
+	camera: Camera,
+	viewport: Viewport,
+	note: Pick<NoteModel, 'x' | 'y' | 'width' | 'height'>
+): Camera {
+	if (viewport.width <= 48 || viewport.height <= 100) return camera;
+	const scale = Math.min(
+		Math.max(camera.scale, 0.8),
+		(viewport.width - 48) / note.width,
+		(viewport.height - 100) / note.height
+	);
+	const next = clampCamera(
+		{ x: note.x + note.width / 2, y: note.y + note.height / 2, scale },
+		viewport
+	);
+	return clampCamera({ ...next, y: next.y + 26 / next.scale }, viewport);
+}

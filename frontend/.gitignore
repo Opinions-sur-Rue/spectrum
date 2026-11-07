@@ -1,5 +1,6 @@
 test-results
 node_modules
+/static/stt/
 
 # Output
 .output
@@ -31,4 +32,3 @@ android/build/
 
 # Paraglide
 src/lib/paraglide
-

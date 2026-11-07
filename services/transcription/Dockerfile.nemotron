@@ -1,0 +1,13 @@
+# Experimental Linux x86_64 CPU runtime, no CUDA/Vulkan dependencies.
+FROM debian:trixie-slim AS download
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -fL --retry 3 https://github.com/NVIDIA/NeMo-Speech.cpp/releases/download/v0.3.0/nemo-speech-0.3.0-linux-x86_64-cpu.tar.gz -o /runtime.tar.gz \
+    && echo '255f12b722ab15b2a38a51cf125d56e3fa97058b528f7e895b39d6a473deb06e  /runtime.tar.gz' | sha256sum -c - \
+    && mkdir /runtime && tar xzf /runtime.tar.gz -C /runtime --strip-components=1
+
+FROM debian:trixie-slim
+COPY --from=download /runtime /opt/nemo
+ENV PATH="/opt/nemo/bin:${PATH}"
+USER 65534:65534
+ENTRYPOINT ["nemo-speech"]

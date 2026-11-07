@@ -53,6 +53,14 @@ export class CanvasWorkspace {
 	private viewChangedCallback: ((camera: Camera, viewport: Viewport) => void) | null = null;
 	private imageGeneration = 0;
 	private destroyed = false;
+	private followSpectrumFit = true;
+	private visibleNoteIds: ReadonlySet<string> | null = null;
+
+	/** Filter projected edges without replacing note models or mounted HTML editors. */
+	setVisibleNoteIds(ids: ReadonlySet<string> | null): void {
+		this.visibleNoteIds = ids;
+		this.refreshEdges();
+	}
 
 	private constructor(container: HTMLDivElement, konva: KonvaNamespace) {
 		this.container = container;
@@ -94,12 +102,14 @@ export class CanvasWorkspace {
 	}
 
 	setCamera(camera: Camera): void {
+		this.followSpectrumFit = false;
 		this.cameraState = clampCamera(camera, this.viewport());
 		this.applyCamera();
 	}
 
 	fitToSpectrum(): void {
 		this.setCamera(fitSpectrum(this.viewport()));
+		this.followSpectrumFit = true;
 	}
 
 	/** Zooms around the viewport centre, for the toolbar buttons. */
@@ -247,7 +257,8 @@ export class CanvasWorkspace {
 		const viewport = this.viewport();
 		this.stage.width(viewport.width);
 		this.stage.height(viewport.height);
-		this.setCamera(this.cameraState);
+		if (this.followSpectrumFit) this.fitToSpectrum();
+		else this.setCamera(this.cameraState);
 	}
 
 	private drawSpectrumZone(): void {
@@ -377,6 +388,11 @@ export class CanvasWorkspace {
 		this.edgeLayer.destroyChildren();
 
 		for (const edge of this.edges.values()) {
+			if (
+				this.visibleNoteIds &&
+				(!this.visibleNoteIds.has(edge.from) || !this.visibleNoteIds.has(edge.to))
+			)
+				continue;
 			const from = this.notes.get(edge.from);
 			const to = this.notes.get(edge.to);
 			if (!from || !to) continue;

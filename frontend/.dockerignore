@@ -1,1 +1,10 @@
 Dockerfile
+node_modules
+.svelte-kit
+build
+test-results
+playwright-report
+blob-report
+android
+.git
+static/stt

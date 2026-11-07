@@ -66,6 +66,8 @@ func (h *Hub) voiceMutation(roomID string, revoke bool, validate, mutate func(*R
 		if retired {
 			room.voiceRoomID = ""
 			room.voiceGeneration++
+			room.transcriptionConsents = nil
+			room.browserTranscripts = nil
 			room.spectrumRevision++
 		}
 		if err = validate(room); err == nil {
@@ -82,7 +84,8 @@ func (h *Hub) voiceMutation(roomID string, revoke bool, validate, mutate func(*R
 
 func handleVoiceJoin(c *Client, envelope *valueobjects.Envelope) error {
 	var payload struct {
-		RequestID string `json:"requestId"`
+		RequestID            string `json:"requestId"`
+		TranscriptionConsent bool   `json:"transcriptionConsent"`
 	}
 	if err := envelope.DecodePayload(&payload); err != nil {
 		c.v2Error(envelope, "voice_invalid_request", voicedomain.ErrUnavailable)
@@ -93,7 +96,7 @@ func handleVoiceJoin(c *Client, envelope *valueobjects.Envelope) error {
 		return voicedomain.ErrUnavailable
 	}
 	envelope.ID = payload.RequestID
-	credentials, err := c.issueVoiceCredentials()
+	credentials, err := c.issueVoiceCredentialsWithConsent(payload.TranscriptionConsent)
 	if err != nil {
 		code := "voice_unavailable"
 		if errors.Is(err, ErrNotInRoom) || errors.Is(err, ErrNotSignedIn) || errors.Is(err, ErrRoomNotFound) {
@@ -108,6 +111,10 @@ func handleVoiceJoin(c *Client, envelope *valueobjects.Envelope) error {
 }
 
 func (c *Client) issueVoiceCredentials() (voiceCredentials, error) {
+	return c.issueVoiceCredentialsWithConsent(false)
+}
+
+func (c *Client) issueVoiceCredentialsWithConsent(consent bool) (voiceCredentials, error) {
 	h := c.hub
 	if !h.voiceEnabled || h.voiceBackend == nil || h.voiceError != nil {
 		return voiceCredentials{}, voicedomain.ErrUnavailable
@@ -149,7 +156,7 @@ func (c *Client) issueVoiceCredentials() (voiceCredentials, error) {
 			return ErrNotInRoom
 		}
 		room.voiceRoomID = physical
-		publish = role.CanPublishVoice()
+		publish = room.voicePublishAllowed(identity, role.CanPublishVoice(), consent, h.serverTranscriptionConfigured())
 		return nil
 	})
 	if err != nil {

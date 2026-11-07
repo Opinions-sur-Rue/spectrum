@@ -1,0 +1,7 @@
+# Reversible browser-only transcription experiment. No STT worker or GPU needed.
+services:
+  backend:
+    environment:
+      SPECTRUM_VOICE_ENABLED: "true"
+      SPECTRUM_TRANSCRIPTION_ENABLED: "true"
+      SPECTRUM_TRANSCRIPTION_MODE: browser

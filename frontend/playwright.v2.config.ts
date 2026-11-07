@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { englishLocale } from './e2e/locale-state';
 
 export default defineConfig({
 	timeout: 60000,
@@ -8,7 +9,7 @@ export default defineConfig({
 		{ name: 'chromium', use: { browserName: 'chromium' } },
 		{ name: 'firefox', use: { browserName: 'firefox' } }
 	],
-	use: { baseURL: 'http://localhost:5173' },
+	use: { baseURL: 'http://localhost:5173', storageState: englishLocale },
 	webServer: {
 		command: 'npm run dev -- --host 0.0.0.0',
 		port: 5173,

@@ -20,7 +20,7 @@ room:
   auto_create: false
   empty_timeout: 60
   departure_timeout: 10
-  max_participants: 56
+  max_participants: 57
   enable_remote_unmute: false
 logging:
   level: warn

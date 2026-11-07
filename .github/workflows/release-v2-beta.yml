@@ -1,0 +1,236 @@
+name: Validate and publish v2 beta
+
+on:
+  push:
+    tags: ['v2.*-beta.*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing beta tag, e.g. v2.0.0-beta.1 (never a branch)'
+        required: true
+        type: string
+
+# This workflow publishes artifacts only. It never dispatches a deployment or
+# updates latest/main tags used by the existing production workflows.
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-beta-${{ inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.release.outputs.sha }}
+      tag: ${{ steps.release.outputs.tag }}
+      prefix: ${{ steps.release.outputs.prefix }}
+      api_url: ${{ steps.release.outputs.api_url }}
+      public_url: ${{ steps.release.outputs.public_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Resolve exact source and validate public build configuration
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          API_URL: ${{ vars.BETA_API_URL }}
+          PUBLIC_URL: ${{ vars.BETA_PUBLIC_URL }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v2\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]] || {
+            echo 'Expected v2.<minor>.<patch>-beta.<number>'; exit 1;
+          }
+          sha=$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "prefix=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+          for name, output in [('API_URL', 'api_url'), ('PUBLIC_URL', 'public_url')]:
+              value = os.environ[name]
+              url = urlsplit(value)
+              if (url.scheme != 'https' or not url.hostname or url.username or url.password
+                      or url.path not in ('', '/') or url.query or url.fragment
+                      or any(c.isspace() for c in value)):
+                  raise SystemExit(f'Configure repository variable BETA_{name} as an HTTPS origin')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+                  out.write(f'{output}={value.rstrip("/")}\n')
+          PY
+
+  backend:
+    needs: release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          working-directory: backend
+          args: --timeout=5m
+      - name: Full race-enabled tests (not short mode)
+        run: go test -race ./...
+
+  frontend:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      VITE_API_URL: http://localhost:3000
+      VITE_PUBLIC_URL: http://localhost:5173
+      CI: 'true'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run lint && npx eslint e2e --max-warnings 0
+      - run: npm run test:unit -- --run
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: v1 route regression
+        run: npm run test:e2e
+      - name: Start isolated backend and voice fixtures
+        working-directory: .
+        run: |
+          docker compose -p spectrum-ci -f docker-compose.dev.yaml -f docker-compose.browser-stt.yaml --profile voice up -d --build backend livekit stun
+          curl --fail --retry 20 --retry-delay 2 --retry-connrefused http://localhost:3000/docs/index.html -o /dev/null
+      - name: v2 Chromium and Firefox
+        run: npm run test:e2e:v2 -- --workers=2 --output=test-results/v2
+      - name: v2 WebKit UI (not real Safari audio)
+        run: npm run test:e2e:webkit -- --workers=1 --output=test-results/webkit
+      - name: Voice Chromium and Firefox
+        run: npm run test:e2e:voice -- --workers=1 --output=test-results/voice
+      - name: Save service logs
+        if: always()
+        working-directory: .
+        run: |
+          mkdir -p frontend/test-results
+          docker compose -p spectrum-ci -f docker-compose.dev.yaml -f docker-compose.browser-stt.yaml logs --no-color > frontend/test-results/services.log 2>&1
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: beta-test-results
+          path: frontend/test-results/
+          retention-days: 7
+      - name: Stop fixtures
+        if: always()
+        working-directory: .
+        run: docker compose -p spectrum-ci -f docker-compose.dev.yaml -f docker-compose.browser-stt.yaml --profile voice down
+
+  publish:
+    needs: [release, backend, frontend]
+    runs-on: ubuntu-latest
+    environment: beta
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [frontend, backend]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+      - name: Write public frontend build variables (never backend secrets)
+        if: matrix.component == 'frontend'
+        env:
+          VITE_API_URL: ${{ needs.release.outputs.api_url }}
+          VITE_PUBLIC_URL: ${{ needs.release.outputs.public_url }}
+          VITE_VERSION: ${{ needs.release.outputs.tag }}
+        run: |
+          printf 'VITE_API_URL=%s\nVITE_PUBLIC_URL=%s\nVITE_VERSION=%s\n' "$VITE_API_URL" "$VITE_PUBLIC_URL" "$VITE_VERSION" > frontend/.env
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build locally before publishing
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.component }}
+          load: true
+          tags: spectrum-beta-smoke:${{ matrix.component }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.release.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.release.outputs.tag }}
+      - name: Smoke-test production frontend routes
+        if: matrix.component == 'frontend'
+        run: |
+          docker run -d --name beta-frontend -p 127.0.0.1:2000:2000 spectrum-beta-smoke:frontend
+          for path in / /v2 '/v2?room=OSR-SMOKE'; do
+            curl --fail --retry 10 --retry-delay 1 --retry-connrefused "http://127.0.0.1:2000${path}" -o /tmp/route.html
+            grep -qi '<html' /tmp/route.html
+          done
+      - name: Smoke-test production backend
+        if: matrix.component == 'backend'
+        run: |
+          docker run -d --name beta-backend -p 127.0.0.1:3000:3000 -e API_PORT=3000 -e SPECTRUM_TRANSCRIPTION_ENABLED=false spectrum-beta-smoke:backend
+          curl --fail --retry 10 --retry-delay 1 --retry-connrefused http://127.0.0.1:3000/docs/index.html -o /dev/null
+      - name: Tag and push the smoke-tested image (no rebuild)
+        env:
+          IMAGE: ${{ needs.release.outputs.prefix }}-${{ matrix.component }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+          SOURCE_SHA: ${{ needs.release.outputs.sha }}
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          docker tag "spectrum-beta-smoke:$COMPONENT" "$IMAGE:$RELEASE_TAG"
+          docker tag "spectrum-beta-smoke:$COMPONENT" "$IMAGE:beta-sha-$SOURCE_SHA"
+          docker push "$IMAGE:$RELEASE_TAG"
+          docker push "$IMAGE:beta-sha-$SOURCE_SHA"
+          digest=$(docker image inspect "$IMAGE:$RELEASE_TAG" --format '{{index .RepoDigests 0}}')
+          printf '%s\n' "$digest" > "$COMPONENT-image.txt"
+          echo "### $COMPONENT: $RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$digest\`" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: beta-image-${{ matrix.component }}
+          path: '*-image.txt'
+      - name: Container logs
+        if: failure()
+        run: docker logs "beta-${{ matrix.component }}" || true
+
+  manifest:
+    needs: [release, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: beta-image-*
+          merge-multiple: true
+      - name: Record complete release pair
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+          SOURCE_SHA: ${{ needs.release.outputs.sha }}
+          API_URL: ${{ needs.release.outputs.api_url }}
+          PUBLIC_URL: ${{ needs.release.outputs.public_url }}
+        run: |
+          jq -n --arg release "$RELEASE_TAG" --arg commit "$SOURCE_SHA" \
+            --arg frontend "$(cat frontend-image.txt)" --arg backend "$(cat backend-image.txt)" \
+            --arg api "$API_URL" --arg public "$PUBLIC_URL" \
+            '{release: $release, commit: $commit, frontend: $frontend, backend: $backend, api_url: $api, public_url: $public}' > beta-images.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: beta-images
+          path: beta-images.json

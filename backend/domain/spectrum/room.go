@@ -23,25 +23,32 @@ var generalColors = []string{
 }
 
 type Room struct {
-	id                 string
-	topic              string
-	password           string
-	closed             bool
-	admins             []string
-	participants       map[string]*User
-	spectators         map[string]*User
-	memberIDs          map[string]string
-	spectrumRevision   uint64
-	chatMessages       []chatMessage
-	chatSequence       uint64
-	voiceRoomID        string
-	voiceGeneration    uint64
-	settings           RoomSettings
-	board              *canvasdomain.Canvas
-	socialListener     social.ChatListener
-	showNeutralCircle  bool
-	sliceCount         int
-	participantsHidden bool
+	id                    string
+	topic                 string
+	password              string
+	closed                bool
+	admins                []string
+	participants          map[string]*User
+	spectators            map[string]*User
+	memberIDs             map[string]string
+	spectrumRevision      uint64
+	chatMessages          []chatMessage
+	chatSequence          uint64
+	raisedHands           map[string]int64
+	reactionLastSent      map[string]int64
+	transcript            []transcriptSegment
+	transcriptSequence    uint64
+	transcriptionConsents map[string]uint64
+	browserTranscripts    map[string]*browserTranscriptSession
+	voiceRoomID           string
+	voiceGeneration       uint64
+	settings              RoomSettings
+	board                 *canvasdomain.Canvas
+	socialListener        social.ChatListener
+	live                  *liveSession
+	showNeutralCircle     bool
+	sliceCount            int
+	participantsHidden    bool
 }
 
 func (r *Room) ShowNeutralCircle() bool {
@@ -66,15 +73,16 @@ func (r *Room) Join(newUser *User) error {
 func NewRoom(creator *User, id string, topic string) *Room {
 	creator.SetRoom(id)
 	return &Room{
-		id:           id,
-		topic:        topic,
-		closed:       false,
-		admins:       []string{creator.UserID},
-		participants: make(map[string]*User),
-		spectators:   make(map[string]*User),
-		memberIDs:    make(map[string]string),
-		settings:     LoadRoomSettings(),
-		board:        canvasdomain.New(),
+		id:                id,
+		topic:             topic,
+		closed:            false,
+		admins:            []string{creator.UserID},
+		participants:      make(map[string]*User),
+		spectators:        make(map[string]*User),
+		memberIDs:         make(map[string]string),
+		settings:          LoadRoomSettings(),
+		showNeutralCircle: true,
+		board:             canvasdomain.New(),
 	}
 }
 
@@ -83,6 +91,10 @@ func (r *Room) Leave(color string) error {
 		return errors.New("room closed")
 	}
 
+	if member := r.participants[color]; member != nil {
+		delete(r.raisedHands, member.UserID)
+		delete(r.reactionLastSent, member.UserID)
+	}
 	delete(r.participants, color)
 	r.spectrumRevision++
 
@@ -277,6 +289,8 @@ func (r *Room) RemoveSpectator(userID string) bool {
 		return false
 	}
 	delete(r.spectators, userID)
+	delete(r.raisedHands, userID)
+	delete(r.reactionLastSent, userID)
 	r.spectrumRevision++
 	return true
 }
@@ -404,6 +418,7 @@ func (r *Room) Close() error {
 	}
 
 	r.closed = true
+	r.cancelLive()
 
 	if r.SocialListener() != nil {
 		err := r.SocialListener().Disconnect()
