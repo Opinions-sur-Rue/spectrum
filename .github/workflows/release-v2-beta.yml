@@ -119,6 +119,11 @@ jobs:
         run: npm run test:e2e:v2 -- --workers=2 --output=test-results/v2
       - name: v2 WebKit UI (not real Safari audio)
         run: npm run test:e2e:webkit -- --workers=1 --output=test-results/webkit
+      - name: Start isolated virtual audio output for Firefox
+        working-directory: .
+        run: |
+          sudo apt-get install --no-install-recommends -y pulseaudio pulseaudio-utils
+          bash .github/scripts/start-ci-audio.sh "$RUNNER_TEMP/spectrum-pulse"
       - name: Voice Chromium and Firefox
         run: npm run test:e2e:voice -- --workers=1 --output=test-results/voice
       - name: Save service logs
@@ -127,6 +132,9 @@ jobs:
         run: |
           mkdir -p frontend/test-results
           docker compose -p spectrum-ci -f docker-compose.dev.yaml -f docker-compose.browser-stt.yaml logs --no-color > frontend/test-results/services.log 2>&1
+          if [ -f "$RUNNER_TEMP/spectrum-pulse/pulse.log" ]; then
+            cp "$RUNNER_TEMP/spectrum-pulse/pulse.log" frontend/test-results/pulse.log
+          fi
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -137,6 +145,10 @@ jobs:
         if: always()
         working-directory: .
         run: docker compose -p spectrum-ci -f docker-compose.dev.yaml -f docker-compose.browser-stt.yaml --profile voice down
+      - name: Stop isolated audio server
+        if: always() && env.PULSE_SERVER != ''
+        working-directory: .
+        run: pactl exit
 
   publish:
     needs: [release, backend, frontend]

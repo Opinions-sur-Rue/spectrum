@@ -2,6 +2,29 @@
 
 ## Active UI/UX follow-up — second pass
 
+### Headless Firefox audio output — beta.4
+
+Beta.3 hosted run 42388033858 passed backend and v2 UI checks but failed both
+Firefox voice scenarios (Chromium passed). Failure artifacts show a disabled
+microphone button with “Enabling microphone…”: publication was pending rather
+than rejected. Local Firefox reproduction without a PulseAudio server hangs in
+the synthetic fixture's `AudioContext.resume()`.
+
+- Added `.github/scripts/start-ci-audio.sh`: isolated runtime/socket, private
+  PulseAudio daemon, virtual 48 kHz null sink/monitor, no physical device modules
+  or changes to the desktop server. Beta CI installs PulseAudio utilities, starts
+  this server before voice tests, records its log and stops it afterward.
+- No application code, microphone-consent logic, voice assertions, browser
+  exclusions or timeouts changed. Preserve voice as a release gate.
+- Local isolated-server checks passed in Chromium and Firefox: AudioContext
+  running, one live synthetic audio track. bash syntax, actionlint and diff checks
+  passed. Full local voice attempts could not complete because the Docker daemon
+  and backend were stopped; no services restarted. Test-created Vite process and
+  isolated audio servers were stopped. Hosted CI must verify end-to-end audio.
+
+Correction uses new `v2.0.0-beta.4` tag. Earlier candidate tags stay immutable;
+beta.3 publishing/manifest jobs were skipped, so no image or deployment resulted.
+
 ### Browser runner compatibility — beta.3
 
 Beta.2 hosted run 42387696719 passed backend lint/race tests and frontend
