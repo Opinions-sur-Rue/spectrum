@@ -2,6 +2,20 @@
 
 ## Active UI/UX follow-up — second pass
 
+### Browser runner compatibility — beta.3
+
+Beta.2 hosted run 42387696719 passed backend lint/race tests and frontend
+generation/check/lint/unit gates, then failed browser installation: the moving
+`ubuntu-latest` label selected Ubuntu 26.04, unsupported by Playwright 1.60.0.
+Publishing and manifest jobs were skipped; no images or deployment resulted.
+
+Pin the beta frontend and PR frontend jobs to `ubuntu-24.04`. PR browser setup
+also installs required OS dependencies explicitly, as the beta job already does.
+No Playwright upgrade, browser-test exclusion or production workflow change.
+Validate YAML with actionlint and diff checks; publish correction under new
+`v2.0.0-beta.3` tag, preserving previous candidate tags. Hosted browser execution
+remains the verification gate, not a claim of local Ubuntu-runner validation.
+
 ### First hosted CI corrections — beta.2
 
 Beta.1 (`ca4fe1f`, tag `v2.0.0-beta.1`) was pushed on branch `v2`; hosted run

@@ -122,6 +122,8 @@ changed. No `latest` or `main` image tags are updated by this beta workflow.
 Use **golangci-lint 2.15.0** locally to match the pinned backend CI version.
 `npm run check` explicitly generates Paraglide translations before checking types,
 so it also works from a fresh checkout without an earlier Vite build.
+Frontend browser jobs use **Ubuntu 24.04** explicitly: Playwright 1.60 does not
+support the Ubuntu 26.04 image selected by the moving `ubuntu-latest` alias.
 
 Download the successful run's **`beta-images`** artifact: `beta-images.json`
 records the source commit, public origins and both `image@sha256:…` references.

@@ -84,7 +84,8 @@ jobs:
 
   frontend:
     needs: release
-    runs-on: ubuntu-latest
+    # Playwright 1.60 supports Ubuntu 24.04, not the floating 26.04 runner.
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
       VITE_API_URL: http://localhost:3000

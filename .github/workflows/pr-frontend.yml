@@ -9,7 +9,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Keep native browser dependencies on a Playwright-supported distribution.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: 📥 Checkout repo
@@ -35,7 +36,7 @@ jobs:
       - name: 🧪 Run tests 
         working-directory: frontend
         run: |
-          npx playwright install
+          npx playwright install --with-deps chromium firefox webkit
           npm run test
 
       - name: 🛠 Build application
