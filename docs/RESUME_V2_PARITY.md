@@ -2,6 +2,33 @@
 
 ## Active UI/UX follow-up — second pass
 
+### Digest-pinned release manifest — beta.6
+
+Beta.5 hosted run 42431955718 passed every validation and publish job and
+published both images, but `beta-images.json` named them as
+`spectrum-beta-smoke@sha256:…`. The publish step read `RepoDigests[0]` from the
+local image, which still pointed at the pre-publish smoke tag. The digests
+themselves were correct and both release/commit tags published the same digest.
+
+- `push-digest.sh` pushes a tag and prints only the digest reported by that push;
+  it fails when no digest is reported or the push fails. Never read local
+  `RepoDigests`, which can contain non-pullable repository names.
+- The publish step requires the release tag and `beta-sha-<commit>` tag to report
+  the same digest, then cross-checks it with `docker buildx imagetools inspect`
+  against the registry before writing `image@sha256:…`.
+- `write-beta-manifest.sh` validates both references against the exact
+  `ghcr.io/<repo>/<component>@sha256:<64 hex>` form before producing the manifest.
+- Local tests cover realistic push output (build vs push digest), missing digest,
+  failed push, valid manifest assembly, rejection of the local smoke tag, mutable
+  tags/wrong component and missing inputs: 7 passed. actionlint and diff checks pass.
+- Recovered beta.5 registry references from its successful push logs (both tags
+  agreed): frontend `sha256:3e41a434…76ee`, backend `sha256:acdf5aa1…033a`.
+  They remain valid for deployment if beta.5 is chosen, but its stored artifact
+  is wrong; prefer the beta.6 artifact.
+
+Rebuilt images and a verified manifest require a new candidate: `v2.0.0-beta.6`.
+No application, container or test behaviour changed; earlier tags stay immutable.
+
 ### Container startup readiness — beta.5
 
 Beta.4 hosted run 42390728875 passed backend validation and the complete frontend

@@ -61,6 +61,8 @@ jobs:
           PY
       - name: Test bounded HTTP readiness gate
         run: python3 .github/scripts/test_wait_for_http.py -v
+      - name: Test release manifest assembly
+        run: python3 .github/scripts/test_release_manifest.py -v
 
   backend:
     needs: release
@@ -213,14 +215,20 @@ jobs:
           SOURCE_SHA: ${{ needs.release.outputs.sha }}
           COMPONENT: ${{ matrix.component }}
         run: |
+          set -euo pipefail
           docker tag "spectrum-beta-smoke:$COMPONENT" "$IMAGE:$RELEASE_TAG"
           docker tag "spectrum-beta-smoke:$COMPONENT" "$IMAGE:beta-sha-$SOURCE_SHA"
-          docker push "$IMAGE:$RELEASE_TAG"
-          docker push "$IMAGE:beta-sha-$SOURCE_SHA"
-          digest=$(docker image inspect "$IMAGE:$RELEASE_TAG" --format '{{index .RepoDigests 0}}')
-          printf '%s\n' "$digest" > "$COMPONENT-image.txt"
+          digest=$(bash .github/scripts/push-digest.sh "$IMAGE:$RELEASE_TAG")
+          sha_digest=$(bash .github/scripts/push-digest.sh "$IMAGE:beta-sha-$SOURCE_SHA")
+          # Never fall back to the local inspect RepoDigests entry: the pre-publish
+          # tag spectrum-beta-smoke:<component> also records one and is not pullable.
+          [ "$digest" = "$sha_digest" ] || { echo "::error::release and commit tags published different digests"; exit 1; }
+          remote=$(docker buildx imagetools inspect "$IMAGE:$RELEASE_TAG" --format '{{if .Manifest}}{{.Manifest.Digest}}{{else}}{{.Index.Digest}}{{end}}')
+          [ "$remote" = "$digest" ] || { echo "::error::registry digest $remote differs from pushed digest $digest"; exit 1; }
+          reference="$IMAGE@$digest"
+          printf '%s\n' "$reference" > "$COMPONENT-image.txt"
           echo "### $COMPONENT: $RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
-          echo "\`$digest\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$reference\`" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
           name: beta-image-${{ matrix.component }}
@@ -239,15 +247,13 @@ jobs:
           merge-multiple: true
       - name: Record complete release pair
         env:
+          PREFIX: ${{ needs.release.outputs.prefix }}
           RELEASE_TAG: ${{ needs.release.outputs.tag }}
           SOURCE_SHA: ${{ needs.release.outputs.sha }}
           API_URL: ${{ needs.release.outputs.api_url }}
           PUBLIC_URL: ${{ needs.release.outputs.public_url }}
         run: |
-          jq -n --arg release "$RELEASE_TAG" --arg commit "$SOURCE_SHA" \
-            --arg frontend "$(cat frontend-image.txt)" --arg backend "$(cat backend-image.txt)" \
-            --arg api "$API_URL" --arg public "$PUBLIC_URL" \
-            '{release: $release, commit: $commit, frontend: $frontend, backend: $backend, api_url: $api, public_url: $public}' > beta-images.json
+          bash .github/scripts/write-beta-manifest.sh
       - uses: actions/upload-artifact@v7
         with:
           name: beta-images
