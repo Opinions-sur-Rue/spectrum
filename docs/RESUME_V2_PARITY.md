@@ -2,6 +2,28 @@
 
 ## Active UI/UX follow-up — second pass
 
+### Container startup readiness — beta.5
+
+Beta.4 hosted run 42390728875 passed backend validation and the complete frontend
+job, including both Firefox voice scenarios after isolated PulseAudio setup.
+Both production images built. Backend smoke/publishing succeeded, but frontend
+smoke failed with curl 56 (connection reset) immediately after `docker run`;
+Nginx logs show normal startup/worker initialization, not a configuration crash.
+No paired release manifest was emitted. The backend beta.4 image alone exists
+in GHCR and is not a complete deployable release; no deployment was triggered.
+
+- Shared `.github/scripts/wait-for-http.sh` retries startup errors including
+  connection resets, with finite attempts, connect/request timeouts and retry
+  time budget. Used for CI backend startup and both production smoke containers.
+- Frontend route HTTP/content checks and post-readiness backend check remain
+  strict, without retries. No application, Nginx config or test exclusions changed.
+- Added local HTTP-server tests: first response resets the connection (curl 56)
+  then succeeds; permanent HTTP 503 still fails within the bounded wait. Both
+  tests passed; also run in the beta workflow before validation jobs. bash syntax,
+  actionlint and diff checks passed. Full container checks remain hosted gates.
+
+Correction uses new `v2.0.0-beta.5` tag; preserve beta.4 and earlier candidates.
+
 ### Headless Firefox audio output — beta.4
 
 Beta.3 hosted run 42388033858 passed backend and v2 UI checks but failed both

@@ -129,6 +129,9 @@ Firefox Web Audio requires a working output even for synthetic microphone tests.
 It loads no physical devices, leaves desktop audio defaults untouched, and stops
 after the job. The existing voice consent/delivery/revocation assertions remain
 required; installing browser libraries alone does not provide an audio server.
+Container probes wait for HTTP readiness with bounded retries, including startup
+connection resets. Route/status/content assertions then run without retries;
+a permanently unhealthy service still fails the release gate.
 
 Download the successful run's **`beta-images`** artifact: `beta-images.json`
 records the source commit, public origins and both `image@sha256:…` references.

@@ -59,6 +59,8 @@ jobs:
               with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
                   out.write(f'{output}={value.rstrip("/")}\n')
           PY
+      - name: Test bounded HTTP readiness gate
+        run: python3 .github/scripts/test_wait_for_http.py -v
 
   backend:
     needs: release
@@ -114,7 +116,7 @@ jobs:
         working-directory: .
         run: |
           docker compose -p spectrum-ci -f docker-compose.dev.yaml -f docker-compose.browser-stt.yaml --profile voice up -d --build backend livekit stun
-          curl --fail --retry 20 --retry-delay 2 --retry-connrefused http://localhost:3000/docs/index.html -o /dev/null
+          bash .github/scripts/wait-for-http.sh http://localhost:3000/docs/index.html
       - name: v2 Chromium and Firefox
         run: npm run test:e2e:v2 -- --workers=2 --output=test-results/v2
       - name: v2 WebKit UI (not real Safari audio)
@@ -193,15 +195,17 @@ jobs:
         if: matrix.component == 'frontend'
         run: |
           docker run -d --name beta-frontend -p 127.0.0.1:2000:2000 spectrum-beta-smoke:frontend
+          bash .github/scripts/wait-for-http.sh http://127.0.0.1:2000/index.html
           for path in / /v2 '/v2?room=OSR-SMOKE'; do
-            curl --fail --retry 10 --retry-delay 1 --retry-connrefused "http://127.0.0.1:2000${path}" -o /tmp/route.html
+            curl --fail --silent --show-error --connect-timeout 2 --max-time 10 "http://127.0.0.1:2000${path}" -o /tmp/route.html
             grep -qi '<html' /tmp/route.html
           done
       - name: Smoke-test production backend
         if: matrix.component == 'backend'
         run: |
           docker run -d --name beta-backend -p 127.0.0.1:3000:3000 -e API_PORT=3000 -e SPECTRUM_TRANSCRIPTION_ENABLED=false spectrum-beta-smoke:backend
-          curl --fail --retry 10 --retry-delay 1 --retry-connrefused http://127.0.0.1:3000/docs/index.html -o /dev/null
+          bash .github/scripts/wait-for-http.sh http://127.0.0.1:3000/docs/index.html
+          curl --fail --silent --show-error --connect-timeout 2 --max-time 10 http://127.0.0.1:3000/docs/index.html -o /dev/null
       - name: Tag and push the smoke-tested image (no rebuild)
         env:
           IMAGE: ${{ needs.release.outputs.prefix }}-${{ matrix.component }}
