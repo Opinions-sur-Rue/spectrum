@@ -241,6 +241,9 @@ jobs:
     needs: [release, publish]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
       - uses: actions/download-artifact@v8
         with:
           pattern: beta-image-*

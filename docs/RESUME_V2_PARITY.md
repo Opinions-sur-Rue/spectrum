@@ -2,6 +2,39 @@
 
 ## Active UI/UX follow-up — second pass
 
+### Manifest job checkout — beta.6 follow-up
+
+Beta.6 run 42485640357 passed every validation job and both publish jobs. Its
+artifacts contain correct, pullable references:
+
+- frontend `ghcr.io/opinions-sur-rue/spectrum-frontend@sha256:a19df5ef…b7df5`
+- backend `ghcr.io/opinions-sur-rue/spectrum-backend@sha256:7282f819…44b32`
+
+Both the release tag and `beta-sha-5ad5b0e…` published the same digest per image.
+The log shows only those two tags per component: no `latest`/`main`, no deployment
+dispatch. The `manifest` job alone failed (exit 127) because it called
+`.github/scripts/write-beta-manifest.sh` without checking the repository out.
+Add the missing checkout at the release SHA. No rebuild or new tag: the image
+artifacts are authoritative and the corrected `beta-images.json` was assembled
+and validated with the same script.
+
+### Deployment preparation — compose overlay and manual gate
+
+`utile-compose` is the production stack. Prepare (do not deploy):
+
+- `docker-compose.spectrum-beta.yml` overlay pinning both beta.6 digests, used
+  with the base file so the ordinary `:latest` flow is untouched.
+- Manual `deploy-spectrum-beta` workflow using the existing `utile-space`
+  approval environment. It writes `.env.spectrum-beta` (voice LiveKit values,
+  transcription forced off), records the running image refs for rollback, deploys
+  only the two Spectrum services, then checks `/`, `/v2` and backend docs.
+- Rollback re-runs the workflow with the previous refs as inputs; images are not
+  pruned.
+- Voice needs a real LiveKit server with TLS (`wss://`) and TURN; until those
+  secrets exist the workflow can deploy with `enable_voice: false`.
+
+Merging or dispatching that preparation is a separate explicit approval.
+
 ### Digest-pinned release manifest — beta.6
 
 Beta.5 hosted run 42431955718 passed every validation and publish job and
