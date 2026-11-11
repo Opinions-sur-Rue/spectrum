@@ -23,6 +23,8 @@
 	import PendingNotesMenu from '$lib/canvas/PendingNotesMenu.svelte';
 	import SessionMenu from '$lib/canvas/SessionMenu.svelte';
 	import RoomTimer from '$lib/canvas/RoomTimer.svelte';
+	import { setTabRoom } from '$lib/canvas/tab-title';
+	import { clearRecentRoom, loadRecentRoom, saveRecentRoom } from '$lib/canvas/recent-room';
 	import SocialControls from '$lib/canvas/SocialControls.svelte';
 	import AppMenu from '$lib/canvas/AppMenu.svelte';
 	import ShareDialog from '$lib/canvas/ShareDialog.svelte';
@@ -80,6 +82,8 @@
 	let status = $state('Connecting');
 	let error = $state('');
 	let roomInput = $state('');
+	let missingRoom = $state(false);
+	let recentRoom = $state('');
 	let createSlices = $state(7);
 	let createNeutralCircle = $state(true);
 	let createTopic = $state('');
@@ -109,6 +113,10 @@
 		await tick();
 		document.querySelector<HTMLElement>('[data-testid="app-menu"]')?.focus();
 	}
+	function forgetRecentRoom() {
+		clearRecentRoom();
+		recentRoom = '';
+	}
 	const activityCellDetector = $derived(
 		spectrumCells.length ? createCellDetector(spectrumCells) : null
 	);
@@ -133,6 +141,7 @@
 	}
 
 	onMount(() => {
+		recentRoom = loadRecentRoom() ?? '';
 		const tracker = new ActivityTracker((entries) => {
 			activity = entries;
 		});
@@ -174,6 +183,7 @@
 					},
 					error: (value) => {
 						error = roomErrorLabel(value);
+						missingRoom = value === 'room not found';
 					},
 					chat: (value) => {
 						chat = value;
@@ -197,6 +207,8 @@
 						browserSession = null;
 						browserFailure = null;
 						error = '';
+						missingRoom = false;
+						setTabRoom(null);
 						tracker.clear();
 						transcript = null;
 						voiceCredentials = null;
@@ -227,6 +239,10 @@
 						if (!room) createTopic = '';
 						room = value;
 						roomConfirmed = true;
+						missingRoom = false;
+						setTabRoom(value.roomId);
+						saveRecentRoom(value.roomId);
+						recentRoom = value.roomId;
 						spectrum = value.spectrum ?? null;
 						loadSpectrumImage(spectrum?.sliceCount ?? 7, spectrum?.showNeutralCircle ?? true);
 						roomInput = value.roomId;
@@ -497,6 +513,9 @@
 			<div bind:this={container} class="canvas-host" class:preview={!room}></div>
 			{#if !room}<RoomLobby
 					{error}
+					{missingRoom}
+					{recentRoom}
+					forgetRecent={forgetRecentRoom}
 					connected={status === 'Connected'}
 					bind:roomInput
 					bind:slices={createSlices}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/Icon.svelte';
+	import { parseRoomCode } from './room-code';
 	let {
 		connected,
 		roomInput = $bindable(''),
@@ -8,7 +9,10 @@
 		neutralCircle = $bindable(true),
 		topic = $bindable(''),
 		send,
-		error = ''
+		error = '',
+		missingRoom = false,
+		recentRoom = '',
+		forgetRecent = () => {}
 	}: {
 		connected: boolean;
 		roomInput?: string;
@@ -17,17 +21,34 @@
 		topic?: string;
 		send: (op: string, payload: unknown) => boolean;
 		error?: string;
+		missingRoom?: boolean;
+		recentRoom?: string;
+		forgetRecent?: () => void;
 	} = $props();
+	let invalidCode = $state(false);
+	let joinInput = $state<HTMLInputElement>();
+	let createSection = $state<HTMLFormElement>();
+	function focusCreate() {
+		createSection?.scrollIntoView({
+			block: 'center',
+			behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+		});
+		document.getElementById('initial-topic')?.focus();
+	}
 	function join() {
-		let roomId = roomInput.trim();
-		try {
-			const link = new URL(roomId);
-			if (link.protocol === 'http:' || link.protocol === 'https:')
-				roomId = link.searchParams.get('room') ?? roomId;
-		} catch {
-			/* Plain room code. */
+		if (!connected) return;
+		const roomId = parseRoomCode(roomInput);
+		invalidCode = roomId === null;
+		if (!roomId) {
+			joinInput?.focus();
+			return;
 		}
+		roomInput = roomId;
 		send('room.join', { roomId });
+	}
+	function joinRecent() {
+		roomInput = recentRoom;
+		join();
 	}
 </script>
 
@@ -37,10 +58,19 @@
 			<p class="eyebrow">Spectrum</p>
 			<h1>{m.ux_welcome_title()}</h1>
 			<p class="intro">{m.ux_welcome_hint()}</p>
-			{#if error}<p role="alert" class="mt-3 rounded-lg border p-3 text-sm">{error}</p>{/if}
+			{#if error}<div role="alert" class="mt-3 rounded-lg border p-3 text-sm">
+					{error}
+					{#if missingRoom}<button
+							type="button"
+							class="btn btn-xs mt-2"
+							data-testid="create-instead"
+							onclick={focusCreate}>{m.ux_create_instead()}</button
+						>{/if}
+				</div>{/if}
 		</header>
 		<div class="lobby-forms">
 			<form
+				bind:this={createSection}
 				onsubmit={(event) => {
 					event.preventDefault();
 					send('room.create', { sliceCount: slices, showNeutralCircle: neutralCircle, topic });
@@ -95,21 +125,55 @@
 				<p class="join-hint">{m.ux_join_hint()}</p>
 				<label class="field-label" for="join-room">{m.ux_room_code()}</label>
 				<input
+					bind:this={joinInput}
 					id="join-room"
 					class="input w-full"
 					aria-label={m.v2_room_id()}
 					placeholder="OSR-…"
 					autocomplete="off"
 					spellcheck="false"
+					autocapitalize="characters"
+					enterkeyhint="go"
+					aria-invalid={invalidCode}
+					aria-describedby={invalidCode ? 'join-room-error' : 'join-room-help'}
+					oninput={() => {
+						invalidCode = false;
+					}}
 					disabled={!connected}
 					bind:value={roomInput}
 				/>
+				{#if invalidCode}
+					<p id="join-room-error" role="alert" class="text-error mt-2 text-sm">
+						{m.ux_room_code_invalid()}
+					</p>
+				{:else}
+					<p id="join-room-help" class="mt-2 text-xs opacity-70">{m.ux_room_code_help()}</p>
+				{/if}
 				<button
 					type="submit"
 					data-testid="join-room"
 					class="btn btn-outline mt-3 w-full"
 					disabled={!connected || !roomInput.trim()}>{m.ux_join_room()}</button
 				>
+				{#if recentRoom && recentRoom !== roomInput}
+					<div class="recent-room">
+						<button
+							type="button"
+							class="btn btn-sm btn-ghost min-w-0 flex-1"
+							data-testid="recent-room"
+							disabled={!connected}
+							onclick={joinRecent}
+							><span class="truncate">{m.ux_recent_room({ code: recentRoom })}</span></button
+						><button
+							type="button"
+							class="btn btn-sm btn-ghost"
+							data-testid="forget-recent"
+							aria-label={m.ux_forget_recent()}
+							title={m.ux_forget_recent()}
+							onclick={forgetRecent}>×</button
+						>
+					</div>
+				{/if}
 			</form>
 		</div>
 		<p class="privacy">{m.ux_privacy_hint()}</p>
@@ -197,6 +261,11 @@
 		font-size: 13px;
 		opacity: 0.65;
 		line-height: 1.6;
+	}
+	.recent-room {
+		display: flex;
+		gap: 4px;
+		margin-top: 8px;
 	}
 	.privacy {
 		margin-top: 24px;

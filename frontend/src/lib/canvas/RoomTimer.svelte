@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { RoomState } from './room-client';
 	import { RoomCountdown, timerDuration, timerLabel } from './room-timer';
+	import { setTabTimer } from './tab-title';
 	import { toolbarMenu } from './toolbar-menu';
 	let {
 		room,
@@ -25,6 +26,9 @@
 	function refresh() {
 		remaining = clock.seconds(performance.now());
 		if (observedRunning && remaining === 0) finished = true;
+		setTabTimer(
+			room.timer?.endsAt ? (remaining > 0 ? timerLabel(remaining) : m.timer_finished()) : null
+		);
 	}
 	$effect(() => {
 		const incoming = room.timer;
@@ -43,6 +47,7 @@
 		const interval = setInterval(refresh, 200);
 		return () => clearInterval(interval);
 	});
+	onDestroy(() => setTabTimer(null));
 	function setTimer(value: number) {
 		if (menu && ready && room.role === 'admin' && send('room.timer', { durationSeconds: value }))
 			menu.open = false;

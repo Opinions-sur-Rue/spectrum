@@ -12,18 +12,37 @@
 	let help = $state(false);
 	let dialog = $state<HTMLDialogElement>();
 	let menu: HTMLDetailsElement;
+	let explicit = false;
 	const themes = ['lofi', 'light', 'dark'];
+	function systemTheme(): string {
+		return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'lofi';
+	}
 	onMount(() => {
+		let saved: string | null = null;
 		try {
-			const saved = localStorage.getItem('spectrum-theme');
-			if (saved && themes.includes(saved)) theme = saved;
+			saved = localStorage.getItem('spectrum-theme');
 		} catch {
 			/* Preferences are optional. */
 		}
+		if (saved && themes.includes(saved)) {
+			theme = saved;
+			explicit = true;
+		} else {
+			theme = systemTheme();
+		}
 		document.documentElement.dataset.theme = theme;
+		const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+		function followSystem(event: MediaQueryListEvent) {
+			if (explicit) return;
+			theme = event.matches ? 'dark' : 'lofi';
+			document.documentElement.dataset.theme = theme;
+		}
+		media?.addEventListener('change', followSystem);
+		return () => media?.removeEventListener('change', followSystem);
 	});
 	function changeTheme(value: string) {
 		theme = value;
+		explicit = true;
 		document.documentElement.dataset.theme = value;
 		try {
 			localStorage.setItem('spectrum-theme', value);
@@ -76,6 +95,8 @@
 				help = true;
 			}}>{m.v2_help()}</button
 		>
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- v1 lives at the site root, outside the v2 tree. -->
+		<a href="/" class="btn btn-sm btn-ghost w-full" data-testid="back-to-v1">{m.ux_back_v1()}</a>
 		<!-- eslint-disable svelte/no-navigation-without-resolve -- External v1 feedback form, localized through the catalog. -->
 		<a
 			href={m.link_feedback_form()}

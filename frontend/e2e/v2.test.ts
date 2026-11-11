@@ -4,6 +4,71 @@ import { openActivity, openChat, openTranscript } from './discussion';
 import type { SpectrumState } from '../src/lib/canvas/room-client';
 import AxeBuilder from '@axe-core/playwright';
 
+test('lobby explains invalid invitations and accepts a pasted lowercase invitation', async ({
+	page,
+	browser
+}) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const invitation = page.url().toLowerCase();
+	const context = await browser.newContext({
+		storageState: englishLocale,
+		viewport: { width: 390, height: 844 }
+	});
+	try {
+		const guest = await context.newPage();
+		await guest.goto(new URL('/v2', page.url()).href);
+		const input = guest.getByLabel('Room ID', { exact: true });
+		await input.fill('https://example.com/index');
+		await guest.getByTestId('join-room').click();
+		await expect(input).toHaveAttribute('aria-invalid', 'true');
+		await expect(input).toBeFocused();
+		await expect(guest.getByRole('alert')).toContainText('valid room code');
+		await input.fill(invitation);
+		await expect(input).toHaveAttribute('aria-invalid', 'false');
+		await guest.getByTestId('join-room').click();
+		await expect(guest.getByTestId('own-role')).toHaveText('spectator');
+	} finally {
+		await context.close();
+	}
+});
+
+test('note navigation searches without accents and clears or selects results on mobile', async ({
+	page
+}) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await page.getByTestId('new-note').click();
+	const note = page.locator('[data-note-id]').first();
+	await note.getByRole('heading', { level: 1 }).fill('Énergie partagée');
+	await note.getByRole('button', { name: 'Save note', exact: true }).click();
+	await expect(note.locator('.unsaved')).toHaveCount(0);
+	await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+	await page.keyboard.press('Control+k');
+	const navigator = page.getByTestId('note-navigator');
+	const search = navigator.getByRole('searchbox', { name: 'Search notes' });
+	await expect(search).toBeFocused();
+	await search.fill('ENERGIE');
+	await expect(navigator.locator('mark').first()).toHaveText('Énergie');
+	await expect(
+		navigator.getByRole('button', { name: 'Énergie partagée', exact: true })
+	).toBeVisible();
+	await page.keyboard.press('Enter');
+	await expect(note).toBeFocused();
+	await page.getByLabel('Find a note', { exact: true }).click();
+	await expect(search).toBeFocused();
+	await search.fill('absent');
+	await expect(navigator).toContainText('No matching notes');
+	await navigator.getByRole('button', { name: 'Clear note search' }).click();
+	await expect(search).toBeFocused();
+	await expect(search).toHaveValue('');
+	await navigator.getByRole('button', { name: 'Énergie partagée', exact: true }).click();
+	await expect(note).toBeFocused();
+});
+
 test('admin timer is shared, silently finishes and restores without replay after reload', async ({
 	page,
 	browser
@@ -28,6 +93,8 @@ test('admin timer is shared, silently finishes and restores without replay after
 		await page.getByLabel('Seconds', { exact: true }).fill('3');
 		await page.getByRole('button', { name: 'Start timer', exact: true }).click();
 		await expect(spectator.getByTestId('room-timer')).toBeVisible();
+		await expect(page).toHaveTitle(/⏱ \d+:\d{2} · Spectrum v2/);
+		await expect(spectator).toHaveTitle(/⏱ \d+:\d{2} · Spectrum v2/);
 		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
 			true
 		);
@@ -42,9 +109,11 @@ test('admin timer is shared, silently finishes and restores without replay after
 		await expect(spectator.getByRole('timer')).toHaveText('0:00');
 		await expect(spectator.getByTestId('room-timer')).toHaveAttribute('data-finished', 'false');
 		await expect(spectator.getByTestId('room-timer').getByRole('status')).toHaveText('Time is up');
+		await expect(spectator).toHaveTitle('⏱ Time is up · Spectrum v2');
 		await page.getByLabel('Set timer', { exact: true }).click();
 		await page.getByRole('button', { name: 'Clear timer', exact: true }).click();
 		await expect(spectator.getByTestId('room-timer')).toHaveCount(0);
+		await expect(spectator).toHaveTitle(/^Spectrum v2 · OSR-/);
 	} finally {
 		await context.close();
 	}
@@ -1055,6 +1124,31 @@ test('missing room has actionable French copy inside the lobby', async ({ page }
 	await expect(page.getByRole('alert')).toContainText('Cette salle est indisponible');
 	await expect(page.locator('.lobby-card').getByRole('alert')).toBeVisible();
 	await expect(page.getByTestId('create-room')).toBeVisible();
+	await expect(page.getByTestId('create-instead')).toBeVisible();
+});
+
+test('lobby remembers the last room, offers v1 and follows the system theme', async ({ page }) => {
+	await page.emulateMedia({ colorScheme: 'dark' });
+	await page.goto('/v2');
+	await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const roomId = (await page.locator('.room-code').textContent())?.trim() ?? '';
+	expect(roomId).toMatch(/^OSR-[A-Z0-9]{4,64}$/);
+	await expect(page).toHaveTitle(`Spectrum v2 · ${roomId}`);
+	await page.goto('/v2');
+	await expect(page.getByTestId('recent-room')).toContainText(roomId);
+	await page.getByTestId('app-menu').click();
+	await expect(page.getByTestId('back-to-v1')).toHaveAttribute('href', '/');
+	await page.keyboard.press('Escape');
+	await expect(page.getByTestId('back-to-v1')).toBeHidden();
+	await page.getByTestId('recent-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await page.goto('/v2');
+	await page.getByTestId('forget-recent').click();
+	await expect(page.getByTestId('recent-room')).toHaveCount(0);
+	await page.reload();
+	await expect(page.getByTestId('recent-room')).toHaveCount(0);
 });
 
 test('room sharing generates a local QR, presentation hides controls, and preferences survive reload', async ({
