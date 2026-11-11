@@ -76,5 +76,31 @@ it('finishes once with a visual cue, without sound, and does not replay for late
 	});
 	await tick();
 	expect(late.getByRole('timer').textContent).toBe('0:00');
+	expect(late.getByRole('status').textContent).toBe(m.timer_finished());
+	expect(late.getByRole('status').classList.contains('sr-only')).toBe(false);
 	expect(late.getByTestId('room-timer').getAttribute('data-finished')).toBe('false');
+});
+
+it('quick durations fill the form without starting or replacing the shared timer', async () => {
+	const send = vi.fn(() => true);
+	const view = render(RoomTimer, { room: room(), ready: true, send });
+	await tick();
+	await fireEvent.click(view.getByLabelText(m.timer_setup()));
+	for (const preset of [1, 3, 5]) {
+		await fireEvent.input(view.getByLabelText(m.timer_seconds()), { target: { value: '45' } });
+		const button = view.getByRole('button', { name: m.timer_preset({ minutes: preset }) });
+		await fireEvent.click(button);
+		expect((view.getByLabelText(m.timer_minutes()) as HTMLInputElement).value).toBe(String(preset));
+		expect((view.getByLabelText(m.timer_seconds()) as HTMLInputElement).value).toBe('0');
+		expect(button.getAttribute('aria-pressed')).toBe('true');
+		expect(send).not.toHaveBeenCalled();
+	}
+	await fireEvent.submit(view.container.querySelector('form')!);
+	expect(send).toHaveBeenCalledWith('room.timer', { durationSeconds: 300 });
+	await view.rerender({ room: room(), ready: false, send });
+	await fireEvent.click(view.getByLabelText(m.timer_setup()));
+	for (const button of view
+		.getByRole('group', { name: m.timer_presets() })
+		.querySelectorAll('button'))
+		expect(button.disabled).toBe(true);
 });

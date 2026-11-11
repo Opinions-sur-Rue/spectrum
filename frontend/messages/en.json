@@ -1,5 +1,7 @@
 {
 	"timer_title": "Timer",
+	"timer_presets": "Quick durations",
+	"timer_preset": "{minutes} min",
 	"timer_setup": "Set timer",
 	"timer_minutes": "Minutes",
 	"timer_seconds": "Seconds",

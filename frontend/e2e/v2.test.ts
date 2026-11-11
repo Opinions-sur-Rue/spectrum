@@ -20,6 +20,10 @@ test('admin timer is shared, silently finishes and restores without replay after
 		await expect(spectator.getByTestId('own-role')).toHaveText('spectator');
 		await expect(spectator.getByLabel('Set timer', { exact: true })).toHaveCount(0);
 		await page.getByLabel('Set timer', { exact: true }).click();
+		await page.getByRole('button', { name: '1 min', exact: true }).click();
+		await expect(page.getByLabel('Minutes', { exact: true })).toHaveValue('1');
+		await expect(page.getByLabel('Seconds', { exact: true })).toHaveValue('0');
+		await expect(page.getByTestId('room-timer')).toHaveCount(0);
 		await page.getByLabel('Minutes', { exact: true }).fill('0');
 		await page.getByLabel('Seconds', { exact: true }).fill('3');
 		await page.getByRole('button', { name: 'Start timer', exact: true }).click();
@@ -30,12 +34,14 @@ test('admin timer is shared, silently finishes and restores without replay after
 		for (const client of [page, spectator]) {
 			await expect(client.getByRole('timer')).toHaveText('0:00', { timeout: 10000 });
 			await expect(client.getByTestId('room-timer')).toHaveAttribute('data-finished', 'true');
+			await expect(client.getByTestId('room-timer').getByRole('status')).toHaveText('Time is up');
 			await expect(client.locator('audio')).toHaveCount(0);
 		}
 		await expect(spectator.getByTestId('room-timer')).toHaveCSS('animation-name', 'none');
 		await spectator.reload();
 		await expect(spectator.getByRole('timer')).toHaveText('0:00');
 		await expect(spectator.getByTestId('room-timer')).toHaveAttribute('data-finished', 'false');
+		await expect(spectator.getByTestId('room-timer').getByRole('status')).toHaveText('Time is up');
 		await page.getByLabel('Set timer', { exact: true }).click();
 		await page.getByRole('button', { name: 'Clear timer', exact: true }).click();
 		await expect(spectator.getByTestId('room-timer')).toHaveCount(0);

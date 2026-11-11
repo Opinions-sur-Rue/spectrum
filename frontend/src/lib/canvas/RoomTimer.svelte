@@ -21,6 +21,7 @@
 	const clock = new RoomCountdown();
 	let observedRunning = false;
 	const duration = $derived(timerDuration(minutes, seconds));
+	const expired = $derived(!!room.timer?.endsAt && remaining === 0);
 	function refresh() {
 		remaining = clock.seconds(performance.now());
 		if (observedRunning && remaining === 0) finished = true;
@@ -50,10 +51,20 @@
 
 <div class="room-timer flex items-center gap-1">
 	{#if room.timer?.endsAt}
-		<div class="timer-readout" class:finished data-testid="room-timer" data-finished={finished}>
+		<div
+			class="timer-readout"
+			class:expired
+			class:finished
+			data-testid="room-timer"
+			data-finished={finished}
+		>
 			<span aria-hidden="true">⏱</span>
-			<span role="timer" aria-label={m.timer_title()} aria-live="off">{timerLabel(remaining)}</span>
-			<span class="sr-only" role="status">{finished ? m.timer_finished() : ''}</span>
+			<div class="timer-copy">
+				<span role="timer" aria-label={m.timer_title()} aria-live="off"
+					>{timerLabel(remaining)}</span
+				>
+				<span class="timer-completion" role="status">{expired ? m.timer_finished() : ''}</span>
+			</div>
 		</div>
 	{/if}
 	{#if room.role === 'admin'}
@@ -70,6 +81,21 @@
 					}}
 				>
 					<p class="text-sm">{m.timer_hint()}</p>
+					<div class="flex gap-1" role="group" aria-label={m.timer_presets()}>
+						{#each [1, 3, 5] as preset (preset)}
+							<button
+								class="btn btn-sm flex-1"
+								class:btn-active={minutes === preset && seconds === 0}
+								type="button"
+								aria-pressed={minutes === preset && seconds === 0}
+								disabled={!ready}
+								onclick={() => {
+									minutes = preset;
+									seconds = 0;
+								}}>{m.timer_preset({ minutes: preset })}</button
+							>
+						{/each}
+					</div>
 					<div class="flex gap-2">
 						<label class="min-w-0 flex-1 text-sm"
 							>{m.timer_minutes()}
@@ -125,8 +151,21 @@
 		border-radius: 999px;
 		font-variant-numeric: tabular-nums;
 	}
-	.finished {
+	.timer-copy {
+		display: flex;
+		flex-direction: column;
+		line-height: 1.15;
+	}
+	.timer-completion {
+		font-size: 0.7rem;
+	}
+	.timer-completion:empty {
+		display: none;
+	}
+	.expired {
 		background: color-mix(in srgb, currentColor 8%, transparent);
+	}
+	.finished {
 		animation: timer-finish 1.2s ease-out;
 	}
 	@keyframes timer-finish {
