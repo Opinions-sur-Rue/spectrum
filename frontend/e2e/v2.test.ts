@@ -4,6 +4,46 @@ import { openActivity, openChat, openTranscript } from './discussion';
 import type { SpectrumState } from '../src/lib/canvas/room-client';
 import AxeBuilder from '@axe-core/playwright';
 
+test('admin timer is shared, silently finishes and restores without replay after reload', async ({
+	page,
+	browser
+}) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const context = await browser.newContext({ storageState: englishLocale });
+	try {
+		const spectator = await context.newPage();
+		await spectator.emulateMedia({ reducedMotion: 'reduce' });
+		await spectator.goto(page.url());
+		await expect(spectator.getByTestId('own-role')).toHaveText('spectator');
+		await expect(spectator.getByLabel('Set timer', { exact: true })).toHaveCount(0);
+		await page.getByLabel('Set timer', { exact: true }).click();
+		await page.getByLabel('Minutes', { exact: true }).fill('0');
+		await page.getByLabel('Seconds', { exact: true }).fill('3');
+		await page.getByRole('button', { name: 'Start timer', exact: true }).click();
+		await expect(spectator.getByTestId('room-timer')).toBeVisible();
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+			true
+		);
+		for (const client of [page, spectator]) {
+			await expect(client.getByRole('timer')).toHaveText('0:00', { timeout: 10000 });
+			await expect(client.getByTestId('room-timer')).toHaveAttribute('data-finished', 'true');
+			await expect(client.locator('audio')).toHaveCount(0);
+		}
+		await expect(spectator.getByTestId('room-timer')).toHaveCSS('animation-name', 'none');
+		await spectator.reload();
+		await expect(spectator.getByRole('timer')).toHaveText('0:00');
+		await expect(spectator.getByTestId('room-timer')).toHaveAttribute('data-finished', 'false');
+		await page.getByLabel('Set timer', { exact: true }).click();
+		await page.getByRole('button', { name: 'Clear timer', exact: true }).click();
+		await expect(spectator.getByTestId('room-timer')).toHaveCount(0);
+	} finally {
+		await context.close();
+	}
+});
+
 test('canvas navigation: note index respects spectator visibility and zoom buttons stop at limits', async ({
 	page,
 	browser

@@ -48,12 +48,20 @@ export interface RoomState {
 	members: RoomMember[];
 	spectrum: SpectrumState;
 	voice?: { available: boolean; generation: number };
+	timer?: RoomTimerState;
 	transcription?: {
 		available: boolean;
 		ready: boolean;
 		mode?: 'server' | 'browser';
 		speakers?: string[];
 	};
+}
+
+export interface RoomTimerState {
+	revision: number;
+	durationSeconds: number;
+	endsAt: number;
+	serverNow: number;
 }
 
 export interface Pellet {

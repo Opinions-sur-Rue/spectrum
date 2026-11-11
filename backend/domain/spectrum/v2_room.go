@@ -22,6 +22,7 @@ type roomStatePayload struct {
 	Spectrum      spectrumPayload     `json:"spectrum"`
 	Voice         voiceStatus         `json:"voice"`
 	Transcription transcriptionStatus `json:"transcription"`
+	Timer         roomTimerState      `json:"timer"`
 }
 
 type roomMemberPayload struct {
@@ -122,6 +123,8 @@ func handleRoomGet(c *Client, envelope *valueobjects.Envelope) error {
 			return
 		}
 		state.Settings = room.Settings()
+		state.Timer = room.timer
+		state.Timer.ServerNow = time.Now().UnixMilli()
 		state.UserID = room.memberIDs[user.UserID]
 		for _, member := range append(room.Participants(), room.Spectators()...) {
 			memberRole, _ := room.RoleOf(member.UserID)

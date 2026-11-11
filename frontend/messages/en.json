@@ -1,4 +1,12 @@
 {
+	"timer_title": "Timer",
+	"timer_setup": "Set timer",
+	"timer_minutes": "Minutes",
+	"timer_seconds": "Seconds",
+	"timer_start": "Start timer",
+	"timer_cancel": "Clear timer",
+	"timer_finished": "Time is up",
+	"timer_hint": "Shared countdown, up to 24 hours. Silent finish, visual cue only.",
 	"ux_own_pellet": "You",
 	"ux_note_layout": "Canvas position and size",
 	"ux_note_left": "Move note left",

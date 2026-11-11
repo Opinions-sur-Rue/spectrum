@@ -22,6 +22,7 @@
 	import RoomOptions from '$lib/canvas/RoomOptions.svelte';
 	import PendingNotesMenu from '$lib/canvas/PendingNotesMenu.svelte';
 	import SessionMenu from '$lib/canvas/SessionMenu.svelte';
+	import RoomTimer from '$lib/canvas/RoomTimer.svelte';
 	import SocialControls from '$lib/canvas/SocialControls.svelte';
 	import AppMenu from '$lib/canvas/AppMenu.svelte';
 	import ShareDialog from '$lib/canvas/ShareDialog.svelte';
@@ -417,6 +418,7 @@
 					title={m.ux_invite()}><Icon name="link" /><span>{m.ux_invite()}</span></button
 				>
 				<PeopleMenu {room} {ready} {send} connection={voiceConnection} {speakers} />
+				{#key room.roomId}<RoomTimer {room} {ready} {send} />{/key}
 				{#if admin && pendingNotes.length}<PendingNotesMenu
 						notes={pendingNotes}
 						{ready}
@@ -678,6 +680,8 @@
 	}
 	.session-controls {
 		display: flex;
+		flex-wrap: wrap;
+		max-width: 100%;
 		align-items: center;
 		gap: 6px;
 		margin-left: auto;
