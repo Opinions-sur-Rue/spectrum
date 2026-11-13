@@ -4,10 +4,22 @@
 	import { getLocale, setLocale } from '$lib/paraglide/runtime';
 	import { toolbarMenu } from './toolbar-menu';
 	import { dialogFocus } from './dialog-focus';
+	import Icon from '$lib/components/Icon.svelte';
+	import { buildMarkdownExport, downloadMarkdown, exportFilename } from './note-export';
+	import type { EdgeModel, NoteModel } from './models';
 	let {
 		inRoom = false,
-		presentation = $bindable(false)
-	}: { inRoom?: boolean; presentation?: boolean } = $props();
+		presentation = $bindable(false),
+		roomId = '',
+		notes = [] as NoteModel[],
+		edges = [] as EdgeModel[]
+	}: {
+		inRoom?: boolean;
+		presentation?: boolean;
+		roomId?: string;
+		notes?: NoteModel[];
+		edges?: EdgeModel[];
+	} = $props();
 	let theme = $state('lofi');
 	let help = $state(false);
 	let dialog = $state<HTMLDialogElement>();
@@ -97,6 +109,17 @@
 		>
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- v1 lives at the site root, outside the v2 tree. -->
 		<a href="/" class="btn btn-sm btn-ghost w-full" data-testid="back-to-v1">{m.ux_back_v1()}</a>
+		{#if inRoom}<button
+				type="button"
+				class="btn btn-sm btn-ghost w-full justify-start gap-2"
+				data-testid="export-notes"
+				disabled={notes.length === 0}
+				title={notes.length ? m.ux_export_notes() : m.ux_export_empty()}
+				onclick={() => {
+					menu.open = false;
+					downloadMarkdown(exportFilename(roomId), buildMarkdownExport({ roomId, notes, edges }));
+				}}><Icon name="download" />{m.ux_export_notes()}</button
+			>{/if}
 		<!-- eslint-disable svelte/no-navigation-without-resolve -- External v1 feedback form, localized through the catalog. -->
 		<a
 			href={m.link_feedback_form()}

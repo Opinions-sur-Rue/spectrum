@@ -19,6 +19,7 @@
 	import DiscussionPanel from '$lib/canvas/DiscussionPanel.svelte';
 	import ClaimBar from '$lib/canvas/ClaimBar.svelte';
 	import RoomLobby from '$lib/canvas/RoomLobby.svelte';
+	import RoomOnboarding from '$lib/canvas/RoomOnboarding.svelte';
 	import RoomOptions from '$lib/canvas/RoomOptions.svelte';
 	import PendingNotesMenu from '$lib/canvas/PendingNotesMenu.svelte';
 	import SessionMenu from '$lib/canvas/SessionMenu.svelte';
@@ -80,6 +81,7 @@
 	let shareOpen = $state(false);
 	let presentation = $state(false);
 	let status = $state('Connecting');
+	let everOnline = $state(false);
 	let error = $state('');
 	let roomInput = $state('');
 	let missingRoom = $state(false);
@@ -171,6 +173,7 @@
 				client = new RoomClient(userId, roomInput, {
 					status: (value) => {
 						status = value;
+						if (value === 'Connected') everOnline = true;
 						if (value !== 'Connected') {
 							roomConfirmed = false;
 							browserSession = null;
@@ -443,11 +446,17 @@
 					/>{/if}
 				{#if admin}<RoomOptions {room} {spectrum} {ready} {send} />{/if}
 				{#if admin}<LiveMenu state={live} {ready} slices={spectrum?.sliceCount ?? 7} {send} />{/if}
-				<AppMenu inRoom bind:presentation />
+				<AppMenu inRoom bind:presentation roomId={room.roomId} {notes} {edges} />
 				<SessionMenu {admin} {ready} {send} />
 			</nav>
 		{:else}<span class="welcome-privacy">{m.ux_privacy_short()}</span><AppMenu />{/if}
 	</header>
+	{#if room && !presentation && everOnline && status !== 'Connected'}
+		<div class="offline-banner" role="status" data-testid="offline-banner">
+			<Icon name="offline" />
+			<span><strong>{m.ux_offline_title()}</strong> — {m.ux_offline_hint()}</span>
+		</div>
+	{/if}
 	{#if room}<ShareDialog roomId={room.roomId} bind:open={shareOpen} />{/if}
 	{#if presentation}<div class="bg-base-100 flex items-center justify-between px-4 py-2 text-xs">
 			<span>Spectrum · {room?.roomId}</span><button
@@ -590,6 +599,7 @@
 				</div>
 			{/if}
 		</main>
+		{#if room && !presentation}<RoomOnboarding role={room.role} />{/if}
 		{#if room}{#key room.roomId}<DiscussionPanel
 					{room}
 					{ready}
@@ -632,6 +642,17 @@
 		overflow: hidden;
 		background: var(--color-base-200);
 		color: var(--color-base-content);
+	}
+	.offline-banner {
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 8px;
+		padding: 6px 18px;
+		border-bottom: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+		background: color-mix(in srgb, var(--color-warning) 14%, var(--color-base-100));
+		font-size: 12px;
+		line-height: 1.4;
 	}
 	.v2-topbar {
 		position: relative;
@@ -757,7 +778,7 @@
 		align-items: center;
 		gap: 8px;
 		font-size: 11px;
-		opacity: 0.5;
+		opacity: 0.7;
 	}
 	.workspace-body {
 		order: 2;

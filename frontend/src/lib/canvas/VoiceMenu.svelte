@@ -11,6 +11,13 @@
 	} from './voice-connection';
 	import type { RoomState } from './room-client';
 	import BrowserTranscriptControl from './BrowserTranscriptControl.svelte';
+	import MicLevel from './MicLevel.svelte';
+	import {
+		audioInputOptions,
+		loadMicDevice,
+		saveMicDevice,
+		type AudioInputOption
+	} from './audio-inputs';
 	import type { BrowserTranscriptSession, BrowserTranscriptFailure } from './browser-stt';
 	import { toolbarMenu } from './toolbar-menu';
 	let {
@@ -53,6 +60,8 @@
 	let consentOpen = $state(false);
 	let consentDialog = $state<HTMLDialogElement>();
 	let startAfterConsent = $state(false);
+	let inputs = $state<AudioInputOption[]>([]);
+	let deviceId = $state('');
 	const transcribing = $derived(
 		!!room.transcription?.available &&
 			room.transcription.mode !== 'browser' &&
@@ -107,6 +116,8 @@
 			}
 		});
 		connection = instance;
+		deviceId = loadMicDevice() ?? '';
+		void instance.setMicrophoneDevice(deviceId || null);
 		return () => {
 			connection = null;
 			void instance.disconnect();
@@ -169,6 +180,26 @@
 			error = failure.message;
 		}
 	});
+	async function refreshInputs() {
+		try {
+			const devices = await navigator.mediaDevices.enumerateDevices();
+			inputs = audioInputOptions(devices);
+		} catch {
+			inputs = [];
+		}
+	}
+	$effect(() => {
+		if (!wanted || !onStage) return;
+		void refreshInputs();
+		const media = navigator.mediaDevices;
+		media?.addEventListener('devicechange', refreshInputs);
+		return () => media?.removeEventListener('devicechange', refreshInputs);
+	});
+	function chooseDevice(value: string) {
+		deviceId = value;
+		saveMicDevice(value || null);
+		void connection?.setMicrophoneDevice(value || null).then(refreshInputs);
+	}
 </script>
 
 <div
@@ -234,6 +265,38 @@
 		data-testid="voice-summary">{summary}</span
 	>
 	<div bind:this={audio} class="hidden" aria-hidden="true"></div>
+	{#if wanted && onStage}<details class="relative" use:toolbarMenu>
+			<summary
+				class="toolbar-summary"
+				data-testid="mic-options"
+				aria-label={m.ux_mic_options()}
+				title={m.ux_mic_options()}
+			>
+				<Icon name="settings" /><span class="hidden text-xs sm:inline">{m.ux_mic_options()}</span>
+			</summary>
+			<div class="toolbar-popover bg-base-100 w-72 space-y-3 rounded-xl border p-4 shadow-xl">
+				<label class="block text-xs"
+					>{m.ux_mic_device()}
+					<select
+						class="select select-sm mt-1 w-full"
+						data-testid="mic-device"
+						value={deviceId}
+						onchange={(event) => chooseDevice(event.currentTarget.value)}
+					>
+						<option value="">{m.ux_mic_default()}</option>
+						{#each inputs as input, index (input.id)}<option value={input.id}
+								>{input.label || m.ux_mic_fallback({ number: index + 1 })}</option
+							>{/each}
+					</select>
+				</label>
+				{#if inputs.some((input) => !input.label)}<p class="text-xs opacity-70">
+						{m.ux_mic_permission()}
+					</p>{/if}
+				{#if microphone}<MicLevel track={localTrack} />{:else}<p class="text-xs opacity-70">
+						{m.ux_mic_prompt()}
+					</p>{/if}
+			</div>
+		</details>{/if}
 	{#if onStage && room.transcription?.mode === 'browser'}<details class="relative" use:toolbarMenu>
 			<summary
 				class="toolbar-summary"

@@ -1,4 +1,5 @@
 import { chromium, expect, firefox, test, type Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { englishLocale } from './locale-state';
 import { openActivity, openChat, openTranscript } from './discussion';
 import type { SpectrumState } from '../src/lib/canvas/room-client';
@@ -67,6 +68,58 @@ test('note navigation searches without accents and clears or selects results on 
 	await expect(search).toHaveValue('');
 	await navigator.getByRole('button', { name: 'Énergie partagée', exact: true }).click();
 	await expect(note).toBeFocused();
+});
+
+test('room onboarding shows once and stays dismissed', async ({ page }) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const onboarding = page.getByTestId('room-onboarding');
+	await expect(onboarding).toBeVisible();
+	await expect(onboarding).toContainText('Three things to try');
+	await onboarding.getByRole('button', { name: 'Got it' }).click();
+	await expect(onboarding).toHaveCount(0);
+	await page.reload();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await expect(page.getByTestId('room-onboarding')).toHaveCount(0);
+});
+
+test('offline banner explains paused changes and clears after reconnect', async ({ page }) => {
+	let drop: (() => void) | undefined;
+	await page.routeWebSocket('**/spectrum/ws', (socket) => {
+		drop ??= () => socket.close();
+		socket.connectToServer();
+	});
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await expect(page.getByTestId('offline-banner')).toHaveCount(0);
+	drop?.();
+	await expect(page.getByTestId('offline-banner')).toBeVisible({ timeout: 20000 });
+	await expect(page.getByTestId('offline-banner')).toContainText('Changes are paused');
+	await expect(page.getByTestId('offline-banner')).toHaveCount(0, { timeout: 30000 });
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+});
+
+test('note export downloads a Markdown copy of the visible notes', async ({ page }) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await page.getByTestId('new-note').click();
+	const note = page.locator('[data-note-id]').first();
+	await note.getByRole('heading', { level: 1 }).fill('Énergie partagée');
+	await note.getByRole('button', { name: 'Save note', exact: true }).click();
+	await expect(note.locator('.unsaved')).toHaveCount(0);
+	await page.getByTestId('app-menu').click();
+	const [download] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByTestId('export-notes').click()
+	]);
+	expect(download.suggestedFilename()).toMatch(/^spectrum-OSR-[A-Z0-9]+-\d{4}-\d{2}-\d{2}\.md$/);
+	const content = await readFile(await download.path(), 'utf8');
+	expect(content).toContain('# Spectrum — OSR-');
+	expect(content).toContain('## Énergie partagée');
+	expect(content).toContain('Exported');
 });
 
 test('admin timer is shared, silently finishes and restores without replay after reload', async ({

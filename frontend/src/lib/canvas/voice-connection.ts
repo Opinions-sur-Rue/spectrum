@@ -35,6 +35,7 @@ export class VoiceConnection {
 	private audio = new Map<RemoteTrack, HTMLMediaElement[]>();
 	private volumes = new Map<string, number>();
 	private audioOwners = new Map<RemoteTrack, string>();
+	private deviceId: string | null = null;
 
 	getVolume(memberId: string): number {
 		return this.volumes.get(memberId) ?? 1;
@@ -157,6 +158,23 @@ export class VoiceConnection {
 		}
 	}
 
+	/** Remember a microphone choice; restart capture only if it is already live. */
+	async setMicrophoneDevice(deviceId: string | null): Promise<void> {
+		const value = deviceId || null;
+		if (value === this.deviceId) return;
+		this.deviceId = value;
+		const room = this.room;
+		if (!room || !this.microphone || this.micBusy) return;
+		const track = this.microphone;
+		this.stopCapture();
+		try {
+			await room.localParticipant.unpublishTrack(track, true);
+		} catch {
+			/* Capture is already stopped. */
+		}
+		await this.toggleMicrophone();
+	}
+
 	async toggleMicrophone(): Promise<void> {
 		if (this.micBusy || !this.room || !this.allowed || this.room.state !== 'connected') return;
 		const room = this.room;
@@ -181,7 +199,8 @@ export class VoiceConnection {
 			track = await sdk.createLocalAudioTrack({
 				echoCancellation: true,
 				noiseSuppression: true,
-				autoGainControl: true
+				autoGainControl: true,
+				...(this.deviceId ? { deviceId: this.deviceId } : {})
 			});
 			if (operation !== this.operation || this.room !== room || !this.allowed) {
 				track.stop();
