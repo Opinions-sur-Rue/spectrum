@@ -2,15 +2,20 @@ import { describe, expect, it } from 'vitest';
 import {
 	MAX_SCALE,
 	MIN_SCALE,
+	SPECTRUM_HEIGHT,
+	SPECTRUM_WIDTH,
 	WORLD_HEIGHT,
 	WORLD_WIDTH,
 	clampCamera,
 	createCamera,
 	fitSpectrum,
+	isContentVisible,
+	keepContentVisible,
 	panBy,
 	screenToWorld,
 	worldToScreen,
 	zoomAt,
+	type ContentRect,
 	type Viewport
 } from './camera';
 
@@ -95,5 +100,47 @@ describe('camera', () => {
 
 		expect(Number.isFinite(camera.scale)).toBe(true);
 		expect(camera.scale).toBeGreaterThanOrEqual(MIN_SCALE);
+	});
+});
+
+describe('resize camera policy', () => {
+	const spectrum: ContentRect = {
+		x: -SPECTRUM_WIDTH / 2,
+		y: -SPECTRUM_HEIGHT / 2,
+		width: SPECTRUM_WIDTH,
+		height: SPECTRUM_HEIGHT
+	};
+	const phone: Viewport = { width: 390, height: 844 };
+
+	it('keeps a deliberate pan and zoom while any content is visible', () => {
+		const camera = { x: -600, y: 0, scale: 1.4 };
+		const kept = keepContentVisible(camera, viewport, [spectrum]);
+
+		expect(kept).toBe(camera);
+		expect(isContentVisible(camera, viewport, spectrum)).toBe(true);
+	});
+
+	it('pans minimally back to the nearest content when the view is empty', () => {
+		const camera = { x: 0, y: 2000, scale: 1.2 };
+		const rescued = keepContentVisible(camera, phone, [spectrum]);
+
+		expect(isContentVisible(rescued, phone, spectrum)).toBe(true);
+		expect(rescued.scale).toBe(1.2);
+		expect(rescued.y).toBeLessThan(2000);
+	});
+
+	it('prefers the nearest note over the spectrum when both are offscreen', () => {
+		const note: ContentRect = { x: 140, y: 1500, width: 260, height: 180 };
+		const camera = { x: 300, y: 2200, scale: 1 };
+		const rescued = keepContentVisible(camera, phone, [spectrum, note]);
+
+		expect(isContentVisible(rescued, phone, note)).toBe(true);
+		expect(rescued.y).toBe(1680);
+		expect(rescued.scale).toBe(1);
+	});
+
+	it('does nothing without content', () => {
+		const camera = { x: 100, y: 100, scale: 1 };
+		expect(keepContentVisible(camera, viewport, [])).toBe(camera);
 	});
 });

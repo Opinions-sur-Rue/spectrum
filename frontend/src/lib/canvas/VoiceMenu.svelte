@@ -272,7 +272,7 @@
 				aria-label={m.ux_mic_options()}
 				title={m.ux_mic_options()}
 			>
-				<Icon name="settings" /><span class="hidden text-xs sm:inline">{m.ux_mic_options()}</span>
+				<Icon name="mic" /><span class="hidden text-xs sm:inline">{m.ux_mic_options()}</span>
 			</summary>
 			<div class="toolbar-popover bg-base-100 w-72 space-y-3 rounded-xl border p-4 shadow-xl">
 				<label class="block text-xs"

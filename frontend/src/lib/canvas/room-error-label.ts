@@ -8,6 +8,10 @@ export function roomErrorLabel(message: string): string {
 		case 'room is full':
 		case 'spectator limit reached':
 			return m.ux_room_full();
+		case 'operation not allowed for this role':
+			return m.ux_error_leave_room_first();
+		case 'already in a room':
+			return m.ux_error_already_in_room();
 		default:
 			return message;
 	}

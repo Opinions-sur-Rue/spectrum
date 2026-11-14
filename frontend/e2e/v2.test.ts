@@ -122,6 +122,28 @@ test('note export downloads a Markdown copy of the visible notes', async ({ page
 	expect(content).toContain('Exported');
 });
 
+test('a dead invitation opened from inside a room is explained without raw protocol text', async ({
+	page
+}) => {
+	let inject: ((message: unknown) => void) | undefined;
+	await page.routeWebSocket('**/spectrum/ws', (socket) => {
+		socket.connectToServer();
+		inject = (message) => socket.send(JSON.stringify(message));
+	});
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	inject?.({
+		v: 2,
+		op: 'error',
+		payload: { code: 'room_join_failed', message: 'operation not allowed for this role' }
+	});
+	const banner = page.locator('[role="alert"]').first();
+	await expect(banner).toContainText('not available from inside a room');
+	await expect(banner).not.toContainText('operation not allowed');
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+});
+
 test('admin timer is shared, silently finishes and restores without replay after reload', async ({
 	page,
 	browser

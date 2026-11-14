@@ -14,7 +14,9 @@ export function activityLabel(entry: ActivityEntry): string {
 		case 'leave':
 			return entry.self ? m.log_you_left_spectrum() : m.log_left_spectrum({ name });
 		case 'topic':
-			return entry.topic ? m.log_claim({ claim: entry.topic }) : m.activity_claim_cleared();
+			return entry.topic
+				? m.ux_activity_topic({ topic: entry.topic })
+				: m.ux_activity_topic_cleared();
 		case 'opinion': {
 			const opinion = cellLabel(entry.cellId ?? null);
 			return entry.self ? m.log_your_opinion({ opinion }) : m.log_opinion({ name, opinion });

@@ -13,9 +13,11 @@ import {
 	clampCamera,
 	createCamera,
 	fitSpectrum,
+	keepContentVisible,
 	panBy,
 	zoomAt,
 	type Camera,
+	type ContentRect,
 	type Point,
 	type Viewport
 } from './camera';
@@ -257,8 +259,29 @@ export class CanvasWorkspace {
 		const viewport = this.viewport();
 		this.stage.width(viewport.width);
 		this.stage.height(viewport.height);
-		if (this.followSpectrumFit) this.fitToSpectrum();
-		else this.setCamera(this.cameraState);
+		if (this.followSpectrumFit) {
+			this.fitToSpectrum();
+			return;
+		}
+		// Preserve a deliberate pan/zoom, but never let a viewport change leave
+		// the canvas showing nothing at all.
+		this.setCamera(keepContentVisible(this.cameraState, viewport, this.contentRects()));
+	}
+
+	/** World rectangles that make a resize recoverable. */
+	private contentRects(): ContentRect[] {
+		const rects: ContentRect[] = [
+			{
+				x: -SPECTRUM_WIDTH / 2,
+				y: -SPECTRUM_HEIGHT / 2,
+				width: SPECTRUM_WIDTH,
+				height: SPECTRUM_HEIGHT
+			}
+		];
+		for (const note of this.notes.values()) {
+			rects.push({ x: note.x, y: note.y, width: note.width, height: note.height });
+		}
+		return rects;
 	}
 
 	private drawSpectrumZone(): void {

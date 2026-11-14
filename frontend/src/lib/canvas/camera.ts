@@ -126,3 +126,59 @@ export function fitSpectrum(viewport: Viewport): Camera {
 
 	return clampCamera({ x: 0, y: 0, scale }, viewport);
 }
+
+export interface ContentRect {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+/** Visible world rectangle for a camera and viewport. */
+function worldView(camera: Camera, viewport: Viewport) {
+	const halfWidth = viewport.width / (2 * camera.scale);
+	const halfHeight = viewport.height / (2 * camera.scale);
+	return {
+		left: camera.x - halfWidth,
+		right: camera.x + halfWidth,
+		top: camera.y - halfHeight,
+		bottom: camera.y + halfHeight
+	};
+}
+
+/** True when the rectangle has a non-empty intersection with the viewport. */
+export function isContentVisible(camera: Camera, viewport: Viewport, rect: ContentRect): boolean {
+	if (!(rect.width > 0 && rect.height > 0)) return false;
+	const view = worldView(camera, viewport);
+	return (
+		rect.x < view.right &&
+		rect.x + rect.width > view.left &&
+		rect.y < view.bottom &&
+		rect.y + rect.height > view.top
+	);
+}
+
+/**
+ * Keeps a deliberate pan and zoom across viewport changes, but never leaves the
+ * canvas entirely empty: when no known content is visible, pan minimally so the
+ * nearest content rectangle comes back into view. Scale is preserved.
+ */
+export function keepContentVisible(
+	camera: Camera,
+	viewport: Viewport,
+	rects: ContentRect[]
+): Camera {
+	if (!rects.length || rects.some((rect) => isContentVisible(camera, viewport, rect))) {
+		return camera;
+	}
+	let best: { distance: number; x: number; y: number } | null = null;
+	for (const rect of rects) {
+		if (!(rect.width > 0 && rect.height > 0)) continue;
+		const x = Math.min(rect.x + rect.width, Math.max(rect.x, camera.x));
+		const y = Math.min(rect.y + rect.height, Math.max(rect.y, camera.y));
+		const distance = Math.hypot(x - camera.x, y - camera.y);
+		if (!best || distance < best.distance) best = { distance, x, y };
+	}
+	if (!best) return camera;
+	return clampCamera({ x: best.x, y: best.y, scale: camera.scale }, viewport);
+}
