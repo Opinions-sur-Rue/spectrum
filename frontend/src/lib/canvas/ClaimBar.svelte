@@ -132,14 +132,14 @@
 		margin-bottom: 7px;
 	}
 	.claim-eyebrow {
-		font-size: 10px;
+		font-size: var(--v2-text-2xs);
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
 		font-weight: 700;
 		opacity: 0.75;
 	}
 	.claim-hint {
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 		opacity: 0.75;
 	}
 	form {
@@ -175,7 +175,7 @@
 		flex: 1;
 		resize: none;
 		border: 1px solid transparent;
-		border-radius: 6px;
+		border-radius: var(--v2-radius-sm);
 		padding: 2px 6px;
 		margin-left: -6px;
 		max-height: 5em;
@@ -201,7 +201,7 @@
 		}
 		.claim-hint {
 			flex-basis: 100%;
-			font-size: 10px;
+			font-size: var(--v2-text-2xs);
 		}
 		form {
 			gap: 6px;

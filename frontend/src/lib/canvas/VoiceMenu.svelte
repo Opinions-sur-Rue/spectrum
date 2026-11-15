@@ -363,7 +363,7 @@
 
 <style>
 	.voice-summary {
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 		opacity: 0.65;
 		max-width: 10rem;
 	}
@@ -374,7 +374,7 @@
 	}
 	@media (max-width: 639px) {
 		.voice-summary {
-			font-size: 10px;
+			font-size: var(--v2-text-2xs);
 			max-width: 7rem;
 		}
 	}

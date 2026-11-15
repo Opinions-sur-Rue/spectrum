@@ -153,7 +153,7 @@
 		gap: 0.4rem;
 		padding: 0.35rem 0.65rem;
 		border: 1px solid currentColor;
-		border-radius: 999px;
+		border-radius: var(--v2-radius-pill);
 		font-variant-numeric: tabular-nums;
 	}
 	.timer-copy {

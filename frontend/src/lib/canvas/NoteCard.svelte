@@ -569,7 +569,7 @@
 		color: var(--color-base-content);
 		background: var(--color-base-100);
 		border: 1px solid color-mix(in oklab, var(--color-base-content) 22%, transparent);
-		border-radius: 16px;
+		border-radius: var(--v2-radius-xl);
 		box-shadow: 0 8px 24px #0002;
 		overflow: visible;
 	}
@@ -590,12 +590,12 @@
 	.note-topbar {
 		display: flex;
 		flex-shrink: 0;
-		border-radius: 15px 15px 0 0;
+		border-radius: var(--v2-radius-xl) var(--v2-radius-xl) 0 0;
 		align-items: center;
 		gap: 6px;
 		padding: 7px 12px;
 		background: transparent;
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 	}
 	.note-inspect {
 		position: absolute;
@@ -617,7 +617,7 @@
 		margin: auto;
 		padding: 0;
 		border: 0;
-		border-radius: 16px;
+		border-radius: var(--v2-radius-xl);
 		background: var(--color-base-100);
 		color: var(--color-base-content);
 	}
@@ -673,7 +673,7 @@
 		min-height: 44px;
 		padding: 12px;
 		cursor: pointer;
-		font-size: 13px;
+		font-size: var(--v2-text-md);
 	}
 	.inspector-layout label {
 		flex: 1;
@@ -685,7 +685,7 @@
 		min-height: 44px;
 		padding: 8px;
 		border: 1px solid var(--color-base-300);
-		border-radius: 4px;
+		border-radius: var(--v2-radius-sm);
 		background: var(--color-base-200);
 		color: var(--color-base-content);
 	}
@@ -760,15 +760,15 @@
 		flex-wrap: wrap;
 		padding: 6px;
 		border: 1px solid color-mix(in oklab, var(--color-base-content) 14%, transparent);
-		border-radius: 16px;
+		border-radius: var(--v2-radius-xl);
 		background: color-mix(in oklab, var(--color-base-100) 88%, transparent);
 		backdrop-filter: blur(16px);
 		box-shadow: 0 6px 20px #0002;
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 	}
 	.note-tools :global(.icon-button) {
 		border-color: transparent;
-		border-radius: 10px;
+		border-radius: var(--v2-radius-md);
 		color: var(--color-base-content);
 		background: transparent;
 		transition:
@@ -790,7 +790,7 @@
 	}
 	button {
 		border: 1px solid var(--color-base-300);
-		border-radius: 4px;
+		border-radius: var(--v2-radius-sm);
 		padding: 2px 5px;
 		cursor: pointer;
 		background: var(--color-base-200);
@@ -847,20 +847,20 @@
 		outline: none;
 		min-height: 100%;
 		overflow-wrap: anywhere;
-		font-size: 14px;
+		font-size: var(--v2-text-base);
 		line-height: 1.5;
 	}
 	.note-editor :global(h1) {
-		font-size: 23px;
+		font-size: var(--v2-text-2xl);
 		font-weight: 700;
 		margin: 0 0 8px;
 	}
 	.note-editor :global(h2) {
-		font-size: 19px;
+		font-size: var(--v2-text-xl);
 		font-weight: 600;
 	}
 	.note-editor :global(h3) {
-		font-size: 16px;
+		font-size: var(--v2-text-lg);
 		font-weight: 600;
 	}
 	.note-editor :global(p) {
@@ -888,16 +888,16 @@
 		max-width: 130px;
 		background-color: var(--color-base-200);
 		color: var(--color-base-content);
-		border-radius: 8px;
+		border-radius: var(--v2-radius-md);
 		padding-inline: 8px 26px;
 		min-height: 30px;
 	}
 	.conflict {
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 		color: var(--color-base-content);
 		background: var(--color-base-100);
 		border: 1px solid var(--color-warning);
-		border-radius: 12px;
+		border-radius: var(--v2-radius-lg);
 		padding: 4px 10px;
 	}
 	.note-tools .advanced {

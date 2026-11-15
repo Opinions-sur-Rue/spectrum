@@ -44,38 +44,38 @@
 		bottom: 104px;
 		z-index: 25;
 		width: min(300px, calc(100% - 32px));
-		padding: 12px 14px;
+		padding: 0.75rem 1rem;
 		border: 1px solid var(--color-base-300);
-		border-radius: 14px;
+		border-radius: var(--v2-radius-xl);
 		background: var(--color-base-100);
 		box-shadow: 0 12px 32px #0003;
 		pointer-events: none;
 	}
 	h2 {
-		font-size: 13px;
+		font-size: var(--v2-text-md);
 		font-weight: 650;
-		margin-bottom: 8px;
+		margin-bottom: 0.5rem;
 	}
 	ul {
 		display: grid;
-		gap: 6px;
-		font-size: 12px;
+		gap: 0.375rem;
+		font-size: var(--v2-text-sm);
 		line-height: 1.4;
 	}
 	li {
 		display: flex;
-		gap: 8px;
+		gap: 0.5rem;
 		align-items: flex-start;
 	}
 	button {
 		pointer-events: auto;
-		margin-top: 10px;
+		margin-top: 0.625rem;
 	}
 	@media (max-width: 639px) {
 		.room-onboarding {
 			bottom: 132px;
 			width: min(280px, calc(100% - 24px));
-			left: 12px;
+			left: 0.75rem;
 		}
 	}
 </style>

@@ -13,6 +13,7 @@ export function roomErrorLabel(message: string): string {
 		case 'already in a room':
 			return m.ux_error_already_in_room();
 		default:
-			return message;
+			// Unmapped protocol messages are lower-case codes, not user copy.
+			return /^[a-z][a-z0-9 _-]*$/.test(message) ? m.ux_error_generic() : message;
 	}
 }

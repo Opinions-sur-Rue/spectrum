@@ -53,14 +53,14 @@
 	.mic-level {
 		display: grid;
 		gap: 4px;
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 	}
 	.mic-label {
 		opacity: 0.7;
 	}
 	.mic-meter {
 		height: 6px;
-		border-radius: 999px;
+		border-radius: var(--v2-radius-pill);
 		overflow: hidden;
 		background: color-mix(in srgb, currentColor 12%, transparent);
 	}

@@ -133,7 +133,7 @@
 	}
 	.reaction-particle {
 		position: absolute;
-		font-size: 28px;
+		font-size: var(--v2-text-display);
 		animation: reaction-scatter 1.3s ease-out both;
 	}
 	.reaction-caption {
@@ -145,11 +145,11 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		border-radius: 999px;
+		border-radius: var(--v2-radius-pill);
 		padding: 5px 12px;
 		background: var(--color-base-100);
 		color: var(--color-base-content);
-		font-size: 13px;
+		font-size: var(--v2-text-md);
 	}
 	@keyframes reaction-pop {
 		0% {

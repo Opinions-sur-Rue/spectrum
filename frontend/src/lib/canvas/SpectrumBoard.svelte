@@ -276,11 +276,11 @@
 		transform: translateX(-50%) scale(var(--label-scale));
 		transform-origin: bottom center;
 		border: 1px solid var(--color-base-content);
-		border-radius: 999px;
+		border-radius: var(--v2-radius-pill);
 		padding: 3px 9px;
 		background: var(--color-base-100);
 		color: var(--color-base-content);
-		font-size: 12px;
+		font-size: var(--v2-text-sm);
 		font-weight: 700;
 		line-height: 1.3;
 		white-space: nowrap;
@@ -288,7 +288,7 @@
 	}
 	.own-mark {
 		color: white;
-		font-size: 13px;
+		font-size: var(--v2-text-md);
 		line-height: 24px;
 		text-shadow: 0 1px 3px black;
 		pointer-events: none;
@@ -356,7 +356,7 @@
 		left: 0;
 		width: 100%;
 		text-align: center;
-		font-size: 13px;
+		font-size: var(--v2-text-md);
 		opacity: 0.65;
 	}
 </style>

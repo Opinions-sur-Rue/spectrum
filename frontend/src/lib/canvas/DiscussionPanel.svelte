@@ -265,8 +265,8 @@
 		gap: 6px;
 		min-height: 40px;
 		padding: 6px;
-		border-radius: 8px;
-		font-size: 12px;
+		border-radius: var(--v2-radius-md);
+		font-size: var(--v2-text-sm);
 		color: var(--color-base-content);
 	}
 	.discussion-tabs button:hover {
@@ -282,11 +282,11 @@
 		outline-offset: 2px;
 	}
 	.tab-count {
-		border-radius: 999px;
+		border-radius: var(--v2-radius-pill);
 		padding: 0 5px;
 		background: var(--color-primary);
 		color: var(--color-primary-content);
-		font-size: 10px;
+		font-size: var(--v2-text-2xs);
 	}
 	.discussion-body {
 		flex: 1;

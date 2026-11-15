@@ -23,7 +23,18 @@ describe('room error labels', () => {
 		);
 	});
 
-	it('keeps an unknown server message rather than inventing a reason', () => {
-		expect(roomErrorLabel('invalid payload')).toBe('invalid payload');
+	it('replaces an unmapped protocol message with generic recovery copy', () => {
+		expect(roomErrorLabel('invalid payload')).toBe(
+			'Cette action n’a pas abouti. Réessayez, puis rechargez la salle si le problème persiste.'
+		);
+		expect(roomErrorLabel('invalid_spectrum_configuration')).toBe(
+			'Cette action n’a pas abouti. Réessayez, puis rechargez la salle si le problème persiste.'
+		);
+	});
+
+	it('keeps a readable sentence that is already user-facing', () => {
+		expect(roomErrorLabel('The room was closed by an admin.')).toBe(
+			'The room was closed by an admin.'
+		);
 	});
 });

@@ -647,11 +647,11 @@
 		display: flex;
 		flex-shrink: 0;
 		align-items: center;
-		gap: 8px;
-		padding: 6px 18px;
+		gap: 0.5rem;
+		padding: 0.375rem 1rem;
 		border-bottom: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
 		background: color-mix(in srgb, var(--color-warning) 14%, var(--color-base-100));
-		font-size: 12px;
+		font-size: var(--v2-text-sm);
 		line-height: 1.4;
 	}
 	.v2-topbar {
@@ -660,8 +660,8 @@
 		display: flex;
 		flex-shrink: 0;
 		align-items: center;
-		gap: 18px;
-		padding: 10px 18px;
+		gap: 1rem;
+		padding: 0.625rem 1rem;
 		border-bottom: 1px solid var(--color-base-300);
 		background: var(--color-base-100);
 	}
@@ -672,14 +672,14 @@
 		flex-shrink: 0;
 	}
 	.brand strong {
-		font-size: 19px;
+		font-size: var(--v2-text-xl);
 		letter-spacing: -0.04em;
 	}
 	.connection-pill {
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
-		font-size: 10px;
+		font-size: var(--v2-text-2xs);
 		opacity: 0.65;
 	}
 	.connection-dot {
@@ -699,10 +699,10 @@
 		gap: 10px;
 	}
 	.role-pill {
-		font-size: 10px;
-		padding: 3px 8px;
+		font-size: var(--v2-text-2xs);
+		padding: 0.25rem 0.5rem;
 		border: 1px solid var(--color-base-300);
-		border-radius: 999px;
+		border-radius: var(--v2-radius-pill);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 	}
@@ -712,7 +712,7 @@
 		background: color-mix(in oklab, var(--color-primary) 8%, transparent);
 	}
 	.room-code {
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 		opacity: 0.75;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -730,11 +730,11 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: 7px;
+		gap: 0.5rem;
 		min-height: 36px;
 		padding: 0 10px;
-		border-radius: 8px;
-		font-size: 12px;
+		border-radius: var(--v2-radius-md);
+		font-size: var(--v2-text-sm);
 	}
 	.invite-button:hover {
 		background: var(--color-base-200);
@@ -744,7 +744,7 @@
 	}
 	.welcome-privacy {
 		margin-left: auto;
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 		opacity: 0.75;
 	}
 	.v2-actionbar {
@@ -754,8 +754,8 @@
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
-		gap: 8px 16px;
-		padding: 8px 18px;
+		gap: 0.5rem 1rem;
+		padding: 0.5rem 1rem;
 		background: var(--color-base-100);
 		border-top: 1px solid var(--color-base-300);
 	}
@@ -767,17 +767,17 @@
 	}
 	.unread-count {
 		min-width: 18px;
-		border-radius: 99px;
+		border-radius: var(--v2-radius-pill);
 		padding: 1px 5px;
 		background: var(--color-primary);
 		color: var(--color-primary-content);
-		font-size: 10px;
+		font-size: var(--v2-text-2xs);
 	}
 	.audio-unavailable {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 		opacity: 0.7;
 	}
 	.workspace-body {
@@ -819,17 +819,17 @@
 		bottom: 16px;
 		display: flex;
 		align-items: center;
-		gap: 3px;
-		padding: 5px;
+		gap: 0.25rem;
+		padding: 0.25rem;
 		border: 1px solid var(--color-base-300);
-		border-radius: 10px;
+		border-radius: var(--v2-radius-md);
 		background: var(--color-base-100);
 		box-shadow: 0 4px 16px #0001;
 	}
 	.zoom-value {
 		width: 42px;
 		text-align: center;
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 		font-variant-numeric: tabular-nums;
 	}
 	.tool-separator {
@@ -848,12 +848,12 @@
 		align-items: end;
 		gap: 4px;
 		max-width: min(44%, 30rem);
-		font-size: 10px;
+		font-size: var(--v2-text-2xs);
 	}
 	.canvas-status > span {
 		padding: 4px 8px;
 		background: color-mix(in oklab, var(--color-base-100) 90%, transparent);
-		border-radius: 5px;
+		border-radius: var(--v2-radius-sm);
 	}
 	.role-help {
 		opacity: 0.65;
@@ -862,11 +862,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 5px;
+		gap: 0.25rem;
 		min-width: 36px;
 		min-height: 36px;
 		padding: 6px;
-		border-radius: 8px;
+		border-radius: var(--v2-radius-md);
 		cursor: pointer;
 		list-style: none;
 	}
@@ -909,7 +909,7 @@
 			gap: 8px;
 		}
 		.brand strong {
-			font-size: 18px;
+			font-size: var(--v2-text-xl);
 		}
 		.session-identity {
 			order: 3;

@@ -187,7 +187,7 @@
 		z-index: 10;
 		display: grid;
 		place-items: center;
-		padding: 24px;
+		padding: 1.5rem;
 		pointer-events: none;
 	}
 	.lobby-card {
@@ -196,106 +196,106 @@
 		overflow-y: auto;
 		pointer-events: auto;
 		border: 1px solid var(--color-base-300);
-		border-radius: 20px;
+		border-radius: var(--v2-radius-xl);
 		background: var(--color-base-100);
 		box-shadow: 0 20px 80px #0002;
 	}
 	header {
-		padding: 28px 28px 20px;
+		padding: 1.5rem 1.5rem 1.25rem;
 	}
 	.eyebrow {
 		color: var(--color-primary);
 		font-weight: 700;
 		text-transform: uppercase;
 		letter-spacing: 0.16em;
-		font-size: 10px;
+		font-size: var(--v2-text-2xs);
 	}
 	h1 {
 		margin-top: 8px;
-		font-size: clamp(22px, 3vw, 30px);
+		font-size: clamp(1.375rem, 3vw, 1.875rem);
 		font-weight: 650;
 		line-height: 1.25;
 	}
 	.intro {
-		margin-top: 10px;
-		font-size: 13px;
+		margin-top: 0.625rem;
+		font-size: var(--v2-text-md);
 		opacity: 0.65;
 		max-width: 65ch;
 	}
 	.lobby-forms {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		padding: 0 28px;
-		gap: 28px;
+		padding: 0 1.5rem;
+		gap: 1.5rem;
 	}
 	h2 {
-		font-size: 14px;
+		font-size: var(--v2-text-base);
 		font-weight: 650;
-		margin-bottom: 16px;
+		margin-bottom: 1rem;
 	}
 	.field-label {
 		display: block;
-		font-size: 12px;
-		margin-bottom: 6px;
+		font-size: var(--v2-text-sm);
+		margin-bottom: 0.375rem;
 	}
 	.setup-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-top: 14px;
-		font-size: 12px;
+		margin-top: 0.75rem;
+		font-size: var(--v2-text-sm);
 	}
 	.circle-label {
 		display: flex;
-		gap: 10px;
+		gap: 0.625rem;
 		align-items: center;
-		font-size: 12px;
-		margin-top: 14px;
+		font-size: var(--v2-text-sm);
+		margin-top: 0.75rem;
 	}
 	.join-form {
-		padding-left: 28px;
+		padding-left: 1.5rem;
 		border-left: 1px solid var(--color-base-300);
 	}
 	.join-hint {
-		margin-bottom: 20px;
-		font-size: 13px;
+		margin-bottom: 1.25rem;
+		font-size: var(--v2-text-md);
 		opacity: 0.65;
 		line-height: 1.6;
 	}
 	.recent-room {
 		display: flex;
-		gap: 4px;
-		margin-top: 8px;
+		gap: 0.25rem;
+		margin-top: 0.5rem;
 	}
 	.privacy {
-		margin-top: 24px;
-		padding: 16px 28px;
+		margin-top: 1.5rem;
+		padding: 1rem 1.5rem;
 		border-top: 1px solid var(--color-base-300);
-		font-size: 11px;
+		font-size: var(--v2-text-xs);
 		opacity: 0.75;
 	}
 	@media (max-width: 639px) {
 		.lobby {
-			padding: 12px;
+			padding: 0.75rem;
 		}
 		header {
-			padding: 22px 20px 16px;
+			padding: 1.25rem 1.25rem 1rem;
 		}
 		.lobby-forms {
 			grid-template-columns: 1fr;
-			padding: 0 20px;
-			gap: 20px;
+			padding: 0 1.25rem;
+			gap: 1.25rem;
 		}
 		.join-form {
-			padding: 20px 0 0;
+			padding: 1.25rem 0 0;
 			border-left: 0;
 			border-top: 1px solid var(--color-base-300);
 		}
 		.join-hint {
-			margin-bottom: 12px;
+			margin-bottom: 0.75rem;
 		}
 		.privacy {
-			padding: 14px 20px;
+			padding: 0.75rem 1.25rem;
 		}
 	}
 </style>

@@ -56,6 +56,7 @@
 	"ux_error_already_in_room": "You are already in a room. Leave it before joining another one.",
 	"ux_activity_topic": "The proposition is \"{topic}\"",
 	"ux_activity_topic_cleared": "The proposition was cleared",
+	"ux_error_generic": "That action did not go through. Try again, and reload the room if it persists.",
 	"ux_open_note": "Open note: {title}",
 	"ux_note_editor": "Edit note",
 	"ux_note_reader": "Read note",

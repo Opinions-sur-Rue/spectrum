@@ -56,6 +56,7 @@
 	"ux_error_already_in_room": "Vous êtes déjà dans une salle. Quittez-la avant d’en rejoindre une autre.",
 	"ux_activity_topic": "La proposition est « {topic} »",
 	"ux_activity_topic_cleared": "La proposition a été effacée",
+	"ux_error_generic": "Cette action n’a pas abouti. Réessayez, puis rechargez la salle si le problème persiste.",
 	"ux_open_note": "Ouvrir la note : {title}",
 	"ux_note_editor": "Modifier la note",
 	"ux_note_reader": "Lire la note",
