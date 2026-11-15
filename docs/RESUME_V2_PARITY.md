@@ -2,6 +2,237 @@
 
 ## Active UI/UX follow-up — second pass
 
+### Six quick wins — 2026-11-11 (beta.9, frontend only)
+
+User asked for the whole "A" batch from the improvement list. All frontend-only,
+no protocol or backend change, so the deployment recreated only the frontend:
+
+- Tab title: composed from room and timer (`⏱ 4:32 · Spectrum v2`, `Time is up`,
+  room code, default). Silent; no notification permission. Module is SSR-safe
+  and idempotent, timer value refreshes with the existing 200 ms tick.
+- Note navigator: `Ctrl/Cmd+K` opens and focuses search (ignored in editors,
+  inputs and open dialogs), `Enter` opens the first result, matches are
+  highlighted in the title with an accented-aware matcher, and a body snippet is
+  shown only when the title does not match.
+- Lobby: last valid room code stored locally (never notes or credentials) with a
+  one-click rejoin and a forget button; storage failures are silent.
+- Missing room: the actionable alert now also offers "create a new room instead"
+  which scrolls to and focuses the create form (reduced-motion aware).
+- Theme: no saved choice follows `prefers-color-scheme` and live system changes;
+  an explicit choice always wins and stays persisted.
+- App menu: link back to v1 at `/`.
+- Checks: lint, type-check, build, 141 unit tests, and 12 Chromium/Firefox/WebKit
+  cases (timer title, note shortcut/highlight/Enter, lobby recent room, v1 link,
+  system theme) passed. Local backend/Vite only; production untouched.
+- User approved deployment. Committed with the preceding lobby/note-search pass
+  in `f036f5c` (19 frontend files, no main push, no deployment files/secrets),
+  tagged `v2.0.0-beta.9`. The first CI run was cancelled at 35 min because the
+  Azure apt mirror stalled during `playwright install --with-deps`; rerunning the
+  failed jobs passed (run 43046003050). Manifest verified.
+- Deployed frontend `sha256:82050ffa206851fb514e9f0a588266eca921330130d88962d1c1290ba12f7d63`
+  only. Backend kept beta.8 `sha256:eb4fbc1e…` because the release changes no
+  backend code: `StartedAt` unchanged, so in-memory rooms survived. LiveKit,
+  PeerJS and coturn untouched. Rollback snapshot `/opt/spectrum/pre-uiux-a-20261111T151232Z`.
+  Production smoke passed system theme, room/countdown title, `Ctrl/Cmd+K`
+  highlight/Enter, remembered room, v1 link, missing-room create action, timer
+  regression and forced TLS audio.
+
+### Group D — 2026-11-15 (local, frontend only)
+
+User asked to close the remaining polish items, with emphasis on spacing and
+typography:
+
+- UI scale: added `--v2-text-*` and `--v2-radius-*` tokens in `app.css` and
+  replaced every hardcoded font size and border radius in the v2 components.
+  Tokens are the exact 1:1 rem equivalents of the previous pixel values, so the
+  default rendering is unchanged but the UI now follows browser font-size
+  preferences.
+- Radius harmonization: four steps only (4/8/12/16px + pill). Lobby card,
+  onboarding card, note card top corners, canvas tools and status chips now use
+  the same scale instead of 5/6/10/14/15/20px one-offs.
+- Chrome spacing: top bar, offline banner and action bar share one 16px
+  horizontal rhythm; toolbar summaries use the 4px icon gap; lobby header,
+  forms and privacy block snapped to a 24px desktop / 20px mobile grid.
+- Generic recovery copy: unmapped lower-case protocol messages no longer show
+  raw English codes; they map to "action did not go through" guidance (EN/FR).
+  Readable sentences and known errors are untouched.
+- Touch labels were reviewed and left icon-only on narrow screens: the top bar
+  already wraps, visible labels would crowd the canvas, and every control keeps
+  an accessible name plus a title.
+- Checks: lint, type-check, build, 155 unit tests and the full Chromium/Firefox/
+  WebKit suite (159/159) pass.
+- User approved deployment. Committed frontend only in `431b600` (16 files, no
+  main push, no deployment files/secrets), tagged `v2.0.0-beta.12`, pushed `v2`.
+  CI run 43721249839 green; manifest frontend
+  `sha256:bf37fdd41566653cc316efdbe0bd67f9ea5447749333cbd62315ca2b60101f4b`.
+- Deployed frontend only; backend kept beta.8 `sha256:eb4fbc1e…` with its
+  `StartedAt`, so rooms survived. Snapshot `/opt/spectrum/deploy-frontend-beta12-20261115T141046Z`.
+- Production smoke passed the rem scale (including a 20px root font size),
+  16px chrome rhythm, single radius scale, localized generic error fallback,
+  plus the A, B, C, timer and forced-TLS audio regressions.
+- Ops follow-up outside the app: LiveKit warned that the UDP receive buffer
+  (`425984` bytes) was below the suggested `5000000`. Docker refused the
+  container-scoped `sysctls` (`unsafe procfs detected`), so the host now has
+  `/etc/sysctl.d/99-webrtc.conf` with `net.core.rmem_max`/`wmem_max = 5000000`;
+  LiveKit was recreated, the warning is gone and TURN/TLS audio still passes.
+
+### Group C — 2026-11-14 (beta.11, frontend only)
+
+User asked for the "C" batch after beta.10. Two of the four proposed items were
+already delivered and are covered by existing tests, so this pass ships the
+remaining two plus the copy polish:
+
+- Microphone retry: the obsolete permission alert is already cleared on a
+  successful publish (`voice-connection.ts` + `e2e/voice.test.ts`); no change.
+- Resize camera policy: a viewport change still keeps a deliberate pan/zoom,
+  but a resize can no longer leave the canvas showing nothing. New pure helpers
+  `isContentVisible`/`keepContentVisible` pan minimally to the nearest note or
+  the spectrum zone, preserving scale; wired into the workspace resize handler
+  and unit-tested.
+- Localized recovery errors: `operation not allowed for this role` and
+  `already in a room` now map to actionable copy (EN/FR) instead of the raw
+  server string, with a browser regression that injects the protocol error.
+- Vocabulary polish: the v2 activity journal says "proposition" (FR) instead of
+  the leftover "claim", and the newer lobby strings now use "salle" like the
+  rest of v2. The microphone options trigger uses a microphone icon so it no
+  longer duplicates the room-settings gear on touch layouts.
+- Also already covered before this pass: persistent note status, mobile claim
+  display/edit, Chat-first Discussion, dialog focus return, journal contrast.
+- Checks: lint, type-check, build, 154 unit tests and the full Chromium/Firefox/
+  WebKit suite (159/159) pass.
+- User approved deployment. Committed frontend only in `85101d3` (11 files, no
+  main push, no deployment files/secrets), tagged `v2.0.0-beta.11`, pushed `v2`.
+  CI run 43602483531 green; manifest frontend
+  `sha256:4049de2a420bfaff152da2f1b81b5a3c3c904c3278e0a844f3075d51cb1fca8d`,
+  backend `sha256:09525326…`.
+- Deployed frontend only; backend kept beta.8 `sha256:eb4fbc1e…` with its
+  `StartedAt`, so rooms survived. Snapshot `/opt/spectrum/pre-uiux-c-20261114T141735Z`,
+  path in `/opt/spectrum/uiux-c-backup-path`.
+- Production smoke passed the localized in-room invitation error, responsive
+  resize with reachable actions, plus the A, B, timer and forced-TLS audio
+  regressions.
+
+### Group B — 2026-11-13 (beta.10, frontend only)
+
+User asked to continue with the "B" batch. Five items, all client-side, no
+protocol or backend change:
+
+- Export notes: new "Export notes (.md)" entry in the app menu, room-only. The
+  Markdown is built from the notes and links already present in the last
+  authorized snapshot (no extra request, no hidden note), sorted by title,
+  flags non-approved notes, keeps unknown link targets by identifier, and is
+  downloaded as `spectrum-<room>-<date>.md` through a Blob. Disabled with an
+  explicit hint when nothing is visible.
+- Microphone picker and input meter: listener-local device list from
+  `enumerateDevices()` (refreshed on `devicechange`), persisted in
+  `localStorage` under `spectrum-mic-device`, applied through the single
+  `createLocalAudioTrack` path and only restarting capture when the mic is
+  already live. Names stay hidden until permission is granted; the meter is an
+  AnalyserNode RMS bar with a "no signal" hint after 2.5 s.
+- Offline banner: shown after the first successful connection whenever the room
+  status is not `Connected`, explaining that changes are paused and that drafts
+  stay local. Hidden in presentation mode.
+- Timer for non-admins: already visible read-only with the shared countdown;
+  covered by the existing timer regression, no change needed.
+- Canvas onboarding: one-time non-blocking card with three gestures (note and
+  Markdown, linking notes, raise hand/spectator). `pointer-events: none` except
+  its dismiss button, so it cannot intercept canvas or e2e clicks; dismissed
+  state kept in `localStorage`.
+- Also fixed a pre-existing WCAG AA contrast failure on `.audio-unavailable`
+  (opacity 0.5 → 0.7) found by the accessibility suite with voice disabled.
+- Checks: lint, type-check, build and 146 unit tests pass; the full Chromium/
+  Firefox/WebKit suite passed (156/156) including onboarding, offline banner
+  (WebSocket close), export download, and the lobby/note/search/room-sharing/
+  timer/accessibility regressions.
+- User approved deployment. Committed frontend only in `b76b1cf` (14 files, no
+  main push, no deployment files/secrets), tagged `v2.0.0-beta.10`, pushed `v2`.
+  CI run 43345223344 green (release, backend, frontend, both publishes,
+  manifest); manifest frontend
+  `sha256:ea556ab55e71d08ee25fbe6c9bf2b3fa1cdd7f0eb6c85470cac73c3908d36d5d`,
+  backend `sha256:5c1d0748…`.
+- Deployed frontend only. Backend kept beta.8 `sha256:eb4fbc1e…` and its
+  `StartedAt`, so ephemeral rooms survived; LiveKit/PeerJS/coturn untouched.
+  Snapshot `/opt/spectrum/pre-uiux-b-20261113T054235Z`, path recorded in
+  `/opt/spectrum/uiux-b-backup-path`.
+- Production smoke passed onboarding once, Markdown export, mic options panel,
+  offline banner, plus the A batch, timer and forced-TLS audio regressions. The
+  transit to the host was intermittently slow during smoke, so the temporary
+  scripts now use a longer default timeout; server-side responses stayed fast
+  and no product regression was involved.
+
+### General UI/UX mini-pass — 2026-11-11 (shipped in beta.9)
+
+User clarified the mini-pass should cover v2 beyond the timer. Two targeted
+improvements, with no backend/protocol changes:
+
+- Lobby invitations: normalize lowercase codes, optional OSR prefix, v2 links
+  and legacy OSR path links. Reject malformed invitations locally with a focused,
+  described inline error; clear it on edit. Never navigate to/fetch pasted URLs.
+- Note navigator: search title and content, case/accent-insensitive; focus search
+  on open, show result count/no-match guidance, clear query and focus selected
+  note. Filter only the currently authorized list; no extra request or hidden
+  note retrieval. Empty views keep their existing explanation.
+- Lint/check/build and 132 unit tests passed. Chromium/Firefox/WebKit passed
+  both new mobile flows plus the existing note-visibility/zoom regression
+  (9 browser cases). Temporary backend/Vite instances only; production untouched.
+  Shipped together with the six quick wins in `f036f5c` / `v2.0.0-beta.9`.
+
+### Timer UX follow-up — beta.8
+
+- Added 1/3/5-minute presets which only fill the form; they never start or replace
+  the shared timer without pressing Start. Controls remain admin-only and disabled
+  when disconnected. Added a visible localized completion label, including for
+  late joins, without replaying the animation or adding sound.
+- Local checks passed: lint, type-check, build, 123 unit tests, and targeted
+  Chromium/Firefox/WebKit mobile/reduced-motion/reload flow.
+- User approved deployment. Only five timer frontend/test/catalog files were
+  committed in `99ceefc`, tagged `v2.0.0-beta.8`; no main push or migration files.
+  Hosted CI 42966728357 passed, paired manifest verified. Both beta.8 digests
+  were deployed manually on france; rollback snapshot is recorded privately in
+  `/opt/spectrum/timer-ux-backup-path`. Runtime secrets, Compose and voice
+  configuration were verified unchanged; only frontend/backend were recreated.
+  Frontend digest `sha256:74ea335418a00c37436915de56bff9156cc0817616bb2387fa9620f8be9f0c2c`;
+  backend `sha256:eb4fbc1efa3531bebab1c0ee333f81e213e5fc2b2fa0af46c604d2bc9346f754`.
+  Production smoke passed presets without auto-start, shared countdown, visible
+  silent completion, mobile/reduced-motion support, reload and clear. Forced
+  TURN/TLS audio also passed. No LiveKit/PeerJS/coturn restart or main push.
+
+### Shared silent timer — 2026-11-11 (beta.7 deployed)
+
+- Added `room.timer` with integer `durationSeconds` (1–86400; 0 clears). Server
+  checks actual room admin membership under the room lock; participants and
+  spectators cannot start, replace or clear a timer. No client-supplied deadline.
+- Room snapshots include timer revision, deadline and server time. Countdown
+  uses a monotonic client clock anchored to server time, survives reconnect and
+  late joins, and needs no ticking server goroutine. Mutation invalidates room
+  state and advances the shared revision, so existing stale-snapshot protection
+  applies to timer changes too.
+- Header minuteur controls are admin-only, localized FR/EN, with minutes/seconds
+  fields and clear action. All roles see the countdown. At zero: one subtle
+  visual pulse, no sound; reduced-motion users receive a static finished state.
+  Expired timers restored after reload do not replay the completion animation.
+  No per-second live-region announcements. Header controls wrap on mobile.
+- Validation: Go race suite and golangci-lint 2.15.0 (0 issues); frontend
+  lint/check (0 errors/warnings), 122 unit tests and production build. Targeted
+  Playwright test passes Chromium, Firefox and WebKit: mobile admin, spectator
+  sharing, completion, reduced motion, reload without replay and clearing.
+- Local port 5173 belonged to another project, so browser validation used an
+  isolated Vite instance on 5174 and a temporary local backend; unrelated dev
+  server was not modified.
+- User subsequently approved committing/pushing the timer only and deploying it.
+  Commit `40dfdda`, tag `v2.0.0-beta.7`; CI run 42942567523 passed all jobs and
+  emitted a valid paired manifest. Deployment was manual on `ssh france`.
+  Frontend digest `sha256:8e7f6c9598b4ef5dce36ad10e9f11e259d15d5e94ef61aafa7ca58f9285016b9`;
+  backend `sha256:94482f0bf4e4c73d64edc854b12b630d995e84b1e4a011f0c9fad98ea4830570`.
+  Only frontend/backend were recreated. Runtime, Compose, LiveKit secrets/config
+  unchanged; LiveKit, PeerJS and coturn were not restarted. Voice stays enabled;
+  transcription stays disabled. Prior beta.6 refs/config are backed up privately
+  under the path recorded in `/opt/spectrum/timer-backup-path`.
+- Public production smoke passed: mobile admin controls, shared countdown,
+  silent finish, reduced motion, reload without animation replay and clear.
+  `/`, `/v2`, API docs return 200. Forced TURN/TLS audio smoke also passed.
+  Migration files and their documentation remain uncommitted; no main push.
+
 ### Manifest job checkout — beta.6 follow-up
 
 Beta.6 run 42485640357 passed every validation job and both publish jobs. Its
