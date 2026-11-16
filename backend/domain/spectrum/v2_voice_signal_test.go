@@ -1,6 +1,7 @@
 package spectrum
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -32,7 +33,7 @@ func gatewayFixture(t *testing.T, upstream http.Handler) (*Hub, *Client, *Client
 }
 
 func gateRequest(hub *Hub, path, token string) int {
-	r := httptest.NewRequest(http.MethodGet, "/spectrum/voice"+path+"?access_token="+url.QueryEscape(token), nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/spectrum/voice"+path+"?access_token="+url.QueryEscape(token), nil)
 	w := httptest.NewRecorder()
 	hub.VoiceSignal(w, r)
 	return w.Code

@@ -141,7 +141,7 @@ func TestRemoveParticipantUsesRoomScopedAdminGrant(t *testing.T) {
 				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 					t.Error(err)
 				}
-				if payload["room"] != Namespace+"room" || payload["identity"] != "m_departing" {
+				if payload[roomField] != Namespace+"room" || payload["identity"] != "m_departing" {
 					t.Error("incorrect removal target")
 				}
 				w.WriteHeader(status)
@@ -208,7 +208,7 @@ func TestPublishPermissionUpdatesOnlyTargetParticipant(t *testing.T) {
 			if payload.Room != Namespace+"room" || payload.Identity != "m_target" || payload.Permission.CanPublish != publish || !payload.Permission.CanSubscribe || payload.Permission.CanPublishData || payload.Permission.CanUpdateMetadata {
 				t.Error("incorrect permission update")
 			}
-			if publish && (len(payload.Permission.CanPublishSources) != 1 || payload.Permission.CanPublishSources[0] != "microphone") {
+			if publish && (len(payload.Permission.CanPublishSources) != 1 || payload.Permission.CanPublishSources[0] != microphoneSource) {
 				t.Error("video allowed")
 			}
 			w.WriteHeader(http.StatusOK)

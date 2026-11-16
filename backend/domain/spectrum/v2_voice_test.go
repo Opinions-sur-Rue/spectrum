@@ -169,27 +169,27 @@ func TestVoiceJoinCannotRacePastDemotion(t *testing.T) {
 }
 
 func TestVoiceMembershipRemovalPaths(t *testing.T) {
-	for _, action := range []string{"leave", voiceReasonKick, fixtureStopAction, "expire"} {
+	for _, action := range []string{voiceReasonLeave, voiceReasonKick, fixtureStopAction, voiceReasonExpire} {
 		t.Run(action, func(t *testing.T) {
 			hub, admin, actor, room, driver := voiceFixture(t)
 			oldRoom := room.voiceRoomID
 			oldGeneration := room.voiceGeneration
 			var err error
 			switch action {
-			case "leave":
+			case voiceReasonLeave:
 				err = hub.LeaveRoom(room.id, hub.users[actor.userID].Color, actor.userID)
 			case voiceReasonKick:
 				err = hub.KickByColor(room.id, admin.userID, hub.users[actor.userID].Color)
 			case fixtureStopAction:
 				err = hub.StopRoom(room.id)
-			case "expire":
+			case voiceReasonExpire:
 				hub.users[actor.userID].beginningGracePeriod = time.Now().Unix() - 120
 				hub.cleanupRoom(room.id)
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			if action == "leave" || action == "expire" || action == voiceReasonKick {
+			if action == voiceReasonLeave || action == voiceReasonExpire || action == voiceReasonKick {
 				if len(driver.deleted) != 0 || len(driver.removed) != 1 || driver.removed[0] != oldRoom+":"+room.memberIDs[actor.userID] || room.voiceRoomID != oldRoom || room.voiceGeneration != oldGeneration {
 					t.Fatal("departure disrupted other SFU participants")
 				}

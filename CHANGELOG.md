@@ -4,7 +4,7 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
-### Fixed in v2.0.0-beta.13
+### Fixed in v2.0.0-beta.14
 - Keep v2 audio alive across application WebSocket reconnects and restore an active microphone after involuntary voice rejoin when publication is still authorized.
 - Update only the promoted/demoted participant's voice permissions; leave, expiration and kick no longer retire other participants' audio sessions.
 - Reject cached/refreshed voice tokens after targeted revocation through the backend signaling gateway and signed membership epochs. Deploy public signaling routing through that gateway with this backend.

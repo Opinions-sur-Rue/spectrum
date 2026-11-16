@@ -14,7 +14,11 @@ overflow was observed during the incident.
 Approved implementation scope: frontend, backend, and LiveKit configuration;
 restore a previously active microphone after involuntary rejoin if fresh
 credentials still allow publication. User explicitly approved deployment after
-the complete local validation; beta.13 publication/deployment is in progress.
+the complete local validation; beta.14 publication/deployment is in progress.
+Beta.13 (`0f73e09`, CI 43805245204) passed the full frontend/voice jobs but did
+not publish: CI's newer golangci-lint 2.15.0 required string constants and an
+explicit test request context. These mechanical fixes pass that exact linter
+locally and the full Go race suite; tags are not rewritten.
 
 - Frontend: Spectrum readiness no longer belongs to the LiveKit lifetime key.
   Lost credential requests retry when Spectrum is ready; final established SDK

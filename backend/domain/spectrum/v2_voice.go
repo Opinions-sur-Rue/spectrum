@@ -27,7 +27,13 @@ type voiceCredentials struct {
 
 func init() { v2Handlers["voice.join"] = handleVoiceJoin }
 
-const voiceReasonKick = "kick"
+const (
+	voiceReasonKick   = "kick"
+	voiceReasonLeave  = "leave"
+	voiceReasonExpire = "expire"
+	voiceLogReason    = "reason"
+	voiceLogPhysical  = "physical"
+)
 
 // Full retirement is reserved for room closure and transcription-policy epochs.
 // Membership and stage changes use targeted SFU operations plus admission epochs.
@@ -108,7 +114,7 @@ func (h *Hub) applyVoiceSFU(roomID, physical, reason string, retired bool, ident
 		return voicedomain.ErrUnavailable
 	}
 	if retired {
-		log.WithFields(log.Fields{"roomID": roomID, "physical": physical, "reason": reason}).Info("Retiring LiveKit room")
+		log.WithFields(log.Fields{"roomID": roomID, voiceLogPhysical: physical, voiceLogReason: reason}).Info("Retiring LiveKit room")
 		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 		defer cancel()
 		if err := h.voiceBackend.DeleteRoom(ctx, physical); err != nil {
@@ -123,7 +129,7 @@ func (h *Hub) applyVoiceSFU(roomID, physical, reason string, retired bool, ident
 		if err != nil {
 			return voicedomain.ErrUnavailable
 		}
-		log.WithFields(log.Fields{"physical": physical, "participant": identity, "reason": reason}).Info("LiveKit participant removed")
+		log.WithFields(log.Fields{voiceLogPhysical: physical, "participant": identity, voiceLogReason: reason}).Info("LiveKit participant removed")
 	}
 	for identity, publish := range publishing {
 		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
@@ -132,7 +138,7 @@ func (h *Hub) applyVoiceSFU(roomID, physical, reason string, retired bool, ident
 		if err != nil {
 			return voicedomain.ErrUnavailable
 		}
-		log.WithFields(log.Fields{"physical": physical, "participant": identity, "publish": publish, "reason": reason}).Info("LiveKit participant permission updated")
+		log.WithFields(log.Fields{voiceLogPhysical: physical, "participant": identity, "publish": publish, voiceLogReason: reason}).Info("LiveKit participant permission updated")
 	}
 	return nil
 }

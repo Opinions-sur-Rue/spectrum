@@ -300,7 +300,7 @@ func (h *Hub) WithRoomRead(roomID string, fn func(room *Room)) {
 func (h *Hub) LeaveRoom(roomID string, color string, userID string) error {
 	var notice *valueobjects.MessageContent
 	var closedRecipients []string
-	err := h.voiceRemoval(roomID, "leave", func(room *Room) []string {
+	err := h.voiceRemoval(roomID, voiceReasonLeave, func(room *Room) []string {
 		ids := []string{userID}
 		// Leaving the final stage member also closes the spectator session.
 		if _, onStage := room.ColorOf(userID); onStage && len(room.participants) == 1 {
@@ -690,7 +690,7 @@ func (h *Hub) cleanupRoom(roomID string) {
 	var deleted, recipients []string
 	var notice *valueobjects.MessageContent
 	expired := make(map[string]bool)
-	err := h.voiceRemoval(roomID, "expire", func(room *Room) []string {
+	err := h.voiceRemoval(roomID, voiceReasonExpire, func(room *Room) []string {
 		var ids []string
 		now := time.Now().Unix()
 		for _, member := range append(room.Participants(), room.Spectators()...) {

@@ -23,6 +23,11 @@ import (
 
 const Namespace = "spectrum_"
 
+const (
+	microphoneSource = "microphone"
+	roomField        = "room"
+)
+
 var ErrUnavailable = errors.New("voice service unavailable")
 var ErrUnsafeConfiguration = errors.New("LiveKit must disable automatic room creation")
 
@@ -96,7 +101,7 @@ func (c *Client) JoinToken(room, identity string, publish bool, epoch ...string)
 	grant.SetCanPublishData(false)
 	grant.SetCanUpdateOwnMetadata(false)
 	if publish {
-		grant.CanPublishSources = []string{"microphone"}
+		grant.CanPublishSources = []string{microphoneSource}
 	}
 	token := auth.NewAccessToken(c.config.Key, c.config.Secret).SetIdentity(identity).SetName(identity).SetVideoGrant(grant).SetValidFor(2 * time.Minute)
 	if len(epoch) == 1 {
@@ -164,7 +169,7 @@ func (c *Client) DeleteRoom(ctx context.Context, room string) error {
 	if !strings.HasPrefix(room, Namespace) {
 		return ErrUnavailable
 	}
-	return c.call(ctx, "DeleteRoom", map[string]string{"room": room}, nil)
+	return c.call(ctx, "DeleteRoom", map[string]string{roomField: room}, nil)
 }
 
 // RemoveParticipant disconnects a single identity without retiring the room.
@@ -173,7 +178,7 @@ func (c *Client) RemoveParticipant(ctx context.Context, room, identity string) e
 	if !strings.HasPrefix(room, Namespace) || identity == "" {
 		return ErrUnavailable
 	}
-	return c.callRoom(ctx, room, "RemoveParticipant", map[string]string{"room": room, "identity": identity}, nil)
+	return c.callRoom(ctx, room, "RemoveParticipant", map[string]string{roomField: room, "identity": identity}, nil)
 }
 
 // Update only this participant. LiveKit unpublishes tracks when permission is
@@ -184,10 +189,10 @@ func (c *Client) SetPublishPermission(ctx context.Context, room, identity string
 	}
 	sources := []string{}
 	if publish {
-		sources = []string{"microphone"}
+		sources = []string{microphoneSource}
 	}
 	return c.callRoom(ctx, room, "UpdateParticipant", map[string]any{
-		"room": room, "identity": identity,
+		roomField: room, "identity": identity,
 		"permission": map[string]any{"canSubscribe": true, "canPublish": publish, "canPublishData": false, "canUpdateMetadata": false, "canPublishSources": sources},
 	}, nil)
 }

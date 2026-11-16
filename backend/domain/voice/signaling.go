@@ -32,7 +32,7 @@ func (c *Client) VerifyAdmission(raw string) (Admission, error) {
 	if !strings.HasPrefix(g.Room, Namespace) || claims.Identity == "" || !g.RoomJoin || g.RoomAdmin || g.RoomCreate || g.RoomList || g.RoomRecord || g.GetCanPublishData() || g.GetCanUpdateOwnMetadata() || !g.GetCanSubscribe() {
 		return Admission{}, ErrUnavailable
 	}
-	if g.GetCanPublish() && (len(g.CanPublishSources) != 1 || g.CanPublishSources[0] != "microphone") {
+	if g.GetCanPublish() && (len(g.CanPublishSources) != 1 || g.CanPublishSources[0] != microphoneSource) {
 		return Admission{}, ErrUnavailable
 	}
 	epoch := claims.Attributes[admissionAttribute]
