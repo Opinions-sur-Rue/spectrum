@@ -1,9 +1,30 @@
 # Resume: finish v1 → v2 parity
 
-## Readability and notes (group 2) — beta.17 publication in progress
+## Readability and notes (group 2) — beta.17 deployed
 
 User requested group 2 before deploying it together with mobile reliability.
-Production remains beta.16 frontend / beta.14 backend until that combined rollout.
+Combined production rollout completed November 16, 2026 at 15:19 UTC:
+
+- Release CI **43886973997** succeeded for source
+  `4cfc83b8e83d53c55c5255fde9ca4d53d319be9a`.
+- Frontend:
+  `ghcr.io/opinions-sur-rue/spectrum-frontend@sha256:d0e01d6a6b6e0dbe65999302afd7b9c0dce5e3b6014a207bff1080d2c8ebe636`.
+- Backend:
+  `ghcr.io/opinions-sur-rue/spectrum-backend@sha256:a0ae10ae21e1acc515d188f00c12c2b4f9a6254f418d86316d29449b94a1d6a0`.
+- Snapshot: `/opt/spectrum/deploy-v2.0.0-beta.17-20261116T151900Z`.
+- The activity gate observed 100 seconds without established backend connections
+  or SFU rooms/participants before restart. No active meeting was terminated.
+- Frontend started `2026-11-16T15:19:05.882703545Z`; backend started
+  `2026-11-16T15:19:04.286619151Z`. LiveKit, PeerJS and TURN images/start times
+  stayed unchanged.
+- Production checks passed: group-2 notes/attribution/revalidation/no private
+  revision leak, half-open mobile resume and multiline claims on Chromium and
+  WebKit; French mobile panels/profile/drafts/v1 restoration on both engines;
+  direct UDP and forced TURN/TLS playback/moderation/revoked-token/mic restoration
+  plus v1 PeerJS. Initial parallel smokes timed out while guests booted; a clean
+  two-client diagnostic and the complete sequential rerun passed without product
+  changes. Logs: `/tmp/opencode/spectrum-mobile-pass/beta17-*-retry.log`.
+- Real iPhone/Android physical-device acceptance remains outstanding.
 
 - Show pseudonyms above all v2 pellets, with ellipsis and full names retained in
   accessible labels/tooltips. Preserve the own-pellet marker and v1 behavior.
@@ -36,7 +57,7 @@ Production remains beta.16 frontend / beta.14 backend until that combined rollou
   rooms/participants or established backend connections before restarting only
   frontend/backend. LiveKit, PeerJS and TURN must remain unchanged.
 
-## Mobile reliability follow-up — local work, not deployed
+## Mobile reliability follow-up — deployed with beta.17
 
 Started after beta.16 rollout, in the order requested by the user.
 
