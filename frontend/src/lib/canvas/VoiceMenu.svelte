@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { m } from '$lib/paraglide/messages.js';
@@ -49,10 +49,15 @@
 	let wanted = $state(false);
 	let status = $state<VoiceConnectionStatus>('idle');
 	let microphone = $state(false);
+	let microphoneWanted = false;
+	let restorePending = $state(false);
+	let identity = '';
+	let transcriptionPolicy = '';
 	let busy = $state(false);
 	let playbackBlocked = $state(false);
 	let remoteTracks = $state(0);
 	let request = $state<string | null>(null);
+	let needsJoin = $state(false);
 	let error = $state('');
 	let localCaptions = $state(false);
 	let signature = '';
@@ -92,14 +97,21 @@
 
 	onMount(() => {
 		const instance = new VoiceConnection(audio, {
+			permissions: (allowed) => {
+				granted = allowed;
+			},
 			localTrack: (track) => {
 				localTrack = track;
 			},
 			status: (value) => {
 				status = value;
 			},
+			disconnected: () => {
+				needsJoin = true;
+			},
 			microphone: (enabled, working) => {
 				microphone = enabled;
+				if (enabled) microphoneWanted = true;
 				busy = working;
 			},
 			playbackBlocked: (value) => {
@@ -125,6 +137,7 @@
 	});
 	function join(consent = false) {
 		if (!ready || !connection) return;
+		needsJoin = false;
 		error = '';
 		granted = false;
 		request = crypto.randomUUID();
@@ -136,41 +149,90 @@
 	}
 	$effect(() => {
 		if (!connection) return;
-		const next = `${room.roomId}:${room.role}:${room.voice?.generation}:${invalidation}:${ready}`;
+		const nextPolicy = transcribing ? `on:${room.settings.transcriptionLanguage}` : 'off';
+		const next = `${room.roomId}:${room.userId}:${room.voice?.generation}:${invalidation}:${nextPolicy}`;
 		if (signature === next) return;
 		signature = next;
+		const nextIdentity = `${room.roomId}:${room.userId}`;
+		if (identity !== nextIdentity || !onStage || transcriptionPolicy !== nextPolicy)
+			microphoneWanted = false;
+		identity = nextIdentity;
+		transcriptionPolicy = nextPolicy;
 		consentOpen = false;
 		startAfterConsent = false;
+		restorePending = false;
 		request = null;
 		granted = false;
+		needsJoin = true;
 		void connection.disconnect();
-		if (wanted && ready) join();
 	});
 	$effect(() => {
-		if (!connection || !credentials || credentials.requestId !== request || !wanted || !ready)
+		if (!onStage && connection) {
+			microphoneWanted = false;
+			restorePending = false;
+			startAfterConsent = false;
+			untrack(() => {
+				void connection?.setPublishAllowed(false);
+			});
+		}
+	});
+	// Spectrum's WebSocket and LiveKit have independent lifetimes. A lost
+	// request can be retried once Spectrum is ready, without cutting live audio.
+	$effect(() => {
+		if (!ready) {
+			if (request) needsJoin = true;
+			request = null;
+			return;
+		}
+		if (wanted && connection && !request && needsJoin) untrack(() => join());
+	});
+	$effect(() => {
+		if (
+			!connection ||
+			!credentials ||
+			credentials.roomId !== room.roomId ||
+			credentials.requestId !== request ||
+			!wanted ||
+			!ready
+		)
 			return;
 		if (credentials.generation < (room.voice?.generation ?? 0)) {
+			join();
+			return;
+		}
+		if (!onStage && credentials.canPublish) {
 			join();
 			return;
 		}
 		request = null;
 		granted = credentials.canPublish;
 		const generation = credentials.generation;
+		const connectingSignature = signature;
 		const instance = connection;
 		void instance.connect(credentials).then(() => {
 			if (
-				startAfterConsent &&
+				(startAfterConsent || microphoneWanted) &&
 				wanted &&
-				ready &&
 				onStage &&
 				granted &&
 				status === 'connected' &&
-				generation === room.voice?.generation
+				generation === room.voice?.generation &&
+				signature === connectingSignature
 			) {
 				startAfterConsent = false;
-				void instance.toggleMicrophone();
+				restorePending = true;
 			}
 		});
+	});
+	$effect(() => {
+		if (restorePending && ready && connected && onStage && granted && connection) {
+			restorePending = false;
+			// One attempt per rejoin: a denied permission must not cause a loop.
+			if (!microphone && !busy)
+				untrack(() => {
+					void connection?.toggleMicrophone();
+				});
+		}
 	});
 	$effect(() => {
 		if (failure && failure.requestId === request) {
@@ -220,6 +282,7 @@
 			wanted = !wanted;
 			if (wanted) join();
 			else {
+				microphoneWanted = false;
 				request = null;
 				granted = false;
 				error = '';
@@ -237,7 +300,10 @@
 			onclick={() => {
 				if (!onStage) return;
 				if (transcribing && !granted) consentOpen = true;
-				else if (granted) void connection?.toggleMicrophone();
+				else if (granted) {
+					if (microphone) microphoneWanted = false;
+					void connection?.toggleMicrophone();
+				}
 			}}
 		/>{/if}
 	{#if wanted && playbackBlocked}<IconButton

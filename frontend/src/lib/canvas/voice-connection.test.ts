@@ -13,6 +13,7 @@ vi.mock('livekit-client', () => ({
 	createLocalAudioTrack: fixture.createLocalAudioTrack,
 	Track: { Source: { Microphone: 'microphone' } },
 	RoomEvent: {
+		ParticipantPermissionsChanged: 'permissions',
 		Disconnected: 'disconnected',
 		TrackSubscribed: 'subscribed',
 		TrackUnsubscribed: 'unsubscribed',
@@ -53,6 +54,7 @@ const credentials: VoiceCredentials = {
 
 function setup() {
 	const callbacks = {
+		disconnected: vi.fn(),
 		status: vi.fn(),
 		microphone: vi.fn(),
 		playbackBlocked: vi.fn(),
@@ -78,6 +80,38 @@ it('reports an early SDK disconnect instead of swallowing the media failure', as
 	await connection.connect(credentials);
 	expect(callbacks.status).toHaveBeenLastCalledWith('error');
 	expect(callbacks.error).toHaveBeenCalledTimes(1);
+	expect(callbacks.disconnected).not.toHaveBeenCalled();
+});
+
+it('requests rejoin only after an established SDK connection disconnects', async () => {
+	fixture.mode = 'success';
+	const { callbacks, connection } = setup();
+	await connection.connect(credentials);
+	fixture.events.get('disconnected')?.();
+	await vi.waitFor(() => expect(callbacks.disconnected).toHaveBeenCalledOnce());
+	await connection.disconnect();
+	expect(callbacks.disconnected).toHaveBeenCalledOnce();
+});
+
+it('revokes only local capture without disconnecting the room', async () => {
+	fixture.mode = 'success';
+	const track = {
+		mediaStreamTrack: Object.assign(new EventTarget(), { readyState: 'live' }),
+		stop: vi.fn()
+	};
+	fixture.createLocalAudioTrack.mockResolvedValue(track);
+	const { callbacks, connection } = setup();
+	await connection.connect({ ...credentials, canPublish: true });
+	await connection.toggleMicrophone();
+	await connection.setPublishAllowed(false);
+	expect(track.stop).toHaveBeenCalled();
+	expect(callbacks.microphone).toHaveBeenLastCalledWith(false, false);
+	expect(callbacks.status).toHaveBeenLastCalledWith('connected');
+	await connection.toggleMicrophone();
+	expect(fixture.createLocalAudioTrack).toHaveBeenCalledTimes(1);
+	await connection.setPublishAllowed(true);
+	expect(fixture.createLocalAudioTrack).toHaveBeenCalledTimes(1);
+	await connection.disconnect();
 });
 
 it('gives a local Firefox hint and allows a later connection', async () => {

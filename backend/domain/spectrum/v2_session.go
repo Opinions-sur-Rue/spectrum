@@ -78,7 +78,7 @@ func handleRoomKick(c *Client, envelope *valueobjects.Envelope) error {
 	_, roomID, _, _, _, err := c.v2RoomContext()
 	var target, color string
 	if err == nil {
-		err = c.hub.voiceMutation(roomID, true, func(room *Room) error {
+		err = c.hub.voiceRemoval(roomID, voiceReasonKick, func(room *Room) []string { return []string{target} }, func(room *Room) error {
 			if !room.IsAdmin(c.userID) {
 				return ErrForbidden
 			}

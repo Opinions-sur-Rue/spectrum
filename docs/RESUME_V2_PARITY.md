@@ -1,5 +1,84 @@
 # Resume: finish v1 → v2 parity
 
+## Voice incident follow-up — 2026-11-16 (local changes, not deployed)
+
+The real-device meeting on November 15 (~14:45–15:25 UTC,
+`OSR-JGPZJ4DBZ9B1`) experienced repeated voice interruptions. LiveKit logs
+showed successive physical rooms and participant restart failures. Code review
+identified two application-level amplification paths: `VoiceMenu` disconnected
+LiveKit whenever Spectrum's WebSocket reconnected, and leave/expiration retired
+the entire SFU room. Logs were not detailed enough to attribute each retirement
+to a particular operation. No LiveKit process restart or UDP receive-buffer
+overflow was observed during the incident.
+
+Approved implementation scope: frontend, backend, and LiveKit configuration;
+restore a previously active microphone after involuntary rejoin if fresh
+credentials still allow publication. User explicitly approved deployment after
+the complete local validation; beta.13 publication/deployment is in progress.
+
+- Frontend: Spectrum readiness no longer belongs to the LiveKit lifetime key.
+  Lost credential requests retry when Spectrum is ready; final established SDK
+  disconnections request a fresh join only after local cleanup. Initial failures
+  remain errors rather than triggering a retry loop. Successful microphone intent
+  survives an involuntary rejoin, but explicit mute, leaving audio, changing room
+  identity, demotion, or a server-transcription consent-policy change clears it.
+  Restoration waits for readiness and a fresh publishing grant, with one capture
+  attempt per join (no permission-denied loop). Admin/participant transfers do not
+  reconnect voice because both roles may publish. Promotion/demotion now also
+  preserve the target's connection: SDK permission events update local publishing
+  rights, and demotion stops capture without disconnecting listening audio.
+- Backend: leave/expiration/kick uses room-scoped `RemoveParticipant` and
+  preserves the physical room and generation for other members. SFU operations
+  remain behind the token-issuance barrier, outside the hub data lock; failed
+  removals postpone membership changes. Cleanup removes only members selected
+  before SFU calls and rechecks expiration afterward. Final membership/owner
+  closure still retires the room, including stranded spectators. Retirement and
+  participant-removal logs include a reason, never bearer tokens or secrets.
+- User corrected moderation scope: routine promotion/demotion and kick must not
+  interrupt other participants. Stage changes now use `UpdateParticipant` with
+  explicit microphone-only publishing permission; only closure and transcription
+  policy changes still retire the physical room. Promotion never opens a mic.
+- Admission security: public `/livekit/rtc*` must route through backend
+  `/spectrum/voice/rtc*`, never directly to native port 7880. The gateway verifies
+  signed/expiring JWTs, exact audio-only grants, current membership/role/consent,
+  and a signed per-member admission epoch. Demotion/removal revokes that epoch,
+  including for refreshed tokens and later membership rejoin. The barrier spans
+  upstream admission through HTTP 101 (LiveKit 1.13.11 registers the participant
+  before upgrading), but is released for the WebSocket lifetime. Thus a pending
+  join cannot race past targeted revocation. Only `/rtc`, `/rtc/v1`, and
+  `/rtc/validate` are proxied; Twirp/admin endpoints stay private. Signal query
+  strings contain JWTs: Nginx examples disable access logs on these locations.
+- Transcription: targeted role/membership changes advance a separate worker
+  revision and clear only affected speaker consent/browser sessions. Worker
+  restarts its listener on revision change and drops stale queued/in-flight work;
+  ordinary audio participants keep their connections and voice generation.
+- LiveKit: `departure_timeout` changes from 10 to 25 seconds in the development
+  config, France example, and backend `CreateRoom` request. Important correction:
+  this is the room's post-departure empty lifetime, **not** an individual
+  participant's reconnection timeout. Runtime config on France is untouched.
+- Validation: `go test -race ./...`, frontend check/lint/build, 165 frontend
+  unit/component tests, and 24 Python transcription tests pass. All ten gated
+  Chromium/Firefox voice E2E cases pass against local LiveKit 1.13.11: app
+  reconnect, single-member leave, automatic microphone
+  restoration after real SFU retirement, permission retry, listening/publication,
+  cached-token rejection after demotion, and expiration of another active speaker
+  without recapturing or ending the remaining microphone. Expiration validation
+  uses a three-second local membership grace and the normal cleanup routine;
+  production grace remains unchanged. Targeted two-cycle promotion/demotion plus
+  kick tests pass on Chromium and Firefox, checking unchanged connection/capture
+  counts and replay rejection. Native
+  loopback Firefox tests enable `media.peerconnection.ice.loopback`; no production
+  browser/network configuration was modified. Local test evidence lives under
+  `/tmp/opencode/spectrum-voice-regression/`.
+- Deployment requires a new reviewed release and pinned digests, explicit user
+  approval, and a quiet-room window: backend restart clears in-memory rooms and
+  LiveKit restart interrupts voice. Do not deploy frontend-only as if it fixes
+  backend-triggered room retirement. Real Safari/iOS/Android and cross-network
+  acceptance remains necessary; synthetic browser microphones cannot prove it.
+  **The new backend must ship with the Nginx gateway routing change**; private
+  native signalling must not be exposed as an alternate route. Runtime France
+  config, services, images, and rooms have not been changed.
+
 ## Active UI/UX follow-up — second pass
 
 ### Six quick wins — 2026-11-11 (beta.9, frontend only)

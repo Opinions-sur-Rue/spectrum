@@ -99,6 +99,7 @@ func TestSessionRemovalRequiresSFURevocation(t *testing.T) {
 		t.Run(op, func(t *testing.T) {
 			hub, admin, actor, room, driver := voiceFixture(t)
 			driver.deleteErr = errors.New("SFU unavailable")
+			driver.removeErr = driver.deleteErr
 			envelope := stageEnvelope(t, op, room.memberIDs[actor.userID])
 			var err error
 			switch op {
@@ -119,6 +120,7 @@ func TestSessionRemovalRequiresSFURevocation(t *testing.T) {
 				t.Fatal("failed removal changed membership")
 			}
 			driver.deleteErr = nil
+			driver.removeErr = nil
 			switch op {
 			case fixtureKickOperation:
 				err = handleRoomKick(admin, envelope)
@@ -127,8 +129,8 @@ func TestSessionRemovalRequiresSFURevocation(t *testing.T) {
 			case "room.stop":
 				err = handleRoomStop(admin, envelope)
 			}
-			if err != nil || len(driver.deleted) != 1 {
-				t.Fatal("successful removal did not retire room", err)
+			if err != nil || (op != fixtureStopOperation && len(driver.removed) != 1) || (op == fixtureStopOperation && len(driver.deleted) != 1) {
+				t.Fatal("successful removal did not disconnect SFU member", err)
 			}
 		})
 	}

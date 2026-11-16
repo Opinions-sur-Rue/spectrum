@@ -8,6 +8,7 @@ import (
 
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 	voicedomain "Opinions-sur-Rue/spectrum/domain/voice"
+	log "github.com/sirupsen/logrus"
 )
 
 type voiceStatus struct {
@@ -26,10 +27,29 @@ type voiceCredentials struct {
 
 func init() { v2Handlers["voice.join"] = handleVoiceJoin }
 
-// Physical rooms are retired before a role or membership is revoked. Since SFU
-// auto-creation is disabled, cached/refreshed publisher tokens cannot recreate
-// those rooms. Other listeners reconnect; microphones never resume automatically.
-func (h *Hub) voiceMutation(roomID string, revoke bool, validate, mutate func(*Room) error) error {
+const voiceReasonKick = "kick"
+
+// Full retirement is reserved for room closure and transcription-policy epochs.
+// Membership and stage changes use targeted SFU operations plus admission epochs.
+func (h *Hub) voiceMutation(roomID string, revoke bool, reason string, validate, mutate func(*Room) error) error {
+	return h.voiceChange(roomID, revoke, reason, nil, nil, validate, mutate)
+}
+
+// selectMembers returns application user IDs under the hub read lock. Removal
+// and token issuance share the voice barrier; network calls never hold h.mu.
+func (h *Hub) voiceRemoval(roomID, reason string, selectMembers func(*Room) []string, validate, mutate func(*Room) error) error {
+	return h.voiceChange(roomID, false, reason, selectMembers, nil, validate, mutate)
+}
+
+func (h *Hub) voiceStage(roomID string, promote bool, target func(*Room) string, validate, mutate func(*Room) error) error {
+	return h.voiceChange(roomID, false, "stage_change", nil, func(room *Room) map[string]bool {
+		identity := room.memberIDs[target(room)]
+		publish := promote && room.voicePublishAllowed(identity, true, false, h.serverTranscriptionConfigured())
+		return map[string]bool{identity: publish}
+	}, validate, mutate)
+}
+
+func (h *Hub) voiceChange(roomID string, revoke bool, reason string, selectMembers func(*Room) []string, permissions func(*Room) map[string]bool, validate, mutate func(*Room) error) error {
 	h.voiceMu.Lock()
 	h.mu.RLock()
 	room, present := h.rooms[roomID]
@@ -40,39 +60,36 @@ func (h *Hub) voiceMutation(roomID string, revoke bool, validate, mutate func(*R
 	}
 	err := validate(room)
 	oldVoiceRoom := room.voiceRoomID
+	var identities []string
+	var publishing map[string]bool
+	if err == nil && permissions != nil {
+		publishing = permissions(room)
+	}
+	if err == nil && selectMembers != nil {
+		for _, id := range selectMembers(room) {
+			if identity := room.memberIDs[id]; identity != "" {
+				identities = append(identities, identity)
+			}
+		}
+	}
+	// Closing the final membership still retires the room, including cached
+	// tokens belonging to spectators whose application session is closing.
+	closing := selectMembers != nil && len(identities) == room.MemberCount()
 	h.mu.RUnlock()
 	if err != nil {
 		h.voiceMu.Unlock()
 		return err
 	}
-	retired := revoke && oldVoiceRoom != ""
-	if retired {
-		if h.voiceBackend == nil {
-			h.voiceMu.Unlock()
-			return voicedomain.ErrUnavailable
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-		err = h.voiceBackend.DeleteRoom(ctx, oldVoiceRoom)
-		cancel()
-		if err != nil {
-			h.voiceMu.Unlock()
-			return voicedomain.ErrUnavailable
-		}
+	retired := (revoke || closing) && oldVoiceRoom != ""
+	if err = h.applyVoiceSFU(roomID, oldVoiceRoom, reason, retired, identities, publishing); err != nil {
+		h.voiceMu.Unlock()
+		return err
 	}
 	h.mu.Lock()
 	if h.rooms[roomID] != room {
 		err = ErrRoomNotFound
 	} else {
-		if retired {
-			room.voiceRoomID = ""
-			room.voiceGeneration++
-			room.transcriptionConsents = nil
-			room.browserTranscripts = nil
-			room.spectrumRevision++
-		}
-		if err = validate(room); err == nil {
-			err = mutate(room)
-		}
+		err = room.commitVoiceChange(retired, identities, publishing, validate, mutate)
 	}
 	h.mu.Unlock()
 	h.voiceMu.Unlock()
@@ -80,6 +97,80 @@ func (h *Hub) voiceMutation(roomID string, revoke bool, validate, mutate func(*R
 		h.MessageRoomV2(roomID, "voice.invalidate", struct{}{}, nil)
 	}
 	return err
+}
+
+// Caller holds voiceMu, never h.mu, throughout external SFU calls.
+func (h *Hub) applyVoiceSFU(roomID, physical, reason string, retired bool, identities []string, publishing map[string]bool) error {
+	if physical == "" || (!retired && len(identities) == 0 && len(publishing) == 0) {
+		return nil
+	}
+	if h.voiceBackend == nil {
+		return voicedomain.ErrUnavailable
+	}
+	if retired {
+		log.WithFields(log.Fields{"roomID": roomID, "physical": physical, "reason": reason}).Info("Retiring LiveKit room")
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		defer cancel()
+		if err := h.voiceBackend.DeleteRoom(ctx, physical); err != nil {
+			return voicedomain.ErrUnavailable
+		}
+		return nil
+	}
+	for _, identity := range identities {
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		err := h.voiceBackend.RemoveParticipant(ctx, physical, identity)
+		cancel()
+		if err != nil {
+			return voicedomain.ErrUnavailable
+		}
+		log.WithFields(log.Fields{"physical": physical, "participant": identity, "reason": reason}).Info("LiveKit participant removed")
+	}
+	for identity, publish := range publishing {
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		err := h.voiceBackend.SetPublishPermission(ctx, physical, identity, publish)
+		cancel()
+		if err != nil {
+			return voicedomain.ErrUnavailable
+		}
+		log.WithFields(log.Fields{"physical": physical, "participant": identity, "publish": publish, "reason": reason}).Info("LiveKit participant permission updated")
+	}
+	return nil
+}
+
+// Caller holds both the voice barrier and hub write lock.
+func (r *Room) commitVoiceChange(retired bool, identities []string, publishing map[string]bool, validate, mutate func(*Room) error) error {
+	if retired {
+		r.voiceRoomID = ""
+		r.voiceGeneration++
+		r.transcriptionConsents = nil
+		r.browserTranscripts = nil
+		r.voiceAdmissions = nil
+		r.spectrumRevision++
+	}
+	if err := validate(r); err != nil {
+		return err
+	}
+	if err := mutate(r); err != nil {
+		return err
+	}
+	// Fence delayed STT output without reconnecting unrelated audio participants.
+	if retired || len(identities) > 0 || len(publishing) > 0 {
+		r.transcriptionRevision++
+	}
+	clear := func(identity string) {
+		delete(r.voiceAdmissions, identity)
+		delete(r.transcriptionConsents, identity)
+		delete(r.browserTranscripts, identity)
+	}
+	for _, identity := range identities {
+		clear(identity)
+	}
+	for identity, publish := range publishing {
+		if !publish {
+			clear(identity)
+		}
+	}
+	return nil
 }
 
 func handleVoiceJoin(c *Client, envelope *valueobjects.Envelope) error {
@@ -130,7 +221,7 @@ func (c *Client) issueVoiceCredentialsWithConsent(consent bool) (voiceCredential
 	if err := h.voiceBackend.Prepare(ctx); err != nil {
 		return voiceCredentials{}, err
 	}
-	var physical, identity string
+	var physical, identity, epoch string
 	var publish bool
 	var generation uint64
 	err = h.WithRoom(roomID, func(room *Room) error {
@@ -157,13 +248,20 @@ func (c *Client) issueVoiceCredentialsWithConsent(consent bool) (voiceCredential
 		}
 		room.voiceRoomID = physical
 		publish = room.voicePublishAllowed(identity, role.CanPublishVoice(), consent, h.serverTranscriptionConfigured())
+		if room.voiceAdmissions == nil {
+			room.voiceAdmissions = make(map[string]string)
+		}
+		if room.voiceAdmissions[identity] == "" {
+			room.voiceAdmissions[identity] = rand.Text()
+		}
+		epoch = room.voiceAdmissions[identity]
 		return nil
 	})
 	if err != nil {
 		_ = h.voiceBackend.DeleteRoom(ctx, physical)
 		return voiceCredentials{}, err
 	}
-	token, err := h.voiceBackend.JoinToken(physical, identity, publish)
+	token, err := h.voiceBackend.JoinToken(physical, identity, publish, epoch)
 	if err != nil {
 		return voiceCredentials{}, err
 	}

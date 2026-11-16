@@ -4,6 +4,12 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+### Fixed in v2.0.0-beta.13
+- Keep v2 audio alive across application WebSocket reconnects and restore an active microphone after involuntary voice rejoin when publication is still authorized.
+- Update only the promoted/demoted participant's voice permissions; leave, expiration and kick no longer retire other participants' audio sessions.
+- Reject cached/refreshed voice tokens after targeted revocation through the backend signaling gateway and signed membership epochs. Deploy public signaling routing through that gateway with this backend.
+- Increase empty-room departure grace to 25 seconds and fence delayed transcription work independently from ordinary audio sessions.
+
 ### Added
 - **v2 foundation** — stage role model (`admin`, `participant`, `spectator`), per-room settings, and a versioned `{v:2, op, payload}` protocol envelope dispatched alongside the legacy RPC format. v1 clients are unaffected.
 - Room settings: participant slots, spectator limit, spectator chat, pellet/note visibility for spectators, transcription toggle. Defaults overridable with `SPECTRUM_PARTICIPANT_SLOTS`, `SPECTRUM_SPECTATOR_LIMIT`, `SPECTRUM_SPECTATOR_CHAT`, `SPECTRUM_TRANSCRIPTION_ENABLED`.

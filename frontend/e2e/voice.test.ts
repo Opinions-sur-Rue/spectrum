@@ -3,13 +3,27 @@ import { englishLocale } from './locale-state';
 
 declare global {
 	interface Window {
-		__voiceFixture: { calls: number; tracks: MediaStreamTrack[]; deny: boolean };
+		__voiceFixture: {
+			calls: number;
+			tracks: MediaStreamTrack[];
+			deny: boolean;
+			appSockets: WebSocket[];
+			voiceSockets: WebSocket[];
+		};
 	}
 }
 
 async function syntheticMicrophone(context: BrowserContext) {
 	await context.addInitScript(() => {
-		window.__voiceFixture = { calls: 0, tracks: [], deny: false };
+		window.__voiceFixture = { calls: 0, tracks: [], deny: false, appSockets: [], voiceSockets: [] };
+		window.WebSocket = new Proxy(window.WebSocket, {
+			construct(target, args) {
+				const socket = Reflect.construct(target, args) as WebSocket;
+				if (socket.url.includes('/spectrum/ws')) window.__voiceFixture.appSockets.push(socket);
+				else if (socket.url.includes('/rtc')) window.__voiceFixture.voiceSockets.push(socket);
+				return socket;
+			}
+		});
 		navigator.mediaDevices.getUserMedia = async (constraints) => {
 			if (constraints?.video) throw new Error('Camera capture is forbidden in audio tests');
 			window.__voiceFixture.calls++;
@@ -42,6 +56,68 @@ async function syntheticMicrophone(context: BrowserContext) {
 	});
 }
 
+test('voice survives app reconnect and another member leaving; active mic returns after SFU retirement', async ({
+	page,
+	browser
+}) => {
+	await syntheticMicrophone(page.context());
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await page.getByRole('button', { name: 'Join audio', exact: true }).click();
+	const controls = page.getByTestId('voice-controls');
+	await expect(controls).toHaveAttribute('data-status', 'connected', { timeout: 30000 });
+	await page.getByRole('button', { name: 'Enable microphone', exact: true }).click();
+	await expect(controls).toHaveAttribute('data-microphone', 'true');
+	const captures = await page.evaluate(() => window.__voiceFixture.calls);
+	await page.evaluate(() => window.__voiceFixture.appSockets.at(-1)!.close());
+	await expect(page.getByTestId('connection-state')).toHaveAttribute('data-status', 'Reconnecting');
+	await expect(controls).toHaveAttribute('data-status', 'connected');
+	await expect(controls).toHaveAttribute('data-microphone', 'true');
+	await expect(page.getByTestId('connection-state')).toHaveAttribute('data-status', 'Connected', {
+		timeout: 15000
+	});
+	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(captures);
+
+	const listenerContext = await browser.newContext({ storageState: englishLocale });
+	await syntheticMicrophone(listenerContext);
+	try {
+		const listener = await listenerContext.newPage();
+		await listener.goto(page.url());
+		await expect(listener.getByTestId('own-role')).toHaveText('spectator');
+		await listener.getByRole('button', { name: 'Join audio', exact: true }).click();
+		await expect(listener.getByTestId('voice-controls')).toHaveAttribute(
+			'data-remote-tracks',
+			'1',
+			{ timeout: 30000 }
+		);
+		await listener.evaluate(() =>
+			window.__voiceFixture.appSockets
+				.at(-1)!
+				.send(JSON.stringify({ v: 2, op: 'room.leave', payload: {} }))
+		);
+		await expect(listener.getByTestId('voice-controls')).toHaveCount(0);
+		await expect(controls).toHaveAttribute('data-status', 'connected');
+		await expect(controls).toHaveAttribute('data-microphone', 'true');
+		expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(captures);
+	} finally {
+		await listenerContext.close();
+	}
+	// Even with transcription disabled, changing its language retires the SFU
+	// room. This exercises a real involuntary full rejoin with a fresh grant.
+	await page.evaluate(() =>
+		window.__voiceFixture.appSockets
+			.at(-1)!
+			.send(JSON.stringify({ v: 2, op: 'room.settings', payload: { transcriptionLanguage: 'en' } }))
+	);
+	await expect
+		.poll(() => page.evaluate(() => window.__voiceFixture.calls), { timeout: 30000 })
+		.toBeGreaterThan(captures);
+	await expect(controls).toHaveAttribute('data-status', 'connected');
+	await expect(controls).toHaveAttribute('data-microphone', 'true');
+	await page.getByRole('button', { name: 'Mute microphone', exact: true }).click();
+});
+
 test('successful microphone retry clears the obsolete permission alert', async ({ page }) => {
 	await syntheticMicrophone(page.context());
 	await page.goto('/v2');
@@ -64,6 +140,151 @@ test('successful microphone retry clears the obsolete permission alert', async (
 	await expect(controls.getByRole('alert')).toHaveCount(0);
 	await expect(page.getByTestId('voice-summary')).toHaveText('Microphone on');
 	await page.getByRole('button', { name: 'Mute microphone', exact: true }).click();
+});
+
+test('promotion, demotion and kick never reconnect other voice participants', async ({
+	page,
+	browser
+}) => {
+	await syntheticMicrophone(page.context());
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await page.getByRole('button', { name: 'Join audio', exact: true }).click();
+	const controls = page.getByTestId('voice-controls');
+	await expect(controls).toHaveAttribute('data-status', 'connected', { timeout: 30000 });
+	await page.getByRole('button', { name: 'Enable microphone', exact: true }).click();
+	await expect(controls).toHaveAttribute('data-microphone', 'true');
+	const baseline = await page.evaluate(() => ({
+		captures: window.__voiceFixture.calls,
+		connections: window.__voiceFixture.voiceSockets.length
+	}));
+	const actorContext = await browser.newContext({ storageState: englishLocale });
+	await syntheticMicrophone(actorContext);
+	try {
+		const actor = await actorContext.newPage();
+		let token = '',
+			signalURL = '';
+		actor.on('websocket', (socket) => {
+			if (!socket.url().includes('/spectrum/ws')) return;
+			socket.on('framereceived', ({ payload }) => {
+				for (const line of String(payload).split(/\r?\n/).filter(Boolean)) {
+					const event = JSON.parse(line);
+					if (event.op === 'voice.credentials') {
+						token = event.payload.token;
+						signalURL = event.payload.url;
+					}
+				}
+			});
+		});
+		await actor.goto(page.url());
+		await expect(actor.getByTestId('own-role')).toHaveText('spectator');
+		await actor.getByRole('button', { name: 'Join audio', exact: true }).click();
+		const actorControls = actor.getByTestId('voice-controls');
+		await expect(actorControls).toHaveAttribute('data-status', 'connected', { timeout: 30000 });
+		const actorConnections = await actor.evaluate(() => window.__voiceFixture.voiceSockets.length);
+		await page.getByLabel('People', { exact: true }).click();
+		for (let cycle = 0; cycle < 2; cycle++) {
+			await page.getByRole('button', { name: /^Promote / }).click();
+			await expect(actor.getByTestId('own-role')).toHaveText('participant');
+			await expect(actorControls).toHaveAttribute('data-microphone', 'false');
+			await actor.getByRole('button', { name: 'Enable microphone', exact: true }).click();
+			await expect(controls).toHaveAttribute('data-remote-tracks', '1', { timeout: 30000 });
+			await page.getByRole('button', { name: /^Demote / }).click();
+			await expect(actor.getByTestId('own-role')).toHaveText('spectator');
+			await expect(actorControls).toHaveAttribute('data-status', 'connected');
+			await expect(actorControls).toHaveAttribute('data-microphone', 'false');
+			await expect(controls).toHaveAttribute('data-remote-tracks', '0');
+			expect(await actor.evaluate(() => window.__voiceFixture.voiceSockets.length)).toBe(
+				actorConnections
+			);
+		}
+		// The old membership epoch is rejected even if a modified client replays it.
+		const validationURL = signalURL.replace(/^ws/, 'http') + '/rtc/validate?protocol=16';
+		expect(
+			(
+				await page.request.get(validationURL, { headers: { Authorization: `Bearer ${token}` } })
+			).status()
+		).toBe(403);
+		const memberID = await page
+			.locator('[data-member-id]')
+			.filter({ has: page.getByRole('button', { name: /^Promote / }) })
+			.getAttribute('data-member-id');
+		await page.evaluate(
+			(memberId) =>
+				window.__voiceFixture.appSockets
+					.at(-1)!
+					.send(JSON.stringify({ v: 2, op: 'room.kick', payload: { memberId } })),
+			memberID
+		);
+		await expect(actorControls).toHaveCount(0);
+		expect(
+			(
+				await page.request.get(validationURL, { headers: { Authorization: `Bearer ${token}` } })
+			).status()
+		).toBe(403);
+		await expect(controls).toHaveAttribute('data-status', 'connected');
+		await expect(controls).toHaveAttribute('data-microphone', 'true');
+		expect(
+			await page.evaluate(() => ({
+				captures: window.__voiceFixture.calls,
+				connections: window.__voiceFixture.voiceSockets.length
+			}))
+		).toEqual(baseline);
+		expect(
+			await page.evaluate(() =>
+				window.__voiceFixture.tracks.every((track) => track.readyState === 'live')
+			)
+		).toBe(true);
+	} finally {
+		await actorContext.close();
+	}
+});
+
+test('an expired speaker does not disconnect the remaining microphone', async ({
+	page,
+	browser
+}) => {
+	await syntheticMicrophone(page.context());
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await page.getByRole('button', { name: 'Join audio', exact: true }).click();
+	const controls = page.getByTestId('voice-controls');
+	await expect(controls).toHaveAttribute('data-status', 'connected', { timeout: 30000 });
+	await page.getByRole('button', { name: 'Enable microphone', exact: true }).click();
+	await expect(controls).toHaveAttribute('data-microphone', 'true');
+	const captures = await page.evaluate(() => window.__voiceFixture.calls);
+	const actorContext = await browser.newContext({ storageState: englishLocale });
+	await syntheticMicrophone(actorContext);
+	try {
+		const actor = await actorContext.newPage();
+		await actor.goto(page.url());
+		await expect(actor.getByTestId('own-role')).toHaveText('spectator');
+		await page.getByLabel('People', { exact: true }).click();
+		await page.getByRole('button', { name: /^Promote / }).click();
+		await expect(actor.getByTestId('own-role')).toHaveText('participant');
+		await actor.getByRole('button', { name: 'Join audio', exact: true }).click();
+		await expect(actor.getByTestId('voice-controls')).toHaveAttribute('data-status', 'connected', {
+			timeout: 30000
+		});
+		await actor.getByRole('button', { name: 'Enable microphone', exact: true }).click();
+		await expect(controls).toHaveAttribute('data-remote-tracks', '1', { timeout: 30000 });
+		await expect(page.locator('[data-member-id]')).toHaveCount(2);
+		// Close without room.leave: membership expires through the cleanup path.
+		await actorContext.close();
+		await expect(page.locator('[data-member-id]')).toHaveCount(1, { timeout: 100000 });
+		await expect(controls).toHaveAttribute('data-status', 'connected');
+		await expect(controls).toHaveAttribute('data-microphone', 'true');
+		expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(captures);
+		expect(
+			await page.evaluate(() =>
+				window.__voiceFixture.tracks.every((track) => track.readyState === 'live')
+			)
+		).toBe(true);
+	} finally {
+		await actorContext.close();
+	}
 });
 
 test('self-hosted voice: consent, spectator listening, live audio, and cached-token revocation', async ({
@@ -89,13 +310,16 @@ test('self-hosted voice: consent, spectator listening, live audio, and cached-to
 		const actor = await actorContext.newPage();
 		const listener = await listenerContext.newPage();
 		let publisherToken = '';
+		let publisherURL = '';
 		actor.on('websocket', (socket) => {
 			if (!socket.url().includes('/spectrum/ws')) return;
 			socket.on('framereceived', ({ payload }) => {
 				for (const line of String(payload).split(/\r?\n/).filter(Boolean)) {
 					const event = JSON.parse(line);
-					if (event.op === 'voice.credentials' && event.payload.canPublish)
+					if (event.op === 'voice.credentials' && event.payload.canPublish) {
 						publisherToken = event.payload.token;
+						publisherURL = event.payload.url;
+					}
 				}
 			});
 		});
@@ -130,6 +354,16 @@ test('self-hosted voice: consent, spectator listening, live audio, and cached-to
 		await expect(actor.getByRole('button', { name: 'Enable microphone', exact: true })).toBeEnabled(
 			{ timeout: 30000 }
 		);
+		await actor.evaluate(() =>
+			window.__voiceFixture.appSockets.at(-1)!.send(
+				JSON.stringify({
+					v: 2,
+					op: 'voice.join',
+					payload: { requestId: 'cache-publisher-for-revocation-test' }
+				})
+			)
+		);
+		await expect.poll(() => publisherToken).not.toBe('');
 		expect(await actor.evaluate(() => window.__voiceFixture.calls)).toBe(0);
 		await actor.getByRole('button', { name: 'Enable microphone', exact: true }).click();
 		await expect(actor.getByTestId('voice-controls')).toHaveAttribute('data-microphone', 'true');
@@ -202,10 +436,13 @@ test('self-hosted voice: consent, spectator listening, live audio, and cached-to
 		);
 		await expect(listener.getByTestId('voice-controls')).toHaveAttribute('data-remote-tracks', '0');
 		expect(claims.exp * 1000).toBeGreaterThan(Date.now());
-		const stale = await page.request.get('http://127.0.0.1:7880/rtc/validate?protocol=16', {
-			headers: { Authorization: `Bearer ${publisherToken}` }
-		});
-		expect(stale.status()).toBe(404);
+		const stale = await page.request.get(
+			publisherURL.replace(/^ws/, 'http') + '/rtc/validate?protocol=16',
+			{
+				headers: { Authorization: `Bearer ${publisherToken}` }
+			}
+		);
+		expect(stale.status()).toBe(403);
 		await page.getByRole('button', { name: 'Promote Speaker', exact: true }).click();
 		await page.getByLabel('People', { exact: true }).click();
 		await expect(actor.getByRole('button', { name: 'Enable microphone', exact: true })).toBeEnabled(

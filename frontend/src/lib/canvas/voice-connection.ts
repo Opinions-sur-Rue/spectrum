@@ -16,6 +16,8 @@ export interface VoiceError {
 export type VoiceConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
 interface Callbacks {
+	permissions?: (canPublish: boolean) => void;
+	disconnected?: () => void;
 	status: (status: VoiceConnectionStatus) => void;
 	microphone: (enabled: boolean, busy: boolean) => void;
 	playbackBlocked: (blocked: boolean) => void;
@@ -71,6 +73,10 @@ export class VoiceConnection {
 			let established = false;
 			this.room = room;
 			this.allowed = credentials.canPublish;
+			room.on(sdk.RoomEvent.ParticipantPermissionsChanged, (_previous, participant) => {
+				if (this.room === room && participant === room.localParticipant)
+					void this.setPublishAllowed(!!participant.permissions?.canPublish);
+			});
 			room.on(sdk.RoomEvent.ActiveSpeakersChanged, (participants) => {
 				if (this.room === room)
 					this.callbacks.speakers?.(participants.map((participant) => participant.identity));
@@ -117,7 +123,13 @@ export class VoiceConnection {
 				// The SDK can emit Disconnected before connect() rejects. Do not
 				// silently reset to idle and swallow the failure as a stale operation.
 				if (!established) void this.connectionFailed(operation);
-				else void this.disconnect();
+				else {
+					const closing = this.disconnect();
+					const disconnectedOperation = this.operation;
+					void closing.then(() => {
+						if (disconnectedOperation === this.operation) this.callbacks.disconnected?.();
+					});
+				}
 			});
 			await room.connect(credentials.url, credentials.token, { autoSubscribe: true });
 			established = true;
@@ -158,6 +170,21 @@ export class VoiceConnection {
 		}
 	}
 
+	/** Server role changes affect only this participant, never the room lifetime. */
+	async setPublishAllowed(allowed: boolean): Promise<void> {
+		this.allowed = allowed;
+		this.callbacks.permissions?.(allowed);
+		if (allowed || !this.microphone) return;
+		const track = this.microphone;
+		const room = this.room;
+		this.stopCapture();
+		try {
+			await room?.localParticipant.unpublishTrack(track, true);
+		} catch {
+			/* Already revoked by the SFU. */
+		}
+	}
+
 	/** Remember a microphone choice; restart capture only if it is already live. */
 	async setMicrophoneDevice(deviceId: string | null): Promise<void> {
 		const value = deviceId || null;
@@ -195,7 +222,8 @@ export class VoiceConnection {
 		try {
 			const sdk = await import('livekit-client');
 			if (operation !== this.operation || !this.allowed) return;
-			// This is the only getUserMedia path, called only from the mic button.
+			// Capture starts only after a mic action or restoration of that intent
+			// following an involuntary rejoin with fresh publishing permission.
 			track = await sdk.createLocalAudioTrack({
 				echoCancellation: true,
 				noiseSuppression: true,

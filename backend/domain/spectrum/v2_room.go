@@ -215,7 +215,7 @@ func changeStage(c *Client, envelope *valueobjects.Envelope, promote bool) error
 		}
 		return nil
 	}
-	err = c.hub.voiceMutation(roomID, !promote, validate, func(room *Room) error {
+	err = c.hub.voiceStage(roomID, promote, func(room *Room) string { target, _ := room.userIDForMember(payload.MemberID); return target }, validate, func(room *Room) error {
 		target, _ := room.userIDForMember(payload.MemberID)
 		if promote {
 			_, err := room.Promote(target)
@@ -283,7 +283,7 @@ func handleRoomSettings(c *Client, envelope *valueobjects.Envelope) error {
 		c.v2Error(envelope, "not_in_room", err)
 		return err
 	}
-	err = c.hub.voiceMutation(roomID, payload.TranscriptionEnabled != nil || payload.TranscriptionLanguage != nil, func(room *Room) error {
+	err = c.hub.voiceMutation(roomID, payload.TranscriptionEnabled != nil || payload.TranscriptionLanguage != nil, "transcription_settings", func(room *Room) error {
 		if !room.IsAdmin(c.userID) {
 			return ErrForbidden
 		}

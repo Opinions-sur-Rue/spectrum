@@ -84,6 +84,7 @@ func main() {
 
 	apiRouter.HandleFunc("/status", HealthCheck).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/spectrum/ws", api.SpectrumWebsocket).Methods(http.MethodGet)
+	apiRouter.PathPrefix("/spectrum/voice/").HandlerFunc(api.VoiceSignal)
 	apiRouter.HandleFunc("/spectrum/transcript", api.TranscriptIngest).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/spectrum/transcription/jobs", api.TranscriptionJobs).Methods(http.MethodGet)
 

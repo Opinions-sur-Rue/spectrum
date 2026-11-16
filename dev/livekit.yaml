@@ -1,6 +1,8 @@
 # Local development only. Ports bind to loopback in docker-compose.dev.yaml.
 # These public development credentials must never be used in production.
-# The backend retires the physical SFU room before revoking membership/roles.
+# Public signalling must use the backend admission gate, not this native port.
+# Role changes update only target permissions; removal disconnects only targets.
+# Physical retirement stays reserved for closure and transcription policy.
 # auto_create must stay false so cached tokens cannot recreate retired rooms.
 port: 7880
 bind_addresses:
@@ -19,7 +21,7 @@ room:
   # A cached token must not be able to recreate a retired physical voice room.
   auto_create: false
   empty_timeout: 60
-  departure_timeout: 10
+  departure_timeout: 25
   max_participants: 57
   enable_remote_unmute: false
 logging:

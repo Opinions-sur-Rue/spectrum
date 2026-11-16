@@ -116,3 +116,106 @@ func TestInvalidEnvironmentDoesNotReturnTypedNilBackend(t *testing.T) {
 		t.Fatal("invalid configuration returned a usable backend")
 	}
 }
+
+func TestRemoveParticipantUsesRoomScopedAdminGrant(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusNotFound, http.StatusServiceUnavailable} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/twirp/livekit.RoomService/RemoveParticipant" {
+					t.Error("incorrect method")
+				}
+				verifier, err := auth.ParseAPIToken(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				claims, err := verifier.Verify(testSecret)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if !claims.Video.RoomAdmin || claims.Video.Room != Namespace+"room" || claims.Video.RoomCreate || claims.Video.RoomJoin {
+					t.Error("incorrect removal grant")
+				}
+				var payload map[string]string
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+					t.Error(err)
+				}
+				if payload["room"] != Namespace+"room" || payload["identity"] != "m_departing" {
+					t.Error("incorrect removal target")
+				}
+				w.WriteHeader(status)
+			}))
+			defer server.Close()
+			client := testClient(t, server.URL)
+			err := client.RemoveParticipant(context.Background(), Namespace+"room", "m_departing")
+			if (err != nil) != (status == http.StatusServiceUnavailable) {
+				t.Fatalf("unexpected removal result: %v", err)
+			}
+			if client.RemoveParticipant(context.Background(), "other-room", "m_departing") == nil || client.RemoveParticipant(context.Background(), Namespace+"room", "") == nil {
+				t.Fatal("unsafe target accepted")
+			}
+		})
+	}
+}
+
+func TestCreateRoomUsesMobileDepartureWindow(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Error(err)
+		}
+		if payload["departureTimeout"] != float64(25) {
+			t.Error("mobile departure window not applied")
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+	if err := testClient(t, server.URL).CreateRoom(context.Background(), Namespace+"room"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPublishPermissionUpdatesOnlyTargetParticipant(t *testing.T) {
+	for _, publish := range []bool{false, true} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/twirp/livekit.RoomService/UpdateParticipant" {
+				t.Error("incorrect method")
+			}
+			v, err := auth.ParseAPIToken(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			claims, err := v.Verify(testSecret)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if !claims.Video.RoomAdmin || claims.Video.Room != Namespace+"room" {
+				t.Error("incorrect admin scope")
+			}
+			var payload struct {
+				Room, Identity string
+				Permission     struct {
+					CanPublish, CanSubscribe, CanPublishData, CanUpdateMetadata bool
+					CanPublishSources                                           []string
+				}
+			}
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Error(err)
+			}
+			if payload.Room != Namespace+"room" || payload.Identity != "m_target" || payload.Permission.CanPublish != publish || !payload.Permission.CanSubscribe || payload.Permission.CanPublishData || payload.Permission.CanUpdateMetadata {
+				t.Error("incorrect permission update")
+			}
+			if publish && (len(payload.Permission.CanPublishSources) != 1 || payload.Permission.CanPublishSources[0] != "microphone") {
+				t.Error("video allowed")
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+		if err := testClient(t, server.URL).SetPublishPermission(context.Background(), Namespace+"room", "m_target", publish); err != nil {
+			t.Error(err)
+		}
+		server.Close()
+	}
+}

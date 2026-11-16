@@ -169,7 +169,7 @@ func (h *Hub) appendTranscriptFor(admission *TranscriptAdmission, roomID, speake
 	err := h.WithRoom(roomID, func(room *Room) error {
 		if admission != nil {
 			generation, consented := room.transcriptionConsents[speakerID]
-			if admission.VoiceRoomID == "" || room.voiceRoomID != admission.VoiceRoomID || room.voiceGeneration != admission.Generation || !consented || generation != room.voiceGeneration {
+			if admission.VoiceRoomID == "" || room.voiceRoomID != admission.VoiceRoomID || room.transcriptionRevision != admission.Generation || !consented || generation != room.voiceGeneration {
 				return ErrTranscriptSpeaker
 			}
 			if pinned := room.Settings().Sanitize().TranscriptionLanguage; pinned != transcriptionLanguageAuto && language != pinned {

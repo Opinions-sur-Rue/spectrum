@@ -82,7 +82,7 @@ func (h *Hub) TranscriptionJobs() ([]TranscriptionJob, error) {
 		if room.IsClosed() || !room.settings.TranscriptionEnabled || room.voiceRoomID == "" {
 			continue
 		}
-		job := TranscriptionJob{RoomID: room.id, Language: room.Settings().Sanitize().TranscriptionLanguage, TranscriptAdmission: TranscriptAdmission{VoiceRoomID: room.voiceRoomID, Generation: room.voiceGeneration}}
+		job := TranscriptionJob{RoomID: room.id, Language: room.Settings().Sanitize().TranscriptionLanguage, TranscriptAdmission: TranscriptAdmission{VoiceRoomID: room.voiceRoomID, Generation: room.transcriptionRevision}}
 		for _, participant := range room.participants {
 			id := room.memberIDs[participant.UserID]
 			generation, consented := room.transcriptionConsents[id]

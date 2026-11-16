@@ -23,7 +23,9 @@ export default defineConfig({
 					firefoxUserPrefs: {
 						'media.autoplay.default': 0,
 						'media.autoplay.block-webaudio': false,
-						'media.peerconnection.ice.obfuscate_host_addresses': false
+						'media.peerconnection.ice.obfuscate_host_addresses': false,
+						// Native loopback fixtures also need an explicit loopback candidate.
+						'media.peerconnection.ice.loopback': true
 					}
 				}
 			}

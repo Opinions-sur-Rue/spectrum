@@ -236,7 +236,7 @@ class Worker:
         keys += sorted(key for key in by_room if key not in self.sessions and key not in active)
         desired = {key: by_room[key] for key in keys[:8]}
         for key, session in list(self.sessions.items()):
-            if key not in desired or not session.healthy:
+            if key not in desired or not session.healthy or session.job["generation"] != desired[key]["generation"]:
                 await session.close()
                 del self.sessions[key]
         for key, job in desired.items():

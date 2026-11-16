@@ -30,7 +30,11 @@ type Backend interface {
 	Prepare(context.Context) error
 	CreateRoom(context.Context, string) error
 	DeleteRoom(context.Context, string) error
-	JoinToken(string, string, bool) (string, error)
+	RemoveParticipant(context.Context, string, string) error
+	SetPublishPermission(context.Context, string, string, bool) error
+	JoinToken(string, string, bool, ...string) (string, error)
+	VerifyAdmission(string) (Admission, error)
+	ProxySignal(http.ResponseWriter, *http.Request, func())
 	PublicURL() string
 }
 
@@ -82,7 +86,7 @@ func New(config Config) (*Client, error) {
 
 func (c *Client) PublicURL() string { return c.config.URL }
 
-func (c *Client) JoinToken(room, identity string, publish bool) (string, error) {
+func (c *Client) JoinToken(room, identity string, publish bool, epoch ...string) (string, error) {
 	if !strings.HasPrefix(room, Namespace) || identity == "" {
 		return "", ErrUnavailable
 	}
@@ -94,7 +98,11 @@ func (c *Client) JoinToken(room, identity string, publish bool) (string, error) 
 	if publish {
 		grant.CanPublishSources = []string{"microphone"}
 	}
-	return auth.NewAccessToken(c.config.Key, c.config.Secret).SetIdentity(identity).SetName(identity).SetVideoGrant(grant).SetValidFor(2 * time.Minute).ToJWT()
+	token := auth.NewAccessToken(c.config.Key, c.config.Secret).SetIdentity(identity).SetName(identity).SetVideoGrant(grant).SetValidFor(2 * time.Minute)
+	if len(epoch) == 1 {
+		token.SetAttributes(map[string]string{admissionAttribute: epoch[0]})
+	}
+	return token.ToJWT()
 }
 
 // Prepare checks the critical admission invariant and removes abandoned rooms
@@ -147,7 +155,9 @@ func (c *Client) CreateRoom(ctx context.Context, room string) error {
 		return ErrUnavailable
 	}
 	// Keep a service slot beyond the six stage members and fifty spectators.
-	return c.call(ctx, "CreateRoom", map[string]any{"name": room, "emptyTimeout": 60, "departureTimeout": 10, "maxParticipants": 57}, nil)
+	// A 25 s departure window lets a lone mobile participant finish a network
+	// handover before LiveKit retires the physical room.
+	return c.call(ctx, "CreateRoom", map[string]any{"name": room, "emptyTimeout": 60, "departureTimeout": 25, "maxParticipants": 57}, nil)
 }
 
 func (c *Client) DeleteRoom(ctx context.Context, room string) error {
@@ -157,8 +167,41 @@ func (c *Client) DeleteRoom(ctx context.Context, room string) error {
 	return c.call(ctx, "DeleteRoom", map[string]string{"room": room}, nil)
 }
 
+// RemoveParticipant disconnects a single identity without retiring the room.
+// It handles departures and kick; admission epochs reject old cached tokens.
+func (c *Client) RemoveParticipant(ctx context.Context, room, identity string) error {
+	if !strings.HasPrefix(room, Namespace) || identity == "" {
+		return ErrUnavailable
+	}
+	return c.callRoom(ctx, room, "RemoveParticipant", map[string]string{"room": room, "identity": identity}, nil)
+}
+
+// Update only this participant. LiveKit unpublishes tracks when permission is
+// revoked; everyone else keeps their peer connections and microphones.
+func (c *Client) SetPublishPermission(ctx context.Context, room, identity string, publish bool) error {
+	if !strings.HasPrefix(room, Namespace) || identity == "" {
+		return ErrUnavailable
+	}
+	sources := []string{}
+	if publish {
+		sources = []string{"microphone"}
+	}
+	return c.callRoom(ctx, room, "UpdateParticipant", map[string]any{
+		"room": room, "identity": identity,
+		"permission": map[string]any{"canSubscribe": true, "canPublish": publish, "canPublishData": false, "canUpdateMetadata": false, "canPublishSources": sources},
+	}, nil)
+}
+
 func (c *Client) call(ctx context.Context, method string, payload, output any) error {
-	grant := &auth.VideoGrant{RoomCreate: true, RoomList: true}
+	return c.callWithGrant(ctx, &auth.VideoGrant{RoomCreate: true, RoomList: true}, method, payload, output)
+}
+
+// Room-scoped methods require an explicit RoomAdmin grant for that room.
+func (c *Client) callRoom(ctx context.Context, room, method string, payload, output any) error {
+	return c.callWithGrant(ctx, &auth.VideoGrant{RoomAdmin: true, Room: room}, method, payload, output)
+}
+
+func (c *Client) callWithGrant(ctx context.Context, grant *auth.VideoGrant, method string, payload, output any) error {
 	token, err := auth.NewAccessToken(c.config.Key, c.config.Secret).SetVideoGrant(grant).SetValidFor(30 * time.Second).ToJWT()
 	if err != nil {
 		return ErrUnavailable
@@ -178,7 +221,8 @@ func (c *Client) call(ctx context.Context, method string, payload, output any) e
 		return ErrUnavailable
 	}
 	defer response.Body.Close()
-	if method == "DeleteRoom" && response.StatusCode == http.StatusNotFound {
+	// Both calls are idempotent: the room or participant may already be gone.
+	if response.StatusCode == http.StatusNotFound && (method == "DeleteRoom" || method == "RemoveParticipant" || method == "UpdateParticipant") {
 		return nil
 	}
 	if response.StatusCode != http.StatusOK {

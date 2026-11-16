@@ -172,7 +172,9 @@ python3 dev/check-livekit.py        # STUN, auth, room lifecycle, retired-token 
 npm run test:e2e:voice              # Chromium + Firefox, synthetic audio, no real microphone
 ```
 
-- SFU signalling: `ws://127.0.0.1:7880`; media: `7882/udp` and `7881/tcp`; STUN: `127.0.0.1:3478` (coturn, STUN-only, no relay).
+- Public local signalling: `ws://localhost:3000/spectrum/voice`, through backend
+  admission checks. Native `7880` is private/operator-only; media uses `7882/udp`
+  and `7881/tcp`; STUN uses `127.0.0.1:3478` (coturn, STUN-only, no relay).
 - The dev credentials in `dev/livekit.yaml` are public fixtures. Production must inject `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` and terminate TLS.
 - Firefox hides host ICE candidates behind mDNS names that the containerised SFU cannot resolve, so local Firefox runs need `media.peerconnection.ice.obfuscate_host_addresses=false` (already set in `playwright.voice.config.ts`).
 - Rebuilding the backend wipes ephemeral rooms; create a new room before retesting.
@@ -278,10 +280,13 @@ old public base weights can remain cached; they are no longer used at runtime.
 - `GET /spectrum/transcription/jobs` uses the same worker token and grants only
   listen-only SFU credentials. A successful poll is the worker heartbeat shown
   in the panel. Production must replace the public dev token with a secret.
-- Role revocation and transcription toggles clear consent and retire the SFU
-  room. Microphones do not resume automatically. Worker disconnection/room
-  retirement discards queued audio and provisional text; any in-flight CPU result
-  is dropped on completion.
+- Demotion clears only affected speaker consent and publication permission;
+  targeted role/membership changes advance a separate worker-job generation.
+  Worker reconnects its listener and discards stale queued/in-flight work without
+  interrupting ordinary audio participants. Transcription-policy changes still
+  retire the physical room and require fresh consent. An involuntary voice rejoin
+  restores a previously active mic only with current publishing rights and no
+  consent-policy change; explicit mute/demotion clears that intent.
 - Worker unit tests: `docker compose -f docker-compose.dev.yaml --profile transcription run --rm --no-deps stt python -m unittest discover`.
 - Speech integration test (from `frontend/`):
   `SPECTRUM_TEST_SPEECH=/absolute/path/to/english-speech.wav npm run test:e2e:transcription`.
@@ -464,9 +469,15 @@ export, or extra server event stream is introduced.
   signin IDs or pellet colors. Transfer requires an existing participant and
   relinquishes the requester's admin role; it never promotes a spectator or
   grants additional microphone permission.
-- Leave/stop/kick retire the physical SFU room before committing removal. A
-  failed revocation leaves membership unchanged and surfaces an error. Remaining
-  listeners reconnect; microphone capture never resumes automatically.
+- Leave/kick/expiration remove only the selected SFU participants. Promotion and
+  demotion update only target permissions, retaining listening connections; a
+  promotion never starts capture automatically. Stop/final-member closure still
+  retires the physical room. Failed SFU operations leave membership unchanged.
+- All public SFU signalling passes through the backend admission gateway. Signed
+  per-member epochs and current role/consent checks reject old cached/refreshed
+  tokens after demotion/removal, even after later readmission. The voice barrier
+  spans upstream registration/HTTP upgrade, not the full signalling connection.
+  Nginx must route to this gateway and keep native signalling/Twirp private.
 - Kick is removal, not a persistent ban. The confirmation explicitly warns that
   someone holding the link can rejoin. A successful leave clears tab-local room
   state/URL and suppresses automatic rejoin, while allowing an explicit rejoin.

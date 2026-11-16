@@ -29,6 +29,10 @@ func getSpectrumHub() *spectrum.Hub {
 	return spectrumHub
 }
 
+func VoiceSignal(w http.ResponseWriter, r *http.Request) {
+	getSpectrumHub().VoiceSignal(w, r)
+}
+
 var upgraderSpectrum = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true

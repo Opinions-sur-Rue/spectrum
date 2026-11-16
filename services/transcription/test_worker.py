@@ -2,13 +2,25 @@ import asyncio
 import contextlib
 from types import SimpleNamespace
 import unittest
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 from segmenter import Chunk
 from worker import Worker, subtitle_artifact
 
 
 class WorkerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_targeted_role_revision_retires_only_worker_session(self):
+        worker = object.__new__(Worker)
+        old = SimpleNamespace(healthy=True, job={"generation": 1}, close=AsyncMock())
+        worker.sessions = {"physical": old}
+        fresh = SimpleNamespace(connect=AsyncMock())
+        job = {"voiceRoomId": "physical", "generation": 2, "speakers": ["m_speaker"]}
+        with patch("worker.Session", return_value=fresh):
+            await worker.reconcile([job])
+        old.close.assert_awaited_once()
+        fresh.connect.assert_awaited_once()
+        self.assertIs(worker.sessions["physical"], fresh)
+
     async def test_close_discards_only_retired_room_audio(self):
         worker = object.__new__(Worker)
         worker.queue = asyncio.Queue(maxsize=24)

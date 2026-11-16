@@ -31,6 +31,8 @@ type Room struct {
 	participants          map[string]*User
 	spectators            map[string]*User
 	memberIDs             map[string]string
+	voiceAdmissions       map[string]string
+	transcriptionRevision uint64
 	spectrumRevision      uint64
 	timer                 roomTimerState
 	chatMessages          []chatMessage

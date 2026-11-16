@@ -57,7 +57,7 @@ services:
       # Opt in with SPECTRUM_VOICE_ENABLED=true and --profile voice.
       SPECTRUM_VOICE_ENABLED: "${SPECTRUM_VOICE_ENABLED:-false}"
       LIVEKIT_INTERNAL_URL: "http://livekit:7880"
-      LIVEKIT_PUBLIC_URL: "ws://127.0.0.1:7880"
+      LIVEKIT_PUBLIC_URL: "ws://localhost:3000/spectrum/voice"
       LIVEKIT_API_KEY: "spectrum-dev"
       LIVEKIT_API_SECRET: "spectrum-local-development-secret-not-for-production"
     restart: unless-stopped

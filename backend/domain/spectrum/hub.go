@@ -296,10 +296,20 @@ func (h *Hub) WithRoomRead(roomID string, fn func(room *Room)) {
 }
 
 // LeaveRoom removes a participant from a room and reassigns admin if needed.
+// Only the departing identity is disconnected from the SFU.
 func (h *Hub) LeaveRoom(roomID string, color string, userID string) error {
 	var notice *valueobjects.MessageContent
 	var closedRecipients []string
-	err := h.voiceMutation(roomID, true, func(room *Room) error {
+	err := h.voiceRemoval(roomID, "leave", func(room *Room) []string {
+		ids := []string{userID}
+		// Leaving the final stage member also closes the spectator session.
+		if _, onStage := room.ColorOf(userID); onStage && len(room.participants) == 1 {
+			for id := range room.spectators {
+				ids = append(ids, id)
+			}
+		}
+		return ids
+	}, func(room *Room) error {
 		if _, present := room.RoleOf(userID); !present {
 			return ErrUserCannotJoin
 		}
@@ -353,7 +363,7 @@ func (h *Hub) LeaveRoom(roomID string, color string, userID string) error {
 func (h *Hub) KickByColor(roomID, requester, color string) error {
 	var target string
 	var notice *valueobjects.MessageContent
-	err := h.voiceMutation(roomID, true, func(room *Room) error {
+	err := h.voiceRemoval(roomID, voiceReasonKick, func(room *Room) []string { return []string{target} }, func(room *Room) error {
 		if !room.IsAdmin(requester) {
 			return ErrNotAdmin
 		}
@@ -444,7 +454,7 @@ func (h *Hub) Promote(roomID string, requesterID string, targetID string) (strin
 // they can, but the room keeps at least one admin through reassignment.
 func (h *Hub) Demote(roomID string, requesterID string, targetID string) error {
 	var notice *valueobjects.MessageContent
-	err := h.voiceMutation(roomID, true, func(room *Room) error {
+	err := h.voiceStage(roomID, false, func(room *Room) string { return targetID }, func(room *Room) error {
 		if !room.IsAdmin(requesterID) {
 			return ErrNotAdmin
 		}
@@ -481,7 +491,7 @@ func (h *Hub) StopRoom(roomID string) error {
 
 func (h *Hub) stopRoom(roomID, requester string) error {
 	var recipients []string
-	err := h.voiceMutation(roomID, true, func(room *Room) error {
+	err := h.voiceMutation(roomID, true, "close", func(room *Room) error {
 		if requester != "" && !room.IsAdmin(requester) {
 			return ErrForbidden
 		}
@@ -675,11 +685,22 @@ func (h *Hub) Routine(ctx context.Context) {
 
 var errNoCleanup = errors.New("cleanup not needed")
 
-// Eviction uses the same voice retirement barrier as explicit role changes.
+// Expiration removes only affected SFU identities, not the remaining speakers.
 func (h *Hub) cleanupRoom(roomID string) {
 	var deleted, recipients []string
 	var notice *valueobjects.MessageContent
-	err := h.voiceMutation(roomID, true, func(room *Room) error {
+	expired := make(map[string]bool)
+	err := h.voiceRemoval(roomID, "expire", func(room *Room) []string {
+		var ids []string
+		now := time.Now().Unix()
+		for _, member := range append(room.Participants(), room.Spectators()...) {
+			if member.beginningGracePeriod+h.gracePeriodSeconds < now {
+				expired[member.UserID] = true
+				ids = append(ids, member.UserID)
+			}
+		}
+		return ids
+	}, func(room *Room) error {
 		if room.IsClosed() {
 			return errNoCleanup
 		}
@@ -695,8 +716,8 @@ func (h *Hub) cleanupRoom(roomID string) {
 		return errNoCleanup
 	}, func(room *Room) error {
 		var removedAdmin bool
-		deleted, recipients, removedAdmin = h.evictExpiredParticipants(room)
-		h.evictExpiredSpectators(room)
+		deleted, recipients, removedAdmin = h.evictExpiredParticipants(room, expired)
+		h.evictExpiredSpectators(room, expired)
 		if removedAdmin && len(room.admins) == 0 && len(room.participants) > 0 {
 			notice = h.reassignAdminLocked(roomID, room)
 		}
@@ -728,10 +749,10 @@ func (h *Hub) cleanupRoom(roomID string) {
 // evictExpiredParticipants removes participants whose grace period has expired.
 // Returns deleted colors, userIDs to notify, and whether an admin was removed.
 // Caller must hold h.mu write lock.
-func (h *Hub) evictExpiredParticipants(room *Room) (deleted []string, toNotify []string, adminRemoved bool) {
+func (h *Hub) evictExpiredParticipants(room *Room, expired map[string]bool) (deleted []string, toNotify []string, adminRemoved bool) {
 	now := time.Now().Unix()
 	for color, participant := range room.participants {
-		if participant.beginningGracePeriod+h.gracePeriodSeconds < now {
+		if expired[participant.UserID] && participant.beginningGracePeriod+h.gracePeriodSeconds < now {
 			log.WithFields(log.Fields{
 				"color": color,
 				"grace": participant.beginningGracePeriod,
@@ -759,10 +780,10 @@ func (h *Hub) evictExpiredParticipants(room *Room) (deleted []string, toNotify [
 // evictExpiredSpectators removes bench members whose grace period expired.
 // Spectators have no color, so nothing is broadcast for them yet.
 // Caller must hold h.mu write lock.
-func (h *Hub) evictExpiredSpectators(room *Room) {
+func (h *Hub) evictExpiredSpectators(room *Room, expired map[string]bool) {
 	now := time.Now().Unix()
 	for userID, spectator := range room.spectators {
-		if spectator.beginningGracePeriod+h.gracePeriodSeconds < now {
+		if expired[userID] && spectator.beginningGracePeriod+h.gracePeriodSeconds < now {
 			delete(room.spectators, userID)
 			room.spectrumRevision++
 			spectator.SetRoom("")
