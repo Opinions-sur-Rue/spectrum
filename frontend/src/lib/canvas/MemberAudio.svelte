@@ -12,27 +12,44 @@
 	let volume = $derived(connection?.getVolume(member.id) ?? 1);
 </script>
 
-<div class="flex min-h-5 items-center gap-2">
-	{#if speaking}<span
-			class="rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] text-white"
-			role="status"
-			data-speaking-member={member.id}>{m.voice_speaking({ name: member.nickname })}</span
-		>{/if}
-	{#if connection && !own && member.role !== 'spectator'}
-		<label class="ml-auto flex items-center gap-2 text-[10px]" title={m.voice_volume_hint()}
-			><span aria-hidden="true">🔊</span><input
-				type="range"
-				min="0"
-				max="1"
-				step="0.05"
-				class="range range-xs w-20"
-				aria-label={m.voice_volume({ name: member.nickname })}
-				value={volume}
-				oninput={(event) => {
-					volume = Number(event.currentTarget.value);
-					connection?.setVolume(member.id, volume);
-				}}
-			/><span class="w-7 text-right">{Math.round(volume * 100)}%</span></label
-		>
-	{/if}
-</div>
+{#if speaking || (connection && !own && member.role !== 'spectator')}<div
+		class="member-audio flex w-full flex-wrap items-center gap-2"
+	>
+		{#if speaking}<span
+				class="rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] text-white"
+				role="status"
+				data-speaking-member={member.id}>{m.voice_speaking({ name: member.nickname })}</span
+			>{/if}
+		{#if connection && !own && member.role !== 'spectator'}
+			<label class="ml-auto flex items-center gap-2 text-[10px]" title={m.voice_volume_hint()}
+				><span aria-hidden="true">🔊</span><input
+					type="range"
+					min="0"
+					max="1"
+					step="0.05"
+					class="range range-xs w-20"
+					aria-label={m.voice_volume({ name: member.nickname })}
+					value={volume}
+					oninput={(event) => {
+						volume = Number(event.currentTarget.value);
+						connection?.setVolume(member.id, volume);
+					}}
+				/><span class="w-7 text-right">{Math.round(volume * 100)}%</span></label
+			>
+		{/if}
+	</div>{/if}
+
+<style>
+	.member-audio {
+		min-width: 0;
+	}
+	.member-audio input {
+		min-height: 32px;
+		max-width: 5rem;
+	}
+	@media (pointer: coarse) {
+		.member-audio input {
+			min-height: 44px;
+		}
+	}
+</style>

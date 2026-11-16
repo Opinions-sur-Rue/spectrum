@@ -70,18 +70,24 @@ test('note navigation searches without accents and clears or selects results on 
 	await expect(note).toBeFocused();
 });
 
-test('room onboarding shows once and stays dismissed', async ({ page }) => {
+test('getting-started help stays collapsed until requested and can be reopened', async ({
+	page
+}) => {
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
 	const onboarding = page.getByTestId('room-onboarding');
 	await expect(onboarding).toBeVisible();
+	await expect(onboarding).toHaveJSProperty('open', false);
+	await onboarding.locator('summary').click();
 	await expect(onboarding).toContainText('Three things to try');
-	await onboarding.getByRole('button', { name: 'Got it' }).click();
-	await expect(onboarding).toHaveCount(0);
+	await onboarding.getByRole('button', { name: 'Close help' }).click();
+	await expect(onboarding).toHaveJSProperty('open', false);
+	await onboarding.locator('summary').click();
+	await expect(onboarding).toHaveJSProperty('open', true);
 	await page.reload();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	await expect(page.getByTestId('room-onboarding')).toHaveCount(0);
+	await expect(page.getByTestId('room-onboarding')).toHaveJSProperty('open', false);
 });
 
 test('offline banner explains paused changes and clears after reconnect', async ({ page }) => {
@@ -1267,7 +1273,10 @@ test('room sharing generates a local QR, presentation hides controls, and prefer
 	await expect(page.getByTestId('new-note')).toBeVisible();
 	await expect(page.getByTestId('app-menu')).toBeFocused();
 	await page.getByTestId('app-menu').click();
-	await page.getByTestId('language-select').selectOption('fr');
+	await Promise.all([
+		page.waitForEvent('domcontentloaded'),
+		page.getByTestId('language-select').selectOption('fr')
+	]);
 	await expect(page.getByTestId('own-role')).toHaveAttribute('data-role', 'admin');
 	await expect(page.getByTestId('new-note')).toHaveText('Nouvelle note');
 	await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
@@ -1546,57 +1555,67 @@ test('leaving hands administration to remaining stage member and last admin clos
 test('backend rejects spectator reactions even when the UI restriction is bypassed', async ({
 	page
 }) => {
+	let socketURL = '';
+	page.on('websocket', (socket) => {
+		if (socket.url().includes('/spectrum/ws')) socketURL = socket.url();
+	});
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
 	const roomId = new URL(page.url()).searchParams.get('room');
 	expect(roomId).toBeTruthy();
-	const outcome = await page.evaluate(async (id) => {
-		interface Message {
-			procedure?: string;
-			arguments?: string[];
-			v?: number;
-			op?: string;
-			payload?: { code?: string };
-		}
-		// The dev server on :5173 does not proxy WebSockets; VITE_API_URL points at :3000.
-		const socket = new WebSocket('ws://localhost:3000/spectrum/ws');
-		const messages: Message[] = [];
-		socket.onmessage = (event) => {
-			for (const line of String(event.data).split(/\r?\n/).filter(Boolean))
-				messages.push(JSON.parse(line) as Message);
-		};
-		async function waitFor(match: (message: Message) => boolean, timeout = 5000) {
-			const started = performance.now();
-			while (performance.now() - started < timeout) {
-				const found = messages.find(match);
-				if (found) return found;
-				await new Promise((resolve) => setTimeout(resolve, 20));
+	expect(socketURL).not.toBe('');
+	const outcome = await page.evaluate(
+		async ({ id, url }) => {
+			interface Message {
+				procedure?: string;
+				arguments?: string[];
+				v?: number;
+				op?: string;
+				payload?: { code?: string };
 			}
-			throw new Error(`Timed out waiting for server message: ${JSON.stringify(messages)}`);
-		}
-		await new Promise<void>((resolve, reject) => {
-			const timeout = setTimeout(() => reject(new Error('WebSocket connection timed out')), 5000);
-			socket.onopen = () => {
-				clearTimeout(timeout);
-				resolve();
+			// Reuse the app's actual API origin so isolated backend ports work too.
+			const socket = new WebSocket(url);
+			const messages: Message[] = [];
+			socket.onmessage = (event) => {
+				for (const line of String(event.data).split(/\r?\n/).filter(Boolean))
+					messages.push(JSON.parse(line) as Message);
 			};
-			socket.onerror = () => {
-				clearTimeout(timeout);
-				reject(new Error('WebSocket failed'));
-			};
-		});
-		socket.send(JSON.stringify({ procedure: 'signin', arguments: [crypto.randomUUID()] }));
-		await waitFor((message) => message.procedure === 'ack' && message.arguments?.[0] === 'signin');
-		socket.send(JSON.stringify({ v: 2, op: 'room.join', payload: { roomId: id } }));
-		await waitFor((message) => message.v === 2 && message.op === 'room.state');
-		socket.send(JSON.stringify({ v: 2, op: 'room.react', payload: { emoji: '👍' } }));
-		const response = await waitFor(
-			(message) => message.v === 2 && (message.op === 'error' || message.op === 'room.reaction')
-		);
-		socket.close();
-		return response;
-	}, roomId);
+			async function waitFor(match: (message: Message) => boolean, timeout = 5000) {
+				const started = performance.now();
+				while (performance.now() - started < timeout) {
+					const found = messages.find(match);
+					if (found) return found;
+					await new Promise((resolve) => setTimeout(resolve, 20));
+				}
+				throw new Error(`Timed out waiting for server message: ${JSON.stringify(messages)}`);
+			}
+			await new Promise<void>((resolve, reject) => {
+				const timeout = setTimeout(() => reject(new Error('WebSocket connection timed out')), 5000);
+				socket.onopen = () => {
+					clearTimeout(timeout);
+					resolve();
+				};
+				socket.onerror = () => {
+					clearTimeout(timeout);
+					reject(new Error('WebSocket failed'));
+				};
+			});
+			socket.send(JSON.stringify({ procedure: 'signin', arguments: [crypto.randomUUID()] }));
+			await waitFor(
+				(message) => message.procedure === 'ack' && message.arguments?.[0] === 'signin'
+			);
+			socket.send(JSON.stringify({ v: 2, op: 'room.join', payload: { roomId: id } }));
+			await waitFor((message) => message.v === 2 && message.op === 'room.state');
+			socket.send(JSON.stringify({ v: 2, op: 'room.react', payload: { emoji: '👍' } }));
+			const response = await waitFor(
+				(message) => message.v === 2 && (message.op === 'error' || message.op === 'room.reaction')
+			);
+			socket.close();
+			return response;
+		},
+		{ id: roomId, url: socketURL }
+	);
 	expect(outcome).toMatchObject({ op: 'error', payload: { code: 'reaction_failed' } });
 });
 

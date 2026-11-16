@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { roomViewport } from '$lib/canvas/room-viewport';
 	import { onMount, tick } from 'svelte';
 	import { CanvasWorkspace, type EdgeModel, type NoteModel } from '$lib/canvas/workspace.svelte';
 	import {
@@ -76,6 +77,8 @@
 	let voiceInvalidation = $state(0);
 	let voiceConnection = $state.raw<VoiceConnection | null>(null);
 	let speakers = $state<string[]>([]);
+	let peopleMenu = $state<{ editNickname: () => void }>();
+	let peopleModal = $state(false);
 	let reaction = $state<ReactionEvent | null>(null);
 	let live = $state<LiveState | null>(null);
 	let shareOpen = $state(false);
@@ -94,6 +97,7 @@
 	let camera = $state<Camera>(createCamera());
 	let viewport = $state<Viewport>({ width: 0, height: 0 });
 	const admin = $derived(room?.role === 'admin');
+	const ownMember = $derived(room?.members.find((member) => member.id === room?.userId));
 	const ready = $derived(status === 'Connected' && room !== null && roomConfirmed);
 	const pendingNotes = $derived(notes.filter((note) => note.moderation === 'pending'));
 	const projectedNoteIds = $derived(
@@ -400,8 +404,8 @@
 	}}
 />
 
-<div class="v2-shell" class:presentation>
-	<header class="v2-topbar">
+<div class="v2-shell" class:presentation use:roomViewport>
+	<header class="v2-topbar" class:people-modal={peopleModal}>
 		<div class="brand">
 			<strong>Spectrum</strong><span
 				class="connection-pill"
@@ -436,7 +440,17 @@
 					}}
 					title={m.ux_invite()}><Icon name="link" /><span>{m.ux_invite()}</span></button
 				>
-				<PeopleMenu {room} {ready} {send} connection={voiceConnection} {speakers} />
+				<PeopleMenu
+					onModalChange={(modal) => {
+						peopleModal = modal;
+					}}
+					bind:this={peopleMenu}
+					{room}
+					{ready}
+					{send}
+					connection={voiceConnection}
+					{speakers}
+				/>
 				{#key room.roomId}<RoomTimer {room} {ready} {send} />{/key}
 				{#if admin && pendingNotes.length}<PendingNotesMenu
 						notes={pendingNotes}
@@ -512,6 +526,18 @@
 						>{/if}</button
 				>
 			</div>
+		</div>
+		<div class="v2-guidancebar">
+			<button
+				type="button"
+				class="profile-trigger"
+				data-testid="edit-pseudonym"
+				onclick={() => peopleMenu?.editNickname()}
+			>
+				<Icon name="people" /><span>{m.ux_profile_edit()}</span>
+				<strong title={ownMember?.nickname}>{ownMember?.nickname}</strong>
+			</button>
+			<RoomOnboarding role={room.role} />
 		</div>
 		{#key room.roomId}<ClaimBar {room} {spectrum} {ready} {send} {presentation} />{/key}{/if}
 	{#if error && room}<div role="alert" class="alert alert-error rounded-none py-2">
@@ -599,7 +625,6 @@
 				</div>
 			{/if}
 		</main>
-		{#if room && !presentation}<RoomOnboarding role={room.role} />{/if}
 		{#if room}{#key room.roomId}<DiscussionPanel
 					{room}
 					{ready}
@@ -622,6 +647,17 @@
 	.presentation .canvas-status {
 		display: none;
 	}
+	.presentation .v2-guidancebar {
+		display: none;
+	}
+	:global(html.v2-active) {
+		overflow: hidden;
+		overscroll-behavior: none;
+	}
+	:global(html.v2-active body) {
+		padding: 0;
+		overflow: hidden;
+	}
 	.presentation :global(.discussion-panel),
 	.presentation :global(.note-tools),
 	.presentation :global(.resize-handle),
@@ -635,6 +671,9 @@
 		pointer-events: none !important;
 	}
 	.v2-shell {
+		box-sizing: border-box;
+		padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+			env(safe-area-inset-left);
 		height: 100dvh;
 		width: 100%;
 		display: flex;
@@ -642,6 +681,43 @@
 		overflow: hidden;
 		background: var(--color-base-200);
 		color: var(--color-base-content);
+	}
+	.v2-guidancebar {
+		order: 1;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.375rem 0.75rem;
+		padding: 0.25rem 1rem;
+		background: var(--color-base-100);
+		border-bottom: 1px solid var(--color-base-300);
+		flex-shrink: 0;
+		min-width: 0;
+	}
+	.profile-trigger {
+		padding: 0.375rem 0.5rem;
+		border: 1px solid var(--color-base-300);
+		border-radius: var(--v2-radius-md);
+		background: var(--color-base-200);
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-width: 0;
+		min-height: 44px;
+		max-width: 100%;
+		font-size: var(--v2-text-sm);
+		text-align: left;
+	}
+	.profile-trigger strong {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		max-width: 14rem;
+	}
+	.profile-trigger:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
 	}
 	.offline-banner {
 		display: flex;
@@ -664,6 +740,9 @@
 		padding: 0.625rem 1rem;
 		border-bottom: 1px solid var(--color-base-300);
 		background: var(--color-base-100);
+	}
+	.v2-topbar.people-modal {
+		z-index: 80;
 	}
 	.brand {
 		display: flex;
@@ -781,6 +860,7 @@
 		opacity: 0.7;
 	}
 	.workspace-body {
+		min-width: 0;
 		order: 2;
 		position: relative;
 		display: flex;
@@ -899,6 +979,28 @@
 		min-height: 34px;
 	}
 	@media (max-width: 639px) {
+		:global(.v2-shell .toolbar-summary),
+		:global(.v2-topbar .icon-button),
+		:global(.v2-actionbar .icon-button),
+		:global(.canvas-tools .icon-button),
+		:global(.v2-actionbar .btn) {
+			min-height: 44px;
+			min-width: 44px;
+		}
+		.v2-guidancebar {
+			padding-inline: 12px;
+		}
+		.profile-trigger {
+			flex: 1;
+		}
+		.profile-trigger strong {
+			max-width: 7rem;
+		}
+		:global(.v2-shell input:not([type='range']):not([type='checkbox'])),
+		:global(.v2-shell textarea),
+		:global(.v2-shell select) {
+			font-size: max(1rem, 16px);
+		}
 		.v2-topbar {
 			flex-wrap: wrap;
 			gap: 6px 12px;
@@ -922,6 +1024,7 @@
 		}
 		.content-actions {
 			width: 100%;
+			flex-wrap: wrap;
 			justify-content: flex-end;
 		}
 		.invite-button span,

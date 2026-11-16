@@ -1,7 +1,12 @@
 import { floatingLayout, visibleViewport } from './floating-layout';
 
 /** Dismiss transient popovers and keep them inside the visible viewport. */
-export function toolbarMenu(node: HTMLDetailsElement) {
+interface ToolbarOptions {
+	sheet?: boolean;
+	close?: () => void;
+}
+
+export function toolbarMenu(node: HTMLDetailsElement, options: ToolbarOptions = {}) {
 	node.name = 'room-toolbar';
 	let frame = 0;
 	const panel = node.querySelector<HTMLElement>('.toolbar-popover');
@@ -10,15 +15,23 @@ export function toolbarMenu(node: HTMLDetailsElement) {
 		frame = 0;
 		if (!node.open || !panel || !summary) return;
 		const bounds = visibleViewport();
+		const sheet = options.sheet && window.matchMedia('(max-width: 1023px)').matches;
 		panel.style.position = 'fixed';
 		panel.style.right = 'auto';
 		panel.style.bottom = 'auto';
 		panel.style.boxSizing = 'border-box';
-		panel.style.maxWidth = `${Math.max(1, bounds.width - 16)}px`;
-		panel.style.maxHeight = `${Math.max(1, bounds.height - 16)}px`;
-		panel.style.overflowY = 'auto';
+		panel.style.maxWidth = `${Math.max(1, bounds.width - (sheet ? 0 : 16))}px`;
+		panel.style.maxHeight = `${Math.max(1, bounds.height - (sheet ? 0 : 16))}px`;
+		panel.style.width = sheet ? `${bounds.width}px` : '';
+		panel.style.height = sheet ? `${bounds.height}px` : '';
+		panel.style.overflowY = options.sheet ? 'hidden' : 'auto';
 		panel.style.overflowX = 'hidden';
 		panel.style.overflowWrap = 'anywhere';
+		if (sheet) {
+			panel.style.left = `${bounds.x}px`;
+			panel.style.top = `${bounds.y}px`;
+			return;
+		}
 		const size = panel.getBoundingClientRect();
 		const layout = floatingLayout(summary.getBoundingClientRect(), size, bounds);
 		panel.style.left = `${layout.x}px`;
@@ -42,14 +55,21 @@ export function toolbarMenu(node: HTMLDetailsElement) {
 		if (node.open && event.key === 'Escape') {
 			event.preventDefault();
 			event.stopPropagation();
-			node.open = false;
-			node.querySelector('summary')?.focus();
+			if (options.close) options.close();
+			else {
+				node.open = false;
+				node.querySelector('summary')?.focus();
+			}
 		}
 	}
 	document.addEventListener('pointerdown', outside);
 	document.addEventListener('focusin', outside);
 	node.addEventListener('keydown', keyboard);
 	return {
+		update(value: ToolbarOptions) {
+			options = value;
+			schedule();
+		},
 		destroy() {
 			cancelAnimationFrame(frame);
 			resize.disconnect();

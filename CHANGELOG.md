@@ -4,6 +4,12 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+### Fixed in v2.0.0-beta.15
+- Keep mobile Participants and Discussion panels inside the visible viewport, including keyboard and safe-area changes, with internal scrolling and accessible close controls.
+- Make pseudonym editing visible and keep its form above the participant list.
+- Replace the floating onboarding card with collapsed, reusable help in document flow; improve touch targets and restore focus after closing mobile panels.
+- Keep v2 page-scroll handling scoped so the v1 route retains its existing layout.
+
 ### Fixed in v2.0.0-beta.14
 - Keep v2 audio alive across application WebSocket reconnects and restore an active microphone after involuntary voice rejoin when publication is still authorized.
 - Update only the promoted/demoted participant's voice permissions; leave, expiration and kick no longer retire other participants' audio sessions.

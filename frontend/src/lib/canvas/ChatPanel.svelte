@@ -59,13 +59,13 @@
 	}
 </script>
 
-<section id="room-chat" aria-label={m.ux_chat_room()} class="flex h-full min-h-0 flex-col">
+<section id="room-chat" aria-label={m.ux_chat_room()} class="flex h-full min-h-0 min-w-0 flex-col">
 	<div
 		bind:this={log}
 		role="log"
 		aria-label={m.ux_chat_messages()}
 		aria-live="polite"
-		class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 text-sm"
+		class="chat-messages min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto p-4 text-sm"
 		onscroll={() => {
 			if (log) sticky = log.scrollHeight - log.scrollTop - log.clientHeight < 30;
 		}}
@@ -93,7 +93,11 @@
 	{#if !canWrite}<p class="border-t px-3 py-2 text-xs opacity-60">
 			{m.ux_chat_readonly()}
 		</p>{/if}
-	<form bind:this={form} class="flex items-end gap-2 border-t p-2" onsubmit={submit}>
+	<form
+		bind:this={form}
+		class="chat-form flex min-w-0 shrink-0 items-end gap-2 border-t p-2"
+		onsubmit={submit}
+	>
 		<textarea
 			aria-label={m.ux_chat_message_label()}
 			class="textarea min-h-12 min-w-0 flex-1 text-sm"
@@ -118,3 +122,24 @@
 	</form>
 	<p class="px-3 pb-2 text-[10px] opacity-75">{m.ux_chat_footer()}</p>
 </section>
+
+<style>
+	.chat-messages {
+		overscroll-behavior: contain;
+		overflow-wrap: anywhere;
+	}
+	.chat-form textarea {
+		width: 0;
+		resize: none;
+		max-height: 8rem;
+	}
+	@media (max-width: 1023px) {
+		.chat-form textarea {
+			font-size: max(1rem, 16px);
+		}
+		.chat-form :global(button) {
+			min-width: 44px;
+			min-height: 44px;
+		}
+	}
+</style>

@@ -3,7 +3,8 @@ import { panelModality } from './panel-modality';
 
 it('isolates a mobile panel and restores pre-existing inert state on close/destroy', () => {
 	const host = document.createElement('div');
-	host.innerHTML = '<header></header><section><main></main><aside></aside></section>';
+	host.innerHTML =
+		'<header></header><section><main></main><aside></aside></section><dialog></dialog>';
 	document.body.append(host);
 	const header = host.querySelector('header')!;
 	const canvas = host.querySelector('main')!;
@@ -13,6 +14,7 @@ it('isolates a mobile panel and restores pre-existing inert state on close/destr
 	try {
 		expect(canvas.inert).toBe(true);
 		expect(panel.inert).not.toBe(true);
+		expect(host.querySelector('dialog')!.inert).not.toBe(true);
 		action.update(false);
 		expect(canvas.inert).not.toBe(true);
 		expect(header.inert).toBe(true);

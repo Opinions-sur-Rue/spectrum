@@ -4,7 +4,7 @@ import { englishLocale } from './e2e/locale-state';
 export default defineConfig({
 	timeout: 60000,
 	testDir: 'e2e',
-	testMatch: 'v2.test.ts',
+	testMatch: ['v2.test.ts', 'mobile-panels.test.ts'],
 	projects: [
 		{ name: 'chromium', use: { browserName: 'chromium' } },
 		{ name: 'firefox', use: { browserName: 'firefox' } }

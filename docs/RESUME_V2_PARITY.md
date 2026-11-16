@@ -1,5 +1,62 @@
 # Resume: finish v1 → v2 parity
 
+## Mobile session-feedback pass — beta.15 publication in progress
+
+User supplied iOS Safari/Android Chrome screenshots after the November 15
+meeting and approved the first mobile UI batch, then explicitly approved its
+deployment. Scope is frontend-only: publish beta.15, retain the running beta.14
+backend and unchanged LiveKit/PeerJS/TURN containers so in-memory rooms survive.
+
+- Participants becomes a visible-viewport-sized modal sheet below 1024 CSS px,
+  with a fixed heading/close button, clearly labelled pseudonym form at the top,
+  and an independently scrolling member list. Desktop retains its popover.
+  A persistent "My pseudonym" entry point opens and focuses the profile form.
+  Empty per-member audio rows no longer reserve space; mobile controls receive
+  44 px minimum targets. Existing role/admin actions are not changed in this pass.
+- Discussion follows `visualViewport` size and offsets, including a simulated
+  keyboard and panning, rather than relying on `100dvh` alone. Flex min-widths,
+  textarea width, and long-message wrapping prevent horizontal expansion.
+- V2 alone owns safe-area padding and page scroll locking; it no longer adds a
+  full-height shell on top of global body safe-area padding. Mobile inputs use
+  at least 16 CSS px without disabling pinch zoom. V1 regains its original page
+  styles when navigating back.
+- The "Three things to try / Got it" floating card is replaced by reusable,
+  initially collapsed "Getting started" help in document flow. Opening help
+  reduces canvas space rather than covering controls; closing restores focus.
+- Both mobile sheets isolate background controls. Native confirmation dialogs
+  can still open above them. Participants restores focus only after releasing
+  background inertness, including Escape through the shared toolbar action.
+  Its parent/header stacking contexts are raised while modal, preventing later
+  toolbar/audio controls from painting over the sheet.
+- Validation: check/lint (including E2E eslint), build and 166 unit tests pass.
+  Initial full Chromium/Firefox/WebKit run passed 167/171 cases: three failures
+  were a pre-existing test's hardcoded backend port (3000 versus isolated 3002),
+  and one checked language state before the reload completed. The test now uses
+  the app's actual WebSocket URL and explicitly awaits the locale reload.
+  Final targeted regression run passed **39/39**, including all four failed
+  cases, keyboard/viewport/profile/help/v1-style restoration, accessibility,
+  crowded menus, and short/landscape screens on all three engines. Screenshots
+  and logs are under `/tmp/opencode/spectrum-mobile-pass/`. Linux WebKit and
+  simulated keyboard bounds are not real iPhone/Safari acceptance. No backend,
+  grace-period, production service, release tag or deployment was changed.
+
+Remaining agreed feedback, intentionally outside this first UI batch:
+
+1. Preserve identity/pseudonym and stage membership across mobile suspension or
+   reload, retaining the existing 60-second grace and respecting admin demotion;
+   display ellipsized pseudonyms above pellets.
+2. Show note authors clearly; only authors edit content, with separate admin
+   moderation/layout rights. Empty new notes use placeholders, not saved seed
+   text. Center the claim in its top bar and verify multiline editing behavior.
+3. Push-to-talk (desktop key/mobile walkie-talkie button), targeted admin mute
+   for accidental background noise (never remote unmute), and ephemeral speaking
+   time beside pseudonyms for the current Spectrum only.
+4. Personal notes in Discussion private even from admins; hide transcription tab
+   for now; admin/participant/spectator chat channels with admin moderation access.
+   Replace transfer-oriented admin UI with additive "Name admin" and voluntary
+   self-removal of admin rights, protecting the last admin. The server model
+   already supports several admins.
+
 ## Voice incident follow-up — 2026-11-16 (beta.14 deployed)
 
 The real-device meeting on November 15 (~14:45–15:25 UTC,

@@ -1,29 +1,13 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	let { role }: { role: string } = $props();
-	const KEY = 'spectrum-v2-onboarding-v1';
-	let visible = $state(false);
-	onMount(() => {
-		try {
-			visible = localStorage.getItem(KEY) !== 'done';
-		} catch {
-			/* Storage may be disabled; stay quiet rather than nag. */
-		}
-	});
-	function dismiss() {
-		visible = false;
-		try {
-			localStorage.setItem(KEY, 'done');
-		} catch {
-			/* Storage may be disabled. */
-		}
-	}
+	let help: HTMLDetailsElement;
 </script>
 
-{#if visible}
-	<aside class="room-onboarding" data-testid="room-onboarding" aria-labelledby="onboarding-title">
+<details bind:this={help} class="room-onboarding" data-testid="room-onboarding">
+	<summary><Icon name="review" />{m.ux_onboarding_open()}</summary>
+	<div class="guidance-content">
 		<h2 id="onboarding-title">{m.ux_onboarding_title()}</h2>
 		<ul>
 			{#if role !== 'spectator'}<li>
@@ -32,24 +16,48 @@
 			<li><Icon name="link" /><span>{m.ux_onboarding_links()}</span></li>
 			<li><Icon name="people" /><span>{m.ux_onboarding_audience()}</span></li>
 		</ul>
-		<button type="button" class="btn btn-xs" onclick={dismiss}>{m.ux_onboarding_dismiss()}</button>
-	</aside>
-{/if}
+		<button
+			type="button"
+			class="btn btn-sm"
+			onclick={() => {
+				help.open = false;
+				help.querySelector('summary')?.focus();
+			}}>{m.ux_onboarding_close()}</button
+		>
+	</div>
+</details>
 
 <style>
-	/* Non-blocking: the card never swallows canvas clicks, only its button does. */
 	.room-onboarding {
-		position: fixed;
-		left: 16px;
-		bottom: 104px;
-		z-index: 25;
-		width: min(300px, calc(100% - 32px));
-		padding: 0.75rem 1rem;
-		border: 1px solid var(--color-base-300);
-		border-radius: var(--v2-radius-xl);
-		background: var(--color-base-100);
-		box-shadow: 0 12px 32px #0003;
-		pointer-events: none;
+		margin-left: auto;
+		max-width: 100%;
+		min-width: 0;
+	}
+	.room-onboarding[open] {
+		flex-basis: 100%;
+		margin-left: 0;
+	}
+	summary {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 44px;
+		cursor: pointer;
+		list-style: none;
+		font-size: var(--v2-text-sm);
+	}
+	summary::-webkit-details-marker {
+		display: none;
+	}
+	summary:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
+	.guidance-content {
+		padding: 0.5rem 0;
+		max-height: min(30dvh, 12rem);
+		overflow-y: auto;
+		overscroll-behavior: contain;
 	}
 	h2 {
 		font-size: var(--v2-text-md);
@@ -68,14 +76,6 @@
 		align-items: flex-start;
 	}
 	button {
-		pointer-events: auto;
 		margin-top: 0.625rem;
-	}
-	@media (max-width: 639px) {
-		.room-onboarding {
-			bottom: 132px;
-			width: min(280px, calc(100% - 24px));
-			left: 0.75rem;
-		}
 	}
 </style>

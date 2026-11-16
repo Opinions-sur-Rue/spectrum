@@ -10,7 +10,7 @@
 	import type { RoomState } from './room-client';
 	import type { ChatState, ChatError } from './chat-state';
 	import type { TranscriptState } from './transcript-state';
-	import { panelModality } from './panel-modality';
+	import { panelModality, trapPanelFocus } from './panel-modality';
 	let {
 		room,
 		ready,
@@ -101,21 +101,7 @@
 		document.getElementById(`discussion-tab-${tab}`)?.focus();
 	}
 	function keepMobileFocus(event: KeyboardEvent) {
-		if (!compact || !open || event.key !== 'Tab' || !panel) return;
-		const controls = [
-			...panel.querySelectorAll<HTMLElement>(
-				'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex="0"]'
-			)
-		].filter((element) => element.getClientRects().length > 0 && element.tabIndex >= 0);
-		const first = controls[0];
-		const last = controls.at(-1);
-		if (event.shiftKey && document.activeElement === first) {
-			event.preventDefault();
-			last?.focus();
-		} else if (!event.shiftKey && document.activeElement === last) {
-			event.preventDefault();
-			first?.focus();
-		}
+		if (compact && open && panel) trapPanelFocus(panel, event);
 	}
 </script>
 
@@ -239,6 +225,9 @@
 
 <style>
 	.discussion-panel {
+		min-width: 0;
+		box-sizing: border-box;
+		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
@@ -252,12 +241,15 @@
 		display: none;
 	}
 	.discussion-tabs {
+		flex-shrink: 0;
 		display: flex;
 		gap: 4px;
 		padding: 0 12px 10px;
 		border-bottom: 1px solid var(--color-base-300);
 	}
 	.discussion-tabs button {
+		min-width: 0;
+		flex-wrap: wrap;
 		display: flex;
 		flex: 1;
 		align-items: center;
@@ -289,6 +281,8 @@
 		font-size: var(--v2-text-2xs);
 	}
 	.discussion-body {
+		min-width: 0;
+		overflow: hidden;
 		flex: 1;
 		min-height: 0;
 	}
@@ -296,9 +290,12 @@
 		.discussion-panel {
 			position: fixed;
 			z-index: 60;
-			inset: 0;
-			width: 100%;
-			height: 100dvh;
+			left: var(--v2-visible-x, 0px);
+			top: var(--v2-visible-y, 0px);
+			width: var(--v2-visible-width, 100%);
+			height: var(--v2-visible-height, 100dvh);
+			padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+				env(safe-area-inset-left);
 			border: 1px solid var(--color-base-300);
 			border-radius: 0;
 			box-shadow: 0 -12px 36px #0002;

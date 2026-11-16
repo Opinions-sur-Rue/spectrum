@@ -3,6 +3,7 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
 	// Live v2 integration tests require the Go backend; run test:e2e:v2.
 	testIgnore: [
+		'mobile-panels.test.ts',
 		'v2.test.ts',
 		'voice.test.ts',
 		'transcription.test.ts',
