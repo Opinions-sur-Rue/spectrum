@@ -1,11 +1,28 @@
 # Resume: finish v1 → v2 parity
 
-## Mobile session-feedback pass — beta.16 publication in progress
+## Mobile session-feedback pass — beta.16 deployed
 
 User supplied iOS Safari/Android Chrome screenshots after the November 15
 meeting and approved the first mobile UI batch, then explicitly approved its
 deployment. Scope is frontend-only: publish beta.16, retain the running beta.14
 backend and unchanged LiveKit/PeerJS/TURN containers so in-memory rooms survive.
+
+Production rollout completed November 16, 2026 at 09:36 UTC:
+
+- Release CI **43838375365** succeeded for source
+  `dfa715671a0c9da23ca20a7f8bb8bbeb59f593ac`.
+- Frontend pinned to
+  `ghcr.io/opinions-sur-rue/spectrum-frontend@sha256:0e2beaba27f32b4e504d2d2475fd19ac802614355f638e3217196018102888ac`.
+- Snapshot: `/opt/spectrum/deploy-frontend-beta16-20261116T093616Z`.
+- Existing probe room and admin identity survived rollout and reload. Backend,
+  LiveKit, PeerJS and TURN images/start times stayed unchanged from beta.14.
+- Production French mobile UI smoke passed Chromium and WebKit, including long
+  member-list scrolling, profile editing, short viewport, draft preservation,
+  inline help and restoration of v1 layout. Initial smoke helper timed out with
+  parallel joins; sequential helper joins passed without product changes.
+- Direct UDP and forced TURN/TLS voice smoke passed: playback, moderation without
+  reconnects, revoked-token rejection, microphone restoration and v1 PeerJS.
+- Real-device iPhone/Android acceptance is still outstanding.
 
 Beta.15 (`46dcfb2`, CI 43834063702) did not publish: its new 320×568 canvas-space
 assertion caught a real dense-toolbar case when voice/browser-transcription
@@ -46,10 +63,14 @@ and local fixtures now force the densest toolbar regardless of backend flags.
   crowded menus, and short/landscape screens on all three engines. Screenshots
   and logs are under `/tmp/opencode/spectrum-mobile-pass/`. Linux WebKit and
   simulated keyboard bounds are not real iPhone/Safari acceptance. Backend and
-  grace period are unchanged; production remains beta.14 until beta.16 passes
-  release CI and the frontend-only rollout completes.
+  grace period are unchanged; production frontend is beta.16, backend beta.14.
 
 Remaining agreed feedback, intentionally outside this first UI batch:
+
+Execution order confirmed by the user: finish the approved production rollout,
+then mobile reliability (item 1), then readability and notes (item 2).
+Approved decision: editing an approved note's content must return it to pending
+validation. Moderation and layout changes remain distinct from content editing.
 
 1. Preserve identity/pseudonym and stage membership across mobile suspension or
    reload, retaining the existing 60-second grace and respecting admin demotion;
