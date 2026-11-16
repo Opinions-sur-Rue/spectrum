@@ -33,24 +33,23 @@ it.each([
 	expect(drafts.get(note.id)).toBeUndefined();
 });
 
-it.each([
-	{ notes: [] },
-	{ notes: [{ ...note, authorId: 'another' }] },
-	{ notes: [{ ...note, moderation: 'approved' as const }] }
-])('prunes deleted or no-longer-editable notes from fresh snapshots (%j)', ({ notes }) => {
-	const drafts = new NoteDrafts();
-	drafts.enter(room);
-	drafts.set(note.id, draft);
-	drafts.reconcile(notes, room);
-	expect(drafts.get(note.id)).toBeUndefined();
-});
+it.each([{ notes: [] }, { notes: [{ ...note, authorId: 'another' }] }])(
+	'prunes deleted or no-longer-editable notes from fresh snapshots (%j)',
+	({ notes }) => {
+		const drafts = new NoteDrafts();
+		drafts.enter(room);
+		drafts.set(note.id, draft);
+		drafts.reconcile(notes, room);
+		expect(drafts.get(note.id)).toBeUndefined();
+	}
+);
 
-it('allows admin edits but clears saved, cancelled and closed-room drafts', () => {
+it('allows own approved-note edits but clears saved, cancelled and closed-room drafts', () => {
 	const drafts = new NoteDrafts();
 	const admin = { ...room, role: 'admin' as const };
 	drafts.enter(admin);
 	drafts.set(note.id, draft);
-	drafts.reconcile([{ ...note, moderation: 'approved', authorId: 'another' }], admin);
+	drafts.reconcile([{ ...note, moderation: 'approved' }], admin);
 	expect(drafts.get(note.id)).toEqual(draft);
 	drafts.set(note.id, { ...draft, markdown: draft.baseMarkdown });
 	expect(drafts.get(note.id)).toBeUndefined();
@@ -59,5 +58,18 @@ it('allows admin edits but clears saved, cancelled and closed-room drafts', () =
 	expect(drafts.get(note.id)).toBeUndefined();
 	drafts.set(note.id, draft);
 	drafts.clear();
+	expect(drafts.get(note.id)).toBeUndefined();
+});
+
+it('approval does not discard an author draft, but admin rights do not grant content ownership', () => {
+	const drafts = new NoteDrafts();
+	drafts.enter(room);
+	drafts.set(note.id, draft);
+	drafts.reconcile([{ ...note, moderation: 'approved' }], room);
+	expect(drafts.get(note.id)).toEqual(draft);
+	const admin = { ...room, role: 'admin' as const };
+	drafts.enter(admin);
+	drafts.set(note.id, draft);
+	drafts.reconcile([{ ...note, authorId: 'another' }], admin);
 	expect(drafts.get(note.id)).toBeUndefined();
 });

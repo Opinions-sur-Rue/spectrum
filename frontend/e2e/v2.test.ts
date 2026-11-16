@@ -1,16 +1,88 @@
-import { chromium, expect, firefox, test, type Page } from '@playwright/test';
+import { chromium, expect, firefox, type Page } from '@playwright/test';
+import { isolateExternalStyles, newRoomContext, test } from './network-assets';
 import { readFile } from 'node:fs/promises';
 import { englishLocale } from './locale-state';
 import { openActivity, openChat, openTranscript } from './discussion';
 import type { SpectrumState } from '../src/lib/canvas/room-client';
 import AxeBuilder from '@axe-core/playwright';
 
+test('readability: empty notes keep placeholders out of stored content and claim supports centered multiline editing', async ({
+	page
+}) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await page.getByTestId('edit-pseudonym').click();
+	const nickname = 'Un pseudonyme volontairement très long';
+	await page.getByLabel('Your pseudonym', { exact: true }).fill(nickname);
+	await page.getByRole('button', { name: 'Save pseudonym', exact: true }).click();
+	await page.getByLabel('People', { exact: true }).click();
+	const label = page.locator('[data-own="true"] [data-pellet-label]');
+	await expect(label).toContainText(nickname);
+	await expect
+		.poll(() =>
+			label.evaluate(
+				(node) =>
+					node.scrollWidth > node.clientWidth && getComputedStyle(node).textOverflow === 'ellipsis'
+			)
+		)
+		.toBe(true);
+	await expect(page.locator('[data-own="true"]')).toHaveAttribute('title', new RegExp(nickname));
+	await page.getByTestId('new-note').click();
+	const note = page.locator('[data-note-id]').first();
+	await expect(note.locator('[data-note-author]')).toHaveText(`By ${nickname}`);
+	await expect(note.getByRole('heading', { level: 1 })).toHaveText('');
+	await expect(note.getByRole('textbox', { name: 'Note content' })).toHaveText('');
+	await note.hover();
+	await expect(note.getByRole('button', { name: 'Save note', exact: true })).toBeDisabled();
+	await expect
+		.poll(() =>
+			note
+				.getByRole('heading', { level: 1 })
+				.evaluate((node) => getComputedStyle(node, '::before').content)
+		)
+		.toBe('"New note"');
+	await page.reload();
+	await expect(note.getByRole('textbox', { name: 'Note content' })).toHaveText('');
+	for (const viewport of [
+		{ width: 1280, height: 800 },
+		{ width: 390, height: 844 }
+	]) {
+		await page.setViewportSize(viewport);
+		await page.getByTestId('edit-claim').click();
+		const input = page.getByTestId('claim-input');
+		await input.fill('Première ligne');
+		await input.press('End');
+		await input.press('Enter');
+		await input.press('S');
+		await expect(input).toHaveValue('Première ligne\nS');
+		await expect(input).toBeFocused();
+		await input.fill('Première ligne\nSeconde ligne');
+		await input.press('Control+Enter');
+		await expect(input).toHaveCount(0);
+		const heading = page.getByTestId('room-claim').getByRole('heading', { level: 1 });
+		await expect(heading).toHaveText('Première ligne\nSeconde ligne');
+		expect(
+			await heading.evaluate((node) => [
+				getComputedStyle(node).textAlign,
+				getComputedStyle(node).whiteSpace
+			])
+		).toEqual(['center', 'pre-wrap']);
+		const box = (await heading.boundingBox())!;
+		expect(Math.abs(box.x + box.width / 2 - viewport.width / 2)).toBeLessThan(2);
+		await page.getByTestId('edit-claim').click();
+		await input.fill('Cancelled claim');
+		await input.press('Escape');
+		await expect(heading).toHaveText('Première ligne\nSeconde ligne');
+	}
+});
+
 for (const demoteWhileSuspended of [false, true]) {
 	test(`mobile resume restores identity and ${demoteWhileSuspended ? 'respects offline demotion' : 'stage membership'}`, async ({
 		page: admin,
 		browser
 	}) => {
-		const context = await browser.newContext({
+		const context = await newRoomContext(browser, {
 			storageState: englishLocale,
 			viewport: { width: 390, height: 844 }
 		});
@@ -127,7 +199,7 @@ test('lobby explains invalid invitations and accepts a pasted lowercase invitati
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
 	const invitation = page.url().toLowerCase();
-	const context = await browser.newContext({
+	const context = await newRoomContext(browser, {
 		storageState: englishLocale,
 		viewport: { width: 390, height: 844 }
 	});
@@ -272,7 +344,7 @@ test('admin timer is shared, silently finishes and restores without replay after
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const context = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const spectator = await context.newPage();
 		await spectator.emulateMedia({ reducedMotion: 'reduce' });
@@ -326,7 +398,7 @@ test('canvas navigation: note index respects spectator visibility and zoom butto
 	await note.getByRole('heading', { level: 1 }).fill('Private navigation title');
 	await note.getByRole('button', { name: 'Save note', exact: true }).click();
 	await expect(note.locator('.unsaved')).toHaveCount(0);
-	const context = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const spectator = await context.newPage();
 		await spectator.goto(page.url());
@@ -340,6 +412,8 @@ test('canvas navigation: note index respects spectator visibility and zoom butto
 		await page.getByLabel('Show revealed notes to spectators').check();
 		await page.getByLabel('Room options', { exact: true }).click();
 		await note.hover();
+		await note.getByRole('textbox', { name: 'Note content' }).focus();
+		await note.getByRole('button', { name: 'Approve', exact: true }).click();
 		await note.getByRole('button', { name: 'Reveal', exact: true }).click();
 		await expect(spectator.getByTestId('note-navigator')).toContainText('Private navigation title');
 		await note.getByRole('button', { name: 'Hide', exact: true }).click();
@@ -407,10 +481,10 @@ test('canvas navigation: find resized offscreen notes without losing drafts or c
 			})
 			.toBe(true);
 	}
-	await find('New note');
+	await find('Untitled note');
 	await card.getByRole('heading', { level: 1 }).fill('Unsaved navigation draft');
 	await page.getByRole('button', { name: 'Recenter spectrum', exact: true }).click();
-	await find('New note');
+	await find('Untitled note');
 	await expect(card.getByRole('heading', { level: 1 })).toHaveText('Unsaved navigation draft');
 	await expect(card.locator('.unsaved')).toBeVisible();
 	async function view() {
@@ -431,7 +505,7 @@ test('canvas navigation: find resized offscreen notes without losing drafts or c
 	await page.getByTestId('discussion-close').click();
 	await expect.poll(async () => Math.abs((await view()).y - before.y)).toBeLessThan(0.1);
 	await page.setViewportSize({ width: 390, height: 844 });
-	await find('New note');
+	await find('Untitled note');
 	await expect(card.getByRole('heading', { level: 1 })).toHaveText('Unsaved navigation draft');
 });
 
@@ -442,7 +516,7 @@ test('moderation: a departed target cancels its pending confirmation and restore
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const context = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const guest = await context.newPage();
 		await guest.goto(page.url());
@@ -480,7 +554,7 @@ test('moderation: lost authority cancels pending transfer and room closure confi
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const context = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const guest = await context.newPage();
 		await guest.goto(page.url());
@@ -866,7 +940,7 @@ for (const change of ['revoked', 'edited'] as const) {
 		await page.goto('/v2');
 		await page.getByTestId('create-room').click();
 		await expect(page.getByTestId('own-role')).toHaveText('admin');
-		const context = await browser.newContext({ storageState: englishLocale });
+		const context = await newRoomContext(browser, { storageState: englishLocale });
 		try {
 			const author = await context.newPage();
 			const network = await roomInterruption(author);
@@ -892,10 +966,21 @@ for (const change of ['revoked', 'edited'] as const) {
 				await page.getByRole('button', { name: /^Demote / }).click();
 				await page.getByLabel('People', { exact: true }).click();
 			} else {
-				const remote = page.locator('[data-note-id]').first();
+				// A second tab belonging to the same author can change content;
+				// admin rights no longer grant ownership of another person's text.
+				const signin = await author.evaluate(() => sessionStorage.getItem('spectrum-v2-user'));
+				const authorTab = await context.newPage();
+				await authorTab.addInitScript(
+					(id) => sessionStorage.setItem('spectrum-v2-user', id!),
+					signin
+				);
+				await authorTab.goto(page.url());
+				await expect(authorTab.getByTestId('own-role')).toHaveText('participant');
+				const remote = authorTab.locator('[data-note-id]').first();
 				await remote.getByRole('heading', { level: 1 }).fill('Changed on server');
 				await remote.getByRole('button', { name: 'Save note', exact: true }).click();
 				await expect(remote.locator('.unsaved')).toHaveCount(0);
+				await authorTab.close();
 			}
 			await network.resume();
 			if (change === 'revoked') {
@@ -905,7 +990,7 @@ for (const change of ['revoked', 'edited'] as const) {
 				await page.getByLabel('People', { exact: true }).click();
 				await page.getByRole('button', { name: /^Promote / }).click();
 				await expect(author.getByTestId('own-role')).toHaveText('participant');
-				await expect(card.getByRole('heading', { level: 1 })).toHaveText('New note');
+				await expect(card.getByRole('heading', { level: 1 })).toHaveText('');
 			} else {
 				await expect(card.getByRole('heading', { level: 1 })).toHaveText('Private author draft');
 				await card.getByRole('textbox', { name: 'Note content', exact: true }).focus();
@@ -1207,7 +1292,7 @@ test('claim editing cancels with Escape and never restores a draft after authori
 	await expect(page.getByTestId('edit-claim')).toBeFocused();
 	await expect(page.getByTestId('room-claim')).not.toContainText('Discarded by Escape');
 	await expect(page.getByTestId('room-claim')).toContainText('Original shared proposition');
-	const context = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const next = await context.newPage();
 		await next.goto(page.url());
@@ -1250,7 +1335,7 @@ test('spectrum labels stay above collision highlight and own marker keeps a read
 		)
 		.toBe(true);
 	const own = page.getByRole('button', { name: 'Your position', exact: true });
-	await expect(own.locator('.own-label')).toHaveText('You');
+	await expect(own.locator('.own-label')).toContainText('You');
 	const levels = await page.evaluate(() =>
 		['.cell-highlight', '.spectrum-labels', '.pellet.own'].map((selector) =>
 			Number(getComputedStyle(document.querySelector(selector)!).zIndex)
@@ -1430,6 +1515,8 @@ test('presentation hides private notes and pellets while preserving unsaved draf
 	await expect(page.locator('[data-pellet-id]')).toHaveCount(1);
 	await note.hover();
 	await note.getByRole('button', { name: 'Save note', exact: true }).click();
+	await expect(note.locator('.unsaved')).toHaveCount(0);
+	await note.getByRole('button', { name: 'Approve', exact: true }).click();
 	await note.getByRole('button', { name: 'Reveal', exact: true }).click();
 	await page.getByLabel('Room options', { exact: true }).click();
 	await page.getByLabel('Show revealed notes to spectators').check();
@@ -1578,8 +1665,8 @@ test('session controls transfer authority, remove stage and spectator members, a
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const context = await browser.newContext({ storageState: englishLocale });
-	const observerContext = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
+	const observerContext = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const guest = await context.newPage();
 		const observer = await observerContext.newPage();
@@ -1638,7 +1725,7 @@ test('leaving hands administration to remaining stage member and last admin clos
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const context = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const guest = await context.newPage();
 		await guest.goto(page.url());
@@ -1740,7 +1827,7 @@ test('spectator hands synchronize across reloads, admin lowers them, and reactio
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const context = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const guest = await context.newPage();
 		await guest.goto(page.url());
@@ -1853,6 +1940,7 @@ test('inline Markdown notes and actions synchronize across browser engines', asy
 	await expect(page).toHaveURL(/room=/);
 	const spectatorBrowser = await (browserName === 'firefox' ? chromium : firefox).launch();
 	const spectator = await spectatorBrowser.newPage();
+	await isolateExternalStyles(spectator.context());
 	spectator.on('pageerror', (error) => errors.push(error.message));
 	try {
 		await spectator.goto(page.url());
@@ -1864,7 +1952,7 @@ test('inline Markdown notes and actions synchronize across browser engines', asy
 		await expect(cards).toHaveCount(1);
 		await expect(spectatorCards).toHaveCount(0);
 		const first = cards.first();
-		await expect(first.getByRole('heading', { level: 1 })).toHaveText('New note');
+		await expect(first.getByRole('heading', { level: 1 })).toHaveText('');
 		await expect(page.getByLabel('Title', { exact: true })).toHaveCount(0);
 		await expect(page.getByTestId('discussion-panel')).toBeHidden();
 		await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -1885,6 +1973,7 @@ test('inline Markdown notes and actions synchronize across browser engines', asy
 		await first.getByRole('button', { name: 'Save note', exact: true }).click();
 		await expect(first).toHaveAttribute('aria-label', 'First argument');
 		await expect(first.getByText('Unsaved', { exact: true })).toHaveCount(0);
+		await first.getByRole('button', { name: 'Approve', exact: true }).click();
 		await first.getByRole('button', { name: 'Reveal', exact: true }).click();
 		await expect(spectatorCards).toHaveCount(1);
 		await expect(spectatorCards.first().getByRole('heading', { level: 1 })).toHaveText(
@@ -1900,6 +1989,10 @@ test('inline Markdown notes and actions synchronize across browser engines', asy
 		await expect(cards).toHaveCount(2);
 		const second = cards.last();
 		await second.hover();
+		await second.getByRole('heading', { level: 1 }).fill('Second argument');
+		await second.getByRole('button', { name: 'Save note', exact: true }).click();
+		await expect(second.locator('.unsaved')).toHaveCount(0);
+		await second.getByRole('button', { name: 'Approve', exact: true }).click();
 		await second.getByRole('button', { name: 'Reveal', exact: true }).click();
 		await expect(spectatorCards).toHaveCount(2);
 		await second.getByLabel('Target note').selectOption({ label: 'First argument' });
@@ -2009,8 +2102,8 @@ test('admin manages stage and moderates participant proposals without exposing s
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const authorContext = await browser.newContext({ storageState: englishLocale });
-	const observerContext = await browser.newContext({ storageState: englishLocale });
+	const authorContext = await newRoomContext(browser, { storageState: englishLocale });
+	const observerContext = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const author = await authorContext.newPage();
 		const observer = await observerContext.newPage();
@@ -2055,7 +2148,7 @@ test('admin manages stage and moderates participant proposals without exposing s
 		await expect(page.getByLabel('Pending notes (1)', { exact: true })).toHaveCount(0);
 		await expect(draft.getByRole('textbox', { name: 'Note content' })).toHaveAttribute(
 			'contenteditable',
-			'false'
+			'true'
 		);
 		await expect(observer.locator('[data-note-id]')).toHaveCount(0);
 		const approved = page.locator('[data-note-id]').first();
@@ -2067,6 +2160,24 @@ test('admin manages stage and moderates participant proposals without exposing s
 		await expect(
 			observer.locator('[data-note-id]').first().getByRole('heading', { level: 1 })
 		).toHaveText('Proposal from Alice');
+		await expect(approved.locator('[data-note-author]')).toHaveText('By Alice');
+		await expect(approved.getByRole('textbox', { name: 'Note content' })).toHaveAttribute(
+			'contenteditable',
+			'false'
+		);
+		await expect(approved.getByRole('button', { name: 'Save note', exact: true })).toHaveCount(0);
+		await draft.getByRole('heading', { level: 1 }).fill('Revised proposal from Alice');
+		await draft.getByRole('button', { name: 'Save note', exact: true }).click();
+		await expect(draft.locator('.unsaved')).toHaveCount(0);
+		await expect(observer.locator('[data-note-id]')).toHaveCount(0);
+		await expect(approved).toContainText('pending');
+		await approved.getByRole('textbox', { name: 'Note content' }).focus();
+		await approved.getByRole('button', { name: 'Approve', exact: true }).click();
+		await expect(observer.locator('[data-note-id]')).toHaveCount(0);
+		await approved.getByRole('button', { name: 'Reveal', exact: true }).click();
+		await expect(
+			observer.locator('[data-note-id]').first().getByRole('heading', { level: 1 })
+		).toHaveText('Revised proposal from Alice');
 		for (const client of [page, author, observer]) {
 			const signinID = await client.evaluate(() => sessionStorage.getItem('spectrum-v2-user'));
 			expect(signinID).toBeTruthy();
@@ -2085,8 +2196,8 @@ test('spectrum positions, topic and visibility stay authoritative across clients
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const participantContext = await browser.newContext({ storageState: englishLocale });
-	const spectatorContext = await browser.newContext({ storageState: englishLocale });
+	const participantContext = await newRoomContext(browser, { storageState: englishLocale });
+	const spectatorContext = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const participant = await participantContext.newPage();
 		const spectator = await spectatorContext.newPage();
@@ -2196,7 +2307,7 @@ test('chat stays ephemeral, read-only for spectators until allowed, and safe as 
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const guestContext = await browser.newContext({ storageState: englishLocale });
+	const guestContext = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const guest = await guestContext.newPage();
 		await guest.goto(page.url());
@@ -2393,7 +2504,7 @@ test('notes resize across clients without losing drafts, and pin locks layout', 
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const context = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const spectator = await context.newPage();
 		await spectator.goto(page.url());
@@ -2425,6 +2536,10 @@ test('notes resize across clients without losing drafts, and pin locks layout', 
 		await expect(note.getByRole('heading', { level: 1 })).toHaveText('Resized draft');
 		await expect(note.getByText('Unsaved', { exact: true })).toBeVisible();
 		await note.getByRole('button', { name: 'Save note', exact: true }).click();
+		await expect(note.locator('.unsaved')).toHaveCount(0);
+		await expect(remote).toHaveCount(0);
+		await note.getByRole('button', { name: 'Approve', exact: true }).click();
+		await note.getByRole('button', { name: 'Reveal', exact: true }).click();
 		await expect(remote.getByRole('heading', { level: 1 })).toHaveText('Resized draft');
 		const before = Number(await note.getAttribute('data-width'));
 		await handle.press('ArrowLeft');
@@ -2466,7 +2581,7 @@ test('spectrum configuration is selectable at creation and synchronized without 
 	await expect(board).toHaveAttribute('data-slice-count', '3');
 	await expect(board).toHaveAttribute('data-neutral-circle', 'false');
 	await expect(page.getByTestId('room-claim')).toContainText('Initial topic from v1 setup');
-	const context = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const spectator = await context.newPage();
 		await spectator.goto(page.url());
@@ -2579,7 +2694,7 @@ test('activity journal records claims, membership and settled opinions without r
 		'First claim <script>not HTML</script>'
 	);
 	await expect(log.locator('script')).toHaveCount(0);
-	const context = await browser.newContext({ storageState: englishLocale });
+	const context = await newRoomContext(browser, { storageState: englishLocale });
 	let leave: (() => void) | undefined;
 	try {
 		const actor = await context.newPage();
@@ -2650,8 +2765,8 @@ test('activity journal never exposes hidden or retrospective private opinions to
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const actorContext = await browser.newContext({ storageState: englishLocale }),
-		observerContext = await browser.newContext({ storageState: englishLocale });
+	const actorContext = await newRoomContext(browser, { storageState: englishLocale }),
+		observerContext = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const actor = await actorContext.newPage(),
 			observer = await observerContext.newPage();

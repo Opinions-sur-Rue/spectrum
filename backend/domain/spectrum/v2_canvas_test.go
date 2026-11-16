@@ -66,10 +66,11 @@ func TestCanEditNote(t *testing.T) {
 		note   canvasdomain.Note
 		want   bool
 	}{
-		{"admin edits anything", fixtureAdminID, RoleAdmin, approved, true},
+		{"admin cannot edit another author's content", fixtureAdminID, RoleAdmin, approved, false},
+		{"admin edits own content", fixtureAuthorID, RoleAdmin, approved, true},
 		{"author edits pending", fixtureAuthorID, RoleParticipant, pending, true},
 		{"author edits rejected", fixtureAuthorID, RoleParticipant, rejected, true},
-		{"author cannot edit approved", fixtureAuthorID, RoleParticipant, approved, false},
+		{"author edits approved subject to revalidation", fixtureAuthorID, RoleParticipant, approved, true},
 		{"other cannot edit", fixtureOtherID, RoleParticipant, pending, false},
 		{"spectator cannot edit", fixtureSpectatorID, RoleSpectator, pending, false},
 		{"demoted author cannot edit", fixtureAuthorID, RoleSpectator, pending, false},

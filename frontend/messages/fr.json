@@ -1,4 +1,7 @@
 {
+	"ux_note_author": "Par {name}",
+	"ux_note_author_only": "Seul l’auteur peut modifier le contenu",
+	"ux_note_unknown_author": "Ancien participant",
 	"ux_room_code_help": "Collez un lien d’invitation ou un code de salle — majuscules et minuscules sont acceptées.",
 	"ux_room_code_invalid": "Saisissez un code de salle valide (ex. OSR-ABCD1234) ou un lien d’invitation qui en contient un.",
 	"ux_note_search": "Rechercher des notes",

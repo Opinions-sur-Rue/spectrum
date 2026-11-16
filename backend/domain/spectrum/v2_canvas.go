@@ -143,12 +143,15 @@ func handleNoteCreate(c *Client, envelope *valueobjects.Envelope) error {
 		moderation = canvasdomain.ModerationApproved
 	}
 
+	var authorName string
+	c.hub.WithRoomRead(roomID, func(room *Room) { authorName = room.memberName(user) })
 	note, err := board.CreateNote(user.UserID, canvasdomain.NoteDraft{
-		Title:    canvasdomain.TitleFromMarkdown(payload.Markdown),
-		Markdown: payload.Markdown,
-		Color:    payload.Color,
-		X:        payload.X,
-		Y:        payload.Y,
+		AuthorName: authorName,
+		Title:      canvasdomain.TitleFromMarkdown(payload.Markdown),
+		Markdown:   payload.Markdown,
+		Color:      payload.Color,
+		X:          payload.X,
+		Y:          payload.Y,
 	}, moderation)
 	if err != nil {
 		c.v2Error(envelope, "invalid_note", err)
@@ -178,7 +181,8 @@ func handleNoteUpdate(c *Client, envelope *valueobjects.Envelope) error {
 		c.v2Error(envelope, "note_not_found", canvasdomain.ErrNoteNotFound)
 		return canvasdomain.ErrNoteNotFound
 	}
-	if !canEditNote(user.UserID, role, existing) {
+	if (payload.Markdown != nil && !canEditNote(user.UserID, role, existing)) ||
+		!canManageNote(user.UserID, role, existing) {
 		c.v2Error(envelope, "forbidden", ErrForbidden)
 		return ErrForbidden
 	}
@@ -199,6 +203,11 @@ func handleNoteUpdate(c *Client, envelope *valueobjects.Envelope) error {
 	}
 
 	c.hub.MessageRoomV2(roomID, "note.updated", c.publicNote(roomID, note), noteAudience(settings, note))
+	// Previously eligible viewers must discard content and incident edges when
+	// an approved note returns to review. Never broadcast its new text to them.
+	if existing.Moderation == canvasdomain.ModerationApproved && note.Moderation != existing.Moderation {
+		c.hub.MessageRoomV2(roomID, "canvas.invalidate", struct{}{}, nil)
+	}
 
 	return nil
 }
@@ -221,7 +230,7 @@ func handleNoteMove(c *Client, envelope *valueobjects.Envelope) error {
 		c.v2Error(envelope, "note_not_found", canvasdomain.ErrNoteNotFound)
 		return canvasdomain.ErrNoteNotFound
 	}
-	if !canEditNote(user.UserID, role, existing) {
+	if !canManageNote(user.UserID, role, existing) {
 		c.v2Error(envelope, "forbidden", ErrForbidden)
 		return ErrForbidden
 	}
@@ -253,7 +262,7 @@ func handleNoteResize(c *Client, envelope *valueobjects.Envelope) error {
 		c.v2Error(envelope, "note_not_found", canvasdomain.ErrNoteNotFound)
 		return canvasdomain.ErrNoteNotFound
 	}
-	if !canEditNote(user.UserID, role, existing) {
+	if !canManageNote(user.UserID, role, existing) {
 		c.v2Error(envelope, "forbidden", ErrForbidden)
 		return ErrForbidden
 	}
@@ -282,7 +291,7 @@ func handleNotePin(c *Client, envelope *valueobjects.Envelope) error {
 		c.v2Error(envelope, "note_not_found", canvasdomain.ErrNoteNotFound)
 		return canvasdomain.ErrNoteNotFound
 	}
-	if !canEditNote(user.UserID, role, existing) {
+	if !canManageNote(user.UserID, role, existing) {
 		c.v2Error(envelope, "forbidden", ErrForbidden)
 		return ErrForbidden
 	}
@@ -313,7 +322,7 @@ func handleNoteDelete(c *Client, envelope *valueobjects.Envelope) error {
 		c.v2Error(envelope, "note_not_found", canvasdomain.ErrNoteNotFound)
 		return canvasdomain.ErrNoteNotFound
 	}
-	if !canEditNote(user.UserID, role, existing) {
+	if !canManageNote(user.UserID, role, existing) {
 		c.v2Error(envelope, "forbidden", ErrForbidden)
 		return ErrForbidden
 	}
@@ -459,7 +468,12 @@ func handleEdgeDelete(c *Client, envelope *valueobjects.Envelope) error {
 func (c *Client) publicNote(roomID string, note canvasdomain.Note) canvasdomain.Note {
 	authorID := note.AuthorID
 	note.AuthorID = ""
-	c.hub.WithRoomRead(roomID, func(room *Room) { note.AuthorID = room.memberIDs[authorID] })
+	c.hub.WithRoomRead(roomID, func(room *Room) {
+		note.AuthorID = room.memberIDs[authorID]
+		if author := c.hub.users[authorID]; author != nil {
+			note.AuthorName = room.memberName(author)
+		}
+	})
 	return note
 }
 
@@ -528,13 +542,14 @@ func canSeeNote(userID string, role Role, settings RoomSettings, note canvasdoma
 	return note.Moderation == canvasdomain.ModerationApproved && note.Visible
 }
 
-// canEditNote reports whether a room member may edit or move a note.
-// Admins can edit anything; authors can only edit notes that are not approved.
+// Content belongs to its author, including when the author is an admin.
 func canEditNote(userID string, role Role, note canvasdomain.Note) bool {
-	if role == RoleAdmin {
-		return true
-	}
-	return role == RoleParticipant && note.AuthorID == userID && note.Moderation != canvasdomain.ModerationApproved
+	return role.CanProposeNotes() && note.AuthorID == userID
+}
+
+// Layout and removal are separate moderation capabilities.
+func canManageNote(userID string, role Role, note canvasdomain.Note) bool {
+	return role == RoleAdmin || canEditNote(userID, role, note)
 }
 
 func noteAudience(settings RoomSettings, note canvasdomain.Note) func(string, Role) bool {

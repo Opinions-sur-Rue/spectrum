@@ -19,6 +19,8 @@
 		hidden = false,
 		presentation = false,
 		editable,
+		manageable,
+		authorName,
 		admin,
 		ready,
 		audienceEnabled,
@@ -34,6 +36,8 @@
 		hidden?: boolean;
 		presentation?: boolean;
 		editable: boolean;
+		manageable: boolean;
+		authorName: string;
 		admin: boolean;
 		ready: boolean;
 		audienceEnabled: boolean;
@@ -57,6 +61,11 @@
 	let resizing = $state(false);
 	let compact = $state(false);
 	let inspecting = $state(false);
+	function content(markdown: string) {
+		return markdown.trim()
+			? markdown
+			: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 } }, { type: 'paragraph' }] };
+	}
 	$effect(() => {
 		if (presentation) inspecting = false;
 	});
@@ -118,11 +127,17 @@
 				StarterKit.configure({ link: { openOnClick: false }, heading: { levels: [1, 2, 3] } }),
 				Markdown
 			],
-			content: draft,
+			content: content(draft),
 			contentType: 'markdown',
 			editable: editable && ready,
 			editorProps: {
-				attributes: { role: 'textbox', 'aria-label': m.v2_note_content(), 'aria-multiline': 'true' }
+				attributes: {
+					tabindex: '0',
+					role: 'textbox',
+					'aria-label': m.v2_note_content(),
+					'aria-multiline': 'true',
+					'aria-placeholder': m.v2_new_note_body()
+				}
 			},
 			onUpdate: ({ editor: current }) => {
 				draft = current.getMarkdown();
@@ -150,7 +165,7 @@
 	$effect(() => {
 		editor?.setEditable(editable && ready, false);
 		if (editor && !editable && !presentation) {
-			// Approval or role revocation must not expose a retained private draft.
+			// Revoked content authority must not expose a retained private draft.
 			if (dirty) reload();
 			drafts.delete(note.id);
 		}
@@ -160,7 +175,10 @@
 		const incoming = note.markdown;
 		if (!dirty || incoming === draft) {
 			if (incoming !== confirmedMarkdown)
-				editor.commands.setContent(incoming, { contentType: 'markdown', emitUpdate: false });
+				editor.commands.setContent(content(incoming), {
+					contentType: 'markdown',
+					emitUpdate: false
+				});
 			confirmedMarkdown = incoming;
 			draft = incoming;
 			baseVersion = note.version;
@@ -180,7 +198,10 @@
 	function reload() {
 		if (!editor) return;
 		if (editable && ready) editor.view.focus();
-		editor.commands.setContent(note.markdown, { contentType: 'markdown', emitUpdate: false });
+		editor.commands.setContent(content(note.markdown), {
+			contentType: 'markdown',
+			emitUpdate: false
+		});
 		confirmedMarkdown = note.markdown;
 		draft = note.markdown;
 		baseVersion = note.version;
@@ -206,7 +227,7 @@
 		if (compact || inspecting) return;
 		if (drag) return;
 		suppressClick = false;
-		if (!editable || !ready || note.pinned || event.button !== 0 || !event.isPrimary) return;
+		if (!manageable || !ready || note.pinned || event.button !== 0 || !event.isPrimary) return;
 		// Once editing, keep native caret placement and text-selection gestures.
 		if (element.contains(document.activeElement)) return;
 		event.preventDefault();
@@ -223,7 +244,7 @@
 	}
 	function dragMove(event: PointerEvent) {
 		if (!drag || event.pointerId !== drag.pointerId) return;
-		if (!editable || !ready || note.pinned) {
+		if (!manageable || !ready || note.pinned) {
 			cancelDrag();
 			return;
 		}
@@ -238,7 +259,7 @@
 	}
 	function finishDrag(event: PointerEvent) {
 		if (!drag || event.pointerId !== drag.pointerId) return;
-		if (!editable || !ready || note.pinned) {
+		if (!manageable || !ready || note.pinned) {
 			cancelDrag();
 			if (element.hasPointerCapture(event.pointerId))
 				element.releasePointerCapture(event.pointerId);
@@ -274,7 +295,7 @@
 		event.stopPropagation();
 	}
 	function startResize(event: PointerEvent) {
-		if (!editable || !ready || note.pinned || event.button !== 0 || !event.isPrimary || sizeDrag)
+		if (!manageable || !ready || note.pinned || event.button !== 0 || !event.isPrimary || sizeDrag)
 			return;
 		event.preventDefault();
 		event.stopPropagation();
@@ -291,7 +312,7 @@
 	}
 	function moveResize(event: PointerEvent, done = false) {
 		if (!sizeDrag || sizeDrag.pointerId !== event.pointerId) return;
-		if (!editable || !ready || note.pinned) {
+		if (!manageable || !ready || note.pinned) {
 			cancelResize();
 			return;
 		}
@@ -316,7 +337,7 @@
 		resizing = false;
 	}
 	function keyResize(event: KeyboardEvent) {
-		if (!editable || !ready || note.pinned) return;
+		if (!manageable || !ready || note.pinned) return;
 		const step = event.shiftKey ? 40 : 10;
 		const changes: Record<string, [number, number]> = {
 			ArrowLeft: [-step, 0],
@@ -342,7 +363,7 @@
 	class:dragging
 	class:resizing
 	class:inspecting={compact && inspecting}
-	class:movable={editable && ready && !note.pinned}
+	class:movable={manageable && ready && !note.pinned}
 	style:left="{note.x}px"
 	style:top="{note.y}px"
 	style:width="{note.width}px"
@@ -376,14 +397,21 @@
 			title={m.v2_note_pinned()}><Icon name="pin" size={16} /></span
 		>{/if}
 	<div class="note-topbar">
+		<span class="note-author" data-note-author title={m.ux_note_author({ name: authorName })}
+			>{m.ux_note_author({ name: authorName })}</span
+		>
 		<span class="visibility" title={visibility}>{visibility}</span>
-		{#if !editable && !presentation && note.moderation === 'approved'}<span
-				>{m.ux_note_approved_readonly()}</span
-			>{/if}
+		{#if !editable && !presentation}<span>{m.ux_note_author_only()}</span>{/if}
 		{#if dirty}<span class="unsaved">{m.v2_note_unsaved()}</span>{/if}
 	</div>
-	<div bind:this={element} class="note-editor" class:readonly={!editable}></div>
-	{#if editable && !note.pinned}
+	<div
+		bind:this={element}
+		class="note-editor"
+		class:readonly={!editable}
+		style:--note-title-placeholder={JSON.stringify(m.v2_new_note_title())}
+		style:--note-body-placeholder={JSON.stringify(m.v2_new_note_body())}
+	></div>
+	{#if manageable && !note.pinned}
 		<button
 			class="resize-handle"
 			aria-label={m.v2_note_resize()}
@@ -412,7 +440,8 @@
 						onclick={save}
 					/>
 					{#if dirty}<IconButton icon="cancel" label={m.cancel()} onclick={reload} />{/if}
-					<IconButton
+				{/if}
+				{#if manageable}<IconButton
 						icon={note.pinned ? 'unpin' : 'pin'}
 						label={note.pinned ? m.v2_note_unpin() : m.v2_note_pin()}
 						aria-pressed={Boolean(note.pinned)}
@@ -436,7 +465,7 @@
 				/>
 			</div>
 		{/if}
-		{#if editable}
+		{#if manageable}
 			{#if compact && inspecting}<details class="inspector-layout">
 					<summary>{m.ux_note_layout()}</summary>
 					<div class="note-actions">
@@ -473,7 +502,8 @@
 						>
 					</div>
 				</details>{/if}
-			<div class="formatting advanced" aria-label={m.v2_note_formatting()}>
+		{/if}
+		{#if editable}<div class="formatting advanced" aria-label={m.v2_note_formatting()}>
 				<IconButton
 					icon="heading"
 					label="H1"
@@ -502,7 +532,7 @@
 		{/if}
 		{#if editable || admin}
 			<div class="note-actions advanced">
-				{#if editable}<IconButton
+				{#if manageable}<IconButton
 						icon="trash"
 						label={m.v2_delete()}
 						disabled={!ready}
@@ -589,6 +619,7 @@
 	}
 	.note-topbar {
 		display: flex;
+		flex-wrap: wrap;
 		flex-shrink: 0;
 		border-radius: var(--v2-radius-xl) var(--v2-radius-xl) 0 0;
 		align-items: center;
@@ -596,6 +627,27 @@
 		padding: 7px 12px;
 		background: transparent;
 		font-size: var(--v2-text-xs);
+	}
+	.note-author {
+		flex-basis: 100%;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-weight: 600;
+	}
+	.note-editor :global(.tiptap > h1:is(:empty, :has(> br:only-child)))::before,
+	.note-editor :global(.tiptap > h1:first-child + p:is(:empty, :has(> br:only-child)))::before {
+		float: left;
+		height: 0;
+		pointer-events: none;
+		opacity: 0.55;
+	}
+	.note-editor :global(.tiptap > h1:is(:empty, :has(> br:only-child)))::before {
+		content: var(--note-title-placeholder);
+	}
+	.note-editor :global(.tiptap > h1:first-child + p:is(:empty, :has(> br:only-child)))::before {
+		content: var(--note-body-placeholder);
 	}
 	.note-inspect {
 		position: absolute;

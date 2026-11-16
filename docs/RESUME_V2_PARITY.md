@@ -1,5 +1,41 @@
 # Resume: finish v1 → v2 parity
 
+## Readability and notes (group 2) — beta.17 publication in progress
+
+User requested group 2 before deploying it together with mobile reliability.
+Production remains beta.16 frontend / beta.14 backend until that combined rollout.
+
+- Show pseudonyms above all v2 pellets, with ellipsis and full names retained in
+  accessible labels/tooltips. Preserve the own-pellet marker and v1 behavior.
+- Attribute notes visibly to their author using room-scoped public IDs and names,
+  with a stored creation-name fallback; never expose signin identifiers.
+- Enforce author-only content editing, including for admins. Keep admin layout,
+  deletion and moderation capabilities separate. On-stage authors can revise
+  approved notes; a changed approved content revision atomically returns to
+  pending review and hidden visibility. Color/layout/no-op updates do not revoke
+  approval. Invalidate prior viewers' snapshots and filter incident edges.
+- New notes send empty Markdown. Empty title/body prompts are visual editor
+  placeholders, not persisted seed text; default title remains a navigation label.
+- Center claim display and preserve explicit newlines. Enter adds a newline;
+  Ctrl/Cmd+Enter submits, Escape cancels, and IME composition must not submit.
+- Validation: check/lint including E2E, build, **179 unit tests**, full backend
+  race-enabled tests and backend lint pass. Final complete browser suite passed
+  **180/180**: Chromium/Firefox 120/120, WebKit 60/60 (one worker, software GL).
+  Tests explicitly cover author-only edits, hidden revalidation until reapproval
+  and reveal, no unreviewed text leak, blank persisted notes, pseudonym ellipsis,
+  centered multiline claim editing and the mobile reliability regressions.
+- Initial runs exposed test assumptions about seed text/old permissions and a
+  real keyboard-focus issue on read-only admin editors, all corrected. A later
+  run suffered CDN stylesheet timeouts and local WebKit graphics instability.
+  Test fixtures now isolate only legacy Google Fonts/unpkg imports from the
+  network, including secondary contexts; production/v1 styles are unchanged.
+  Final isolated runs pass without weakening assertions.
+- User explicitly approved combined production deployment. Release CI must pass
+  first; the prepared root-only deployment script checks pinned image metadata,
+  snapshots the prior image environment, and requires 100 seconds without SFU
+  rooms/participants or established backend connections before restarting only
+  frontend/backend. LiveKit, PeerJS and TURN must remain unchanged.
+
 ## Mobile reliability follow-up — local work, not deployed
 
 Started after beta.16 rollout, in the order requested by the user.
@@ -30,9 +66,9 @@ Started after beta.16 rollout, in the order requested by the user.
   run passed all cases. Logs: `/tmp/opencode/spectrum-mobile-pass/reliability-*`.
   Real iPhone/Android suspension and keyboard/audio acceptance still
   require physical devices; emulation does not establish these guarantees.
-- This changes backend as well as frontend. No production rollout is authorized
-  by the previous frontend-only deployment approval; plan any backend restart
-  around in-memory rooms and obtain explicit deployment approval first.
+- This changes backend as well as frontend. The user subsequently requested a
+  combined rollout after group 2. Plan the backend restart around in-memory rooms;
+  do not assume the earlier frontend-only room-survival guarantee still applies.
 
 Browser-local transcription research is recorded separately in
 `docs/TRANSCRIPTION_BROWSER_RESEARCH.md`; it is not part of this implementation.

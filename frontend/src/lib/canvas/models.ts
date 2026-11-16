@@ -18,6 +18,7 @@ export interface NoteModel {
 	visible: boolean;
 	pinned?: boolean;
 	authorId: string;
+	authorName?: string;
 	version?: number;
 	createdAt?: string;
 }

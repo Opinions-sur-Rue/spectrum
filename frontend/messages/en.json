@@ -1,4 +1,7 @@
 {
+	"ux_note_author": "By {name}",
+	"ux_note_author_only": "Only the author can edit the content",
+	"ux_note_unknown_author": "Former participant",
 	"ux_room_code_help": "Paste an invitation link or a room code — uppercase or lowercase both work.",
 	"ux_room_code_invalid": "Enter a valid room code (e.g. OSR-ABCD1234) or an invitation link containing one.",
 	"ux_note_search": "Search notes",

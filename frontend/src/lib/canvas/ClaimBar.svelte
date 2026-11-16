@@ -76,7 +76,7 @@
 				aria-label={m.ux_current_claim()}
 				data-testid="claim-input"
 				placeholder={m.ux_claim_placeholder()}
-				rows={topic.length > 100 ? 2 : 1}
+				rows={Math.min(6, Math.max(2, topic.split('\n').length, Math.ceil(topic.length / 70)))}
 				maxlength="500"
 				disabled={!ready}
 				bind:value={topic}
@@ -88,7 +88,7 @@
 						event.preventDefault();
 						cancel();
 					}
-					if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+					if (event.key === 'Enter' && !event.isComposing && (event.ctrlKey || event.metaKey)) {
 						event.preventDefault();
 						form?.requestSubmit();
 					}
@@ -130,6 +130,8 @@
 		align-items: baseline;
 		gap: 12px;
 		margin-bottom: 7px;
+		justify-content: center;
+		text-align: center;
 	}
 	.claim-eyebrow {
 		font-size: var(--v2-text-2xs);
@@ -153,12 +155,15 @@
 		flex-shrink: 0;
 	}
 	.claim-display {
-		display: flex;
-		align-items: start;
-		gap: 12px;
+		position: relative;
 	}
 	.claim-display h1 {
-		flex: 1;
+		padding-inline: 5rem;
+	}
+	.claim-display button {
+		position: absolute;
+		right: 0;
+		top: 0;
 	}
 	textarea,
 	h1 {
@@ -170,6 +175,8 @@
 		line-height: 1.45;
 		background: transparent;
 		overflow-wrap: anywhere;
+		text-align: center;
+		white-space: pre-wrap;
 	}
 	textarea {
 		flex: 1;

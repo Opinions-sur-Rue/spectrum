@@ -108,6 +108,7 @@ type Note struct {
 	Markdown   string     `json:"markdown"`
 	Color      string     `json:"color"`
 	AuthorID   string     `json:"authorId"`
+	AuthorName string     `json:"authorName,omitempty"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	UpdatedAt  time.Time  `json:"updatedAt"`
 	Version    int        `json:"version"`
@@ -135,11 +136,12 @@ type Snapshot struct {
 
 // NoteDraft is the input of CreateNote.
 type NoteDraft struct {
-	Title    string
-	Markdown string
-	Color    string
-	X        float64
-	Y        float64
+	AuthorName string
+	Title      string
+	Markdown   string
+	Color      string
+	X          float64
+	Y          float64
 }
 
 // NotePatch is a partial update of an editable note.
@@ -204,6 +206,7 @@ func (c *Canvas) CreateNote(authorID string, draft NoteDraft, moderation Moderat
 		Markdown:   draft.Markdown,
 		Color:      draft.Color,
 		AuthorID:   authorID,
+		AuthorName: draft.AuthorName,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 		Version:    1,
@@ -242,6 +245,8 @@ func (c *Canvas) UpdateNote(id string, version int, patch NotePatch) (Note, erro
 			return Note{}, err
 		}
 	}
+	contentChanged := (patch.Title != nil && strings.TrimSpace(*patch.Title) != note.Title) ||
+		(patch.Markdown != nil && *patch.Markdown != note.Markdown)
 	if patch.Title != nil {
 		note.Title = strings.TrimSpace(*patch.Title)
 	}
@@ -250,6 +255,11 @@ func (c *Canvas) UpdateNote(id string, version int, patch NotePatch) (Note, erro
 	}
 	if patch.Color != nil {
 		note.Color = *patch.Color
+	}
+	// Invalidate approval atomically with content, never for layout/color changes.
+	if contentChanged && note.Moderation == ModerationApproved {
+		note.Moderation = ModerationPending
+		note.Visible = false
 	}
 
 	note.UpdatedAt = time.Now().UTC()

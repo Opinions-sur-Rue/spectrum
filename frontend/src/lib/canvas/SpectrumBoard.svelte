@@ -215,10 +215,11 @@
 			onpointercancel={cancel}
 			onlostpointercapture={cancel}
 			onkeydown={(event) => keyMove(event, pellet)}
-			>{#if own}<span class="own-label" aria-hidden="true">{m.ux_own_pellet()}</span><span
-					class="own-mark"
-					aria-hidden="true">●</span
-				>{/if}</button
+			><span class="pellet-label" class:own-label={own} data-pellet-label aria-hidden="true"
+				>{pellet.memberId === 'live_average' ? m.v2_live_average() : pellet.nickname}{own
+					? ` · ${m.ux_own_pellet()}`
+					: ''}</span
+			>{#if own}<span class="own-mark" aria-hidden="true">●</span>{/if}</button
 		>
 	{/each}
 	{#if admin && board.hidden}<span class="hidden-status">{m.v2_hidden_positions()}</span>{/if}
@@ -269,7 +270,7 @@
 			opacity: 0.65;
 		}
 	}
-	.own-label {
+	.pellet-label {
 		position: absolute;
 		left: 50%;
 		bottom: calc(100% + var(--ring-space) + 8px);
@@ -284,7 +285,14 @@
 		font-weight: 700;
 		line-height: 1.3;
 		white-space: nowrap;
+		max-width: 150px;
+		overflow: hidden;
+		text-overflow: ellipsis;
 		pointer-events: none;
+	}
+	.pellet-label:not(.own-label) {
+		font-weight: 500;
+		font-size: var(--v2-text-xs);
 	}
 	.own-mark {
 		color: white;

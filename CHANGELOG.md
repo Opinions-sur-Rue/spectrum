@@ -4,6 +4,13 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+### Fixed in v2.0.0-beta.17
+- Recover suspended mobile WebSockets without changing tab identity, the 60-second grace period, or server-authoritative stage roles; ignore late events from replaced connections.
+- Keep replacement server connections registered when old sockets close late.
+- Show truncated pseudonyms above v2 pellets and visible author attribution on notes.
+- Restrict note content editing to its on-stage author while preserving separate admin layout and moderation controls. Changed approved content returns to pending review and hidden visibility until approved and revealed again.
+- Create empty notes with visual title/body placeholders rather than saved example text; center the claim and preserve multiline editing and display.
+
 ### Fixed in v2.0.0-beta.16
 - Keep mobile Participants and Discussion panels inside the visible viewport, including keyboard and safe-area changes, with internal scrolling and accessible close controls.
 - Make pseudonym editing visible and keep its form above the participant list.

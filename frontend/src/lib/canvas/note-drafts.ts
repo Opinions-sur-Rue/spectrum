@@ -1,5 +1,6 @@
 import type { NoteModel } from './models';
 import type { RoomState } from './room-client';
+import { canEditNote } from './note-permissions';
 
 export interface NoteDraft {
 	markdown: string;
@@ -21,15 +22,7 @@ export class NoteDrafts {
 	reconcile(notes: NoteModel[], room: RoomState) {
 		this.enter(room);
 		const editable = new Set(
-			notes
-				.filter(
-					(note) =>
-						room.role === 'admin' ||
-						(room.role === 'participant' &&
-							note.authorId === room.userId &&
-							note.moderation !== 'approved')
-				)
-				.map((note) => note.id)
+			notes.filter((note) => canEditNote(note, room)).map((note) => note.id)
 		);
 		for (const id of this.drafts.keys()) if (!editable.has(id)) this.drafts.delete(id);
 	}

@@ -12,6 +12,7 @@
 		type Viewport
 	} from '$lib/canvas/camera';
 	import NoteCard from '$lib/canvas/NoteCard.svelte';
+	import { canEditNote, canManageNote } from '$lib/canvas/note-permissions';
 	import NoteNavigator from '$lib/canvas/NoteNavigator.svelte';
 	import { NoteDrafts } from '$lib/canvas/note-drafts';
 	import { roomErrorLabel } from '$lib/canvas/room-error-label';
@@ -138,12 +139,7 @@
 	);
 
 	function canEdit(note: NoteModel): boolean {
-		return (
-			room?.role === 'admin' ||
-			(room?.role === 'participant' &&
-				note.authorId === room.userId &&
-				note.moderation !== 'approved')
-		);
+		return canEditNote(note, room);
 	}
 
 	onMount(() => {
@@ -350,7 +346,7 @@
 		const { x, y } = nextNotePosition(camera, notes);
 		workspace?.setCamera(revealNote(camera, viewport, { x, y }));
 		send('note.create', {
-			markdown: `# ${m.v2_new_note_title()}\n\n${m.v2_new_note_body()}`,
+			markdown: '',
 			color: '#64748b',
 			x,
 			y
@@ -358,7 +354,7 @@
 	}
 	function moveNote(id: string, x: number, y: number, done: boolean) {
 		const note = notes.find((value) => value.id === id);
-		if (!note || note.pinned || !canEdit(note) || !ready) return;
+		if (!note || note.pinned || !canManageNote(note, room) || !ready) return;
 		x = Math.max(-WORLD_WIDTH / 2, Math.min(WORLD_WIDTH / 2 - note.width, x));
 		y = Math.max(-WORLD_HEIGHT / 2, Math.min(WORLD_HEIGHT / 2 - note.height, y));
 		notes = notes.map((value) => (value.id === id ? { ...value, x, y } : value));
@@ -367,7 +363,7 @@
 	}
 	function resizeNote(id: string, width: number, height: number, done: boolean) {
 		const note = notes.find((value) => value.id === id);
-		if (!note || note.pinned || !canEdit(note) || !ready) return;
+		if (!note || note.pinned || !canManageNote(note, room) || !ready) return;
 		const size = clampNoteSize(note, width, height);
 		notes = notes.map((value) => (value.id === id ? { ...value, ...size } : value));
 		workspace?.previewNoteResize(id, size.width, size.height);
@@ -584,6 +580,10 @@
 							hidden={presentation && !projectedNoteIds.has(note.id)}
 							{presentation}
 							editable={canEdit(note) && !presentation}
+							manageable={canManageNote(note, room) && !presentation}
+							authorName={room?.members.find((member) => member.id === note.authorId)?.nickname ??
+								note.authorName ??
+								m.ux_note_unknown_author()}
 							admin={admin && !presentation}
 							{ready}
 							audienceEnabled={room?.settings.notesVisibleToSpectators ?? false}
