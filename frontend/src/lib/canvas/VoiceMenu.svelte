@@ -368,8 +368,9 @@
 				class="toolbar-summary"
 				data-testid="audio-options"
 				aria-label={m.ux_audio_options()}
+				title={localCaptions ? m.ux_experimental_transcription_active() : m.ux_audio_options()}
 			>
-				<Icon name="more" /><span class="text-xs"
+				<Icon name="more" /><span class="hidden text-xs sm:inline"
 					>{localCaptions ? m.ux_experimental_transcription_active() : m.ux_audio_options()}</span
 				>
 			</summary>

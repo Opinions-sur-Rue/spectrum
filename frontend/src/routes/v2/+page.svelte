@@ -503,14 +503,20 @@
 					type="button"
 					class="btn btn-sm btn-outline"
 					data-testid="new-note"
+					aria-label={m.ux_new_note()}
 					disabled={!ready || room.role === 'spectator'}
 					title={room.role === 'spectator' ? m.ux_role_spectator_hint() : m.ux_new_note()}
-					onclick={addNote}><Icon name="plus" />{m.ux_new_note()}</button
+					onclick={addNote}
+					><Icon name="plus" /><span class="content-action-label">{m.ux_new_note()}</span></button
 				><button
 					type="button"
 					class="btn btn-sm"
 					class:btn-active={discussionOpen}
 					data-testid="discussion-toggle"
+					aria-label={discussionUnread
+						? `${m.ux_discussion_button()} · ${m.ux_discussion_unread({ count: String(discussionUnread) })}`
+						: m.ux_discussion_button()}
+					title={m.ux_discussion_button()}
 					aria-expanded={discussionOpen}
 					aria-controls="room-discussion"
 					onclick={() => {
@@ -518,7 +524,8 @@
 						workspace?.setCamera(camera);
 						discussionOpen = !discussionOpen;
 					}}
-					><Icon name="chat" />{m.ux_discussion_button()}{#if discussionUnread}<span
+					><Icon name="chat" /><span class="content-action-label">{m.ux_discussion_button()}</span
+					>{#if discussionUnread}<span
 							class="unread-count"
 							data-testid="discussion-unread"
 							aria-label={m.ux_discussion_unread({ count: String(discussionUnread) })}
@@ -1055,6 +1062,24 @@
 		}
 		.v2-actionbar :global(.toolbar-popover) {
 			bottom: 12px;
+		}
+	}
+	@media (max-width: 359px) {
+		/* Keep the role beside the brand; the invitation dialog still exposes
+		   the room code. Avoid a separate identity row on the smallest phones. */
+		.session-identity {
+			order: 0;
+			flex: 0 0 auto;
+		}
+		.room-code {
+			display: none;
+		}
+		.session-controls {
+			flex-basis: 100%;
+			margin-left: 0;
+		}
+		.content-action-label {
+			display: none;
 		}
 	}
 </style>

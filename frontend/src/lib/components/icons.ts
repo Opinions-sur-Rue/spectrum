@@ -33,6 +33,7 @@ import speaker from 'iconoir/icons/regular/sound-high.svg';
 import history from 'iconoir/icons/regular/clock-rotate-right.svg';
 import download from 'iconoir/icons/regular/cloud-download.svg';
 import offline from 'iconoir/icons/regular/wifi-off.svg';
+import help from 'iconoir/icons/regular/help-circle.svg';
 
 export const icons = {
 	save,
@@ -68,6 +69,7 @@ export const icons = {
 	speaker,
 	history,
 	download,
-	offline
+	offline,
+	help
 };
 export type IconName = keyof typeof icons;

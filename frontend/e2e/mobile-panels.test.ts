@@ -35,6 +35,12 @@ async function setup(page: Page) {
 				.map((line) => {
 					const event = JSON.parse(line);
 					if (event.op === 'room.state') {
+						// Exercise the densest toolbar, even with a text-only local backend.
+						event.payload.voice = {
+							available: true,
+							generation: event.payload.voice?.generation ?? 0
+						};
+						event.payload.transcription = { available: true, ready: false, mode: 'browser' };
 						for (let i = 0; i < 35; i++)
 							event.payload.members.push({
 								id: `fixture-${i}`,
@@ -194,6 +200,7 @@ test('small screens keep document width bounded and v1 regains its own page scro
 	for (const testId of ['edit-pseudonym', 'new-note', 'discussion-toggle'])
 		await inside(page, page.getByTestId(testId));
 	expect((await page.getByTestId('canvas-viewport').boundingBox())!.height).toBeGreaterThan(80);
+	await page.screenshot({ path: test.info().outputPath('small-dense-toolbar.png') });
 	await page.getByLabel('People', { exact: true }).click();
 	await inside(page, page.getByTestId('people-panel'));
 	await inside(page, page.getByRole('button', { name: 'Close participants', exact: true }));

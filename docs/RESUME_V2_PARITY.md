@@ -1,11 +1,19 @@
 # Resume: finish v1 → v2 parity
 
-## Mobile session-feedback pass — beta.15 publication in progress
+## Mobile session-feedback pass — beta.16 publication in progress
 
 User supplied iOS Safari/Android Chrome screenshots after the November 15
 meeting and approved the first mobile UI batch, then explicitly approved its
-deployment. Scope is frontend-only: publish beta.15, retain the running beta.14
+deployment. Scope is frontend-only: publish beta.16, retain the running beta.14
 backend and unchanged LiveKit/PeerJS/TURN containers so in-memory rooms survive.
+
+Beta.15 (`46dcfb2`, CI 43834063702) did not publish: its new 320×568 canvas-space
+assertion caught a real dense-toolbar case when voice/browser-transcription
+options are enabled. Beta.16 keeps closed help/audio options icon-only on narrow
+screens (named controls remain accessible), and below 360 px uses icon-labelled
+note/discussion actions plus a role badge beside the brand. The room code stays
+available in the invitation dialog. The canvas minimum-space assertion is kept,
+and local fixtures now force the densest toolbar regardless of backend flags.
 
 - Participants becomes a visible-viewport-sized modal sheet below 1024 CSS px,
   with a fixed heading/close button, clearly labelled pseudonym form at the top,
@@ -37,8 +45,9 @@ backend and unchanged LiveKit/PeerJS/TURN containers so in-memory rooms survive.
   cases, keyboard/viewport/profile/help/v1-style restoration, accessibility,
   crowded menus, and short/landscape screens on all three engines. Screenshots
   and logs are under `/tmp/opencode/spectrum-mobile-pass/`. Linux WebKit and
-  simulated keyboard bounds are not real iPhone/Safari acceptance. No backend,
-  grace-period, production service, release tag or deployment was changed.
+  simulated keyboard bounds are not real iPhone/Safari acceptance. Backend and
+  grace period are unchanged; production remains beta.14 until beta.16 passes
+  release CI and the frontend-only rollout completes.
 
 Remaining agreed feedback, intentionally outside this first UI batch:
 

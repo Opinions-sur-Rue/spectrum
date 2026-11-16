@@ -4,7 +4,7 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
-### Fixed in v2.0.0-beta.15
+### Fixed in v2.0.0-beta.16
 - Keep mobile Participants and Discussion panels inside the visible viewport, including keyboard and safe-area changes, with internal scrolling and accessible close controls.
 - Make pseudonym editing visible and keep its form above the participant list.
 - Replace the floating onboarding card with collapsed, reusable help in document flow; improve touch targets and restore focus after closing mobile panels.

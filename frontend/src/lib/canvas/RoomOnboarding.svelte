@@ -6,7 +6,9 @@
 </script>
 
 <details bind:this={help} class="room-onboarding" data-testid="room-onboarding">
-	<summary><Icon name="review" />{m.ux_onboarding_open()}</summary>
+	<summary aria-label={m.ux_onboarding_open()} title={m.ux_onboarding_open()}
+		><Icon name="help" /><span>{m.ux_onboarding_open()}</span></summary
+	>
 	<div class="guidance-content">
 		<h2 id="onboarding-title">{m.ux_onboarding_title()}</h2>
 		<ul>
@@ -77,5 +79,17 @@
 	}
 	button {
 		margin-top: 0.625rem;
+	}
+	@media (max-width: 639px) {
+		.room-onboarding:not([open]) {
+			flex: 0 0 auto;
+		}
+		summary {
+			min-width: 44px;
+			justify-content: center;
+		}
+		.room-onboarding:not([open]) summary span {
+			display: none;
+		}
 	}
 </style>
