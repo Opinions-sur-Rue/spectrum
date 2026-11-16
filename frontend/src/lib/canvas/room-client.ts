@@ -132,6 +132,14 @@ export class RoomClient {
 	private role: RoomState['role'] | null = null;
 	private admittedRoom = false;
 	private liveState: LiveState | null = null;
+	private deadline: ReturnType<typeof setTimeout> | undefined;
+	private resumeProbe = 0;
+	private probeSequence = 0;
+	private listening = false;
+	private readonly onVisibility = () => {
+		if (document.visibilityState === 'visible') this.resume();
+	};
+	private readonly onResume = () => this.resume();
 
 	constructor(
 		private readonly userId: string,
@@ -143,13 +151,25 @@ export class RoomClient {
 
 	connect(): void {
 		if (this.disposed) return;
+		if (this.socket && this.socket.readyState < 2) return;
+		if (this.socket) this.disconnected(this.socket);
+		clearTimeout(this.retry);
+		if (!this.listening && typeof window !== 'undefined') {
+			this.listening = true;
+			document.addEventListener('visibilitychange', this.onVisibility);
+			window.addEventListener('pageshow', this.onResume);
+			window.addEventListener('online', this.onResume);
+		}
 		this.callbacks.status('Connecting');
 		const socket = new WebSocket(API_URL.replace(/^http/, 'ws') + '/spectrum/ws');
 		this.socket = socket;
+		this.deadline = setTimeout(() => this.restart(socket), 10000);
 		socket.onopen = () => {
+			if (this.disposed || this.socket !== socket) return;
 			socket.send(JSON.stringify({ procedure: 'signin', arguments: [this.userId] }));
 		};
 		socket.onmessage = (event) => {
+			if (this.disposed || this.socket !== socket) return;
 			for (const line of String(event.data).split(/\r?\n/).filter(Boolean)) {
 				let message;
 				try {
@@ -159,6 +179,7 @@ export class RoomClient {
 					continue;
 				}
 				if (message.procedure === 'ack' && message.arguments?.[0] === 'signin') {
+					clearTimeout(this.deadline);
 					this.signedIn = true;
 					this.callbacks.status('Connected');
 					if (this.roomId) this.send('room.join', { roomId: this.roomId });
@@ -181,6 +202,12 @@ export class RoomClient {
 					this.callbacks.roomClosed?.();
 				} else if (message.v === 2) {
 					const { op, payload } = message;
+					if (op === 'pong' && this.resumeProbe && payload?.echo?.resume === this.resumeProbe) {
+						clearTimeout(this.deadline);
+						this.resumeProbe = 0;
+						if (this.admittedRoom && this.roomId) this.send('room.get');
+						continue;
+					}
 					if (!this.roomId && op !== 'room.state' && op !== 'error' && op !== 'pong') continue;
 					if (op === 'room.state') {
 						if (payload.roomId === this.closedRoomId) continue;
@@ -340,20 +367,50 @@ export class RoomClient {
 				}
 			}
 		};
-		socket.onclose = () => {
-			this.signedIn = false;
-			this.spectrumState = null;
-			this.spectrumRefreshPending = false;
-			this.liveRevision = -1;
-			this.liveState = null;
-			this.role = null;
-			this.chatState = null;
-			this.chatRoomId = null;
-			if (this.disposed) return;
-			this.callbacks.status('Reconnecting');
-			this.callbacks.snapshot({ revision: 0, notes: [], edges: [] });
-			this.retry = setTimeout(() => this.connect(), 2000);
-		};
+		socket.onclose = () => this.disconnected(socket);
+	}
+
+	private disconnected(socket: WebSocket): void {
+		if (this.socket !== socket) return;
+		clearTimeout(this.deadline);
+		this.resumeProbe = 0;
+		this.socket = null;
+		this.signedIn = false;
+		this.spectrumState = null;
+		this.spectrumRefreshPending = false;
+		this.liveRevision = -1;
+		this.liveState = null;
+		this.role = null;
+		this.chatState = null;
+		this.chatRoomId = null;
+		if (this.disposed) return;
+		this.callbacks.status('Reconnecting');
+		this.callbacks.snapshot({ revision: 0, notes: [], edges: [] });
+		this.retry = setTimeout(() => this.connect(), 2000);
+	}
+
+	/** Browser suspension can leave a dead transport reporting OPEN indefinitely. */
+	private resume(): void {
+		if (this.disposed || (typeof document !== 'undefined' && document.visibilityState === 'hidden'))
+			return;
+		if (!this.socket || this.socket.readyState >= 2) {
+			this.connect();
+			return;
+		}
+		if (!this.signedIn || this.resumeProbe) return;
+		const socket = this.socket;
+		this.resumeProbe = ++this.probeSequence;
+		this.deadline = setTimeout(() => this.restart(socket), 5000);
+		this.send('ping', { resume: this.resumeProbe });
+	}
+
+	private restart(socket: WebSocket): void {
+		if (this.disposed || this.socket !== socket) return;
+		// Retire callbacks immediately: close events can arrive after a new signin.
+		this.disconnected(socket);
+		socket.close();
+		clearTimeout(this.retry);
+		this.connect();
 	}
 
 	private refreshSpectrum(): void {
@@ -370,6 +427,12 @@ export class RoomClient {
 	destroy(): void {
 		this.disposed = true;
 		clearTimeout(this.retry);
+		clearTimeout(this.deadline);
+		if (this.listening) {
+			document.removeEventListener('visibilitychange', this.onVisibility);
+			window.removeEventListener('pageshow', this.onResume);
+			window.removeEventListener('online', this.onResume);
+		}
 		this.socket?.close();
 	}
 }

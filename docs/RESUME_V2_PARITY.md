@@ -1,5 +1,42 @@
 # Resume: finish v1 → v2 parity
 
+## Mobile reliability follow-up — local work, not deployed
+
+Started after beta.16 rollout, in the order requested by the user.
+
+- Server disconnect cleanup now checks ownership of the user-to-client mapping:
+  an old socket closing after a replacement signin cannot unlink the replacement
+  or start its grace period. Cleanup of browser transcription sessions remains
+  scoped to the socket that owned them. Unsigned and duplicate closes are safe.
+- V2 client bounds stalled connection/signin attempts at 10 seconds. On visible
+  page return, `pageshow` or network `online`, it probes an existing signed-in
+  socket with the existing application ping/pong protocol. After 5 seconds without
+  the matching pong, it retires the half-open transport and reconnects using the
+  same tab identity and room. Healthy probes refresh server-authoritative room
+  state without replacing the WebSocket or voice connection.
+- Late events from retired sockets are ignored; duplicate reconnect timers,
+  resume listeners and probe timers are cleaned up. Hidden pages do not trigger
+  resume probes. Explicitly left/closed rooms are not automatically rejoined.
+- Reconnection grace remains **60 seconds**; stage authority is always restored
+  from the server, never inferred from cached role. Existing sessionStorage
+  identity remains tab-scoped; reopening a completely new tab is not a promise
+  of identity recovery, nor is returning beyond grace a promise of stage recovery.
+- Validation: check/lint (including E2E), production build, **172 unit tests**,
+  full `go test -race ./...` and backend lint pass. Final browser regression run
+  passed **45/45** across Chromium/Firefox/WebKit, covering half-open resume,
+  reload identity/nickname/stage restoration, offline demotion, note drafts,
+  authority refresh, mobile panels and activity deduplication. An initial run
+  overlapped local source edits and had two failures; the unchanged-source final
+  run passed all cases. Logs: `/tmp/opencode/spectrum-mobile-pass/reliability-*`.
+  Real iPhone/Android suspension and keyboard/audio acceptance still
+  require physical devices; emulation does not establish these guarantees.
+- This changes backend as well as frontend. No production rollout is authorized
+  by the previous frontend-only deployment approval; plan any backend restart
+  around in-memory rooms and obtain explicit deployment approval first.
+
+Browser-local transcription research is recorded separately in
+`docs/TRANSCRIPTION_BROWSER_RESEARCH.md`; it is not part of this implementation.
+
 ## Mobile session-feedback pass — beta.16 deployed
 
 User supplied iOS Safari/Android Chrome screenshots after the November 15

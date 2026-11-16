@@ -236,6 +236,8 @@ describe('RoomClient', () => {
 		vi.useFakeTimers();
 		FakeSocket.instances = [];
 		vi.stubGlobal('WebSocket', FakeSocket);
+		vi.stubGlobal('window', new EventTarget());
+		vi.stubGlobal('document', Object.assign(new EventTarget(), { visibilityState: 'visible' }));
 	});
 	afterEach(() => {
 		vi.useRealTimers();
@@ -302,6 +304,110 @@ describe('RoomClient', () => {
 		const count = socket.sent.length;
 		socket.receive({ v: 2, op: 'error', payload: { code: 'not_in_room', message: 'No room' } });
 		expect(socket.sent).toHaveLength(count);
+		client.destroy();
+	});
+
+	it('bounds a stalled signin and ignores late events from the retired socket', () => {
+		const { client, socket, callbacks } = fixture();
+		vi.advanceTimersByTime(10000);
+		const next = FakeSocket.instances.at(-1)!;
+		expect(next).not.toBe(socket);
+		next.onopen?.();
+		next.receive({ procedure: 'ack', arguments: ['signin'] });
+		const count = callbacks.status.mock.calls.length;
+		socket.onclose?.();
+		socket.receive({ v: 2, op: 'room.state', payload: { roomId: 'STALE', role: 'admin' } });
+		expect(callbacks.status).toHaveBeenCalledTimes(count);
+		expect(callbacks.room).not.toHaveBeenCalled();
+		expect(client.send('room.get')).toBe(true);
+		client.destroy();
+	});
+
+	it('probes resume without replacing a healthy socket and refreshes authoritative roles', () => {
+		const { client, socket, callbacks } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		socket.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM', role: 'participant' } });
+		window.dispatchEvent(new Event('pageshow'));
+		const probe = JSON.parse(socket.sent.at(-1)!);
+		expect(probe.op).toBe('ping');
+		window.dispatchEvent(new Event('online'));
+		expect(JSON.parse(socket.sent.at(-1)!)).toEqual(probe);
+		socket.receive({ v: 2, op: 'pong', payload: { echo: probe.payload } });
+		expect(JSON.parse(socket.sent.at(-1)!).op).toBe('room.get');
+		socket.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM', role: 'spectator' } });
+		expect(callbacks.room.mock.lastCall?.[0].role).toBe('spectator');
+		vi.advanceTimersByTime(10000);
+		expect(FakeSocket.instances).toHaveLength(1);
+		client.destroy();
+	});
+
+	it('replaces a half-open socket after resume and retains signin identity and room', () => {
+		const { client, socket } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		document.dispatchEvent(new Event('visibilitychange'));
+		socket.receive({ v: 2, op: 'pong', payload: { echo: { resume: -1 } } });
+		vi.advanceTimersByTime(5000);
+		const next = FakeSocket.instances.at(-1)!;
+		expect(next).not.toBe(socket);
+		next.onopen?.();
+		expect(JSON.parse(next.sent[0])).toEqual({
+			procedure: 'signin',
+			arguments: ['anonymous-user']
+		});
+		next.receive({ procedure: 'ack', arguments: ['signin'] });
+		expect(JSON.parse(next.sent.at(-1)!)).toEqual({
+			v: 2,
+			op: 'room.join',
+			payload: { roomId: 'ROOM' }
+		});
+		client.destroy();
+		window.dispatchEvent(new Event('online'));
+		document.dispatchEvent(new Event('visibilitychange'));
+		vi.advanceTimersByTime(20000);
+		expect(FakeSocket.instances).toHaveLength(2);
+	});
+
+	it('resumes a closed connection immediately without duplicate reconnect timers', () => {
+		const { client, socket } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		socket.close();
+		window.dispatchEvent(new Event('online'));
+		const next = FakeSocket.instances.at(-1)!;
+		next.onopen?.();
+		next.receive({ procedure: 'ack', arguments: ['signin'] });
+		vi.advanceTimersByTime(2000);
+		expect(FakeSocket.instances).toHaveLength(2);
+		client.destroy();
+	});
+
+	it('does not probe hidden pages or rejoin a room explicitly left by the user', () => {
+		const { client, socket } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		socket.receive({ v: 2, op: 'room.closed', payload: { roomId: 'ROOM', reason: 'left' } });
+		const count = socket.sent.length;
+		Object.assign(document, { visibilityState: 'hidden' });
+		window.dispatchEvent(new Event('online'));
+		expect(socket.sent).toHaveLength(count);
+		Object.assign(document, { visibilityState: 'visible' });
+		document.dispatchEvent(new Event('visibilitychange'));
+		const probe = JSON.parse(socket.sent.at(-1)!);
+		socket.receive({ v: 2, op: 'pong', payload: { echo: probe.payload } });
+		expect(socket.sent).toHaveLength(count + 1);
+		expect(FakeSocket.instances).toHaveLength(1);
+		client.destroy();
+	});
+
+	it('waits for signin when resume beats the old socket close callback', () => {
+		const { client, socket } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		socket.readyState = 3;
+		window.dispatchEvent(new Event('online'));
+		const next = FakeSocket.instances.at(-1)!;
+		next.onopen?.();
+		expect(client.send('note.create')).toBe(false);
+		socket.onclose?.();
+		next.receive({ procedure: 'ack', arguments: ['signin'] });
+		expect(client.send('room.get')).toBe(true);
 		client.destroy();
 	});
 });

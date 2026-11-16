@@ -5,6 +5,120 @@ import { openActivity, openChat, openTranscript } from './discussion';
 import type { SpectrumState } from '../src/lib/canvas/room-client';
 import AxeBuilder from '@axe-core/playwright';
 
+for (const demoteWhileSuspended of [false, true]) {
+	test(`mobile resume restores identity and ${demoteWhileSuspended ? 'respects offline demotion' : 'stage membership'}`, async ({
+		page: admin,
+		browser
+	}) => {
+		const context = await browser.newContext({
+			storageState: englishLocale,
+			viewport: { width: 390, height: 844 }
+		});
+		try {
+			const guest = await context.newPage();
+			for (const page of [admin, guest]) {
+				await page.addInitScript(() => {
+					const probe = {
+						sockets: [] as { socket: WebSocket; frozen: boolean }[],
+						room: null as null | { userId: string; members: { id: string; nickname: string }[] }
+					};
+					Object.assign(window, { __mobileRecovery: probe });
+					const Native = window.WebSocket;
+					window.WebSocket = new Proxy(Native, {
+						construct(target, args) {
+							const socket = Reflect.construct(target, args) as WebSocket;
+							if (!socket.url.includes('/spectrum/ws')) return socket;
+							const entry = { socket, frozen: false };
+							probe.sockets.push(entry);
+							const send = socket.send.bind(socket);
+							socket.send = (data) => {
+								if (!entry.frozen) send(data);
+							};
+							socket.addEventListener('message', (event) => {
+								if (entry.frozen) {
+									event.stopImmediatePropagation();
+									return;
+								}
+								for (const line of String(event.data).split(/\r?\n/).filter(Boolean)) {
+									const message = JSON.parse(line);
+									if (message.op === 'room.state') probe.room = message.payload;
+								}
+							});
+							return socket;
+						}
+					});
+				});
+			}
+			await admin.goto('/v2');
+			await admin.getByTestId('create-room').click();
+			await expect(admin.getByTestId('own-role')).toHaveText('admin');
+			await guest.goto(admin.url());
+			await expect(guest.getByTestId('own-role')).toHaveText('spectator');
+			await guest.evaluate(() => {
+				const probe = (
+					window as unknown as { __mobileRecovery: { sockets: { socket: WebSocket }[] } }
+				).__mobileRecovery;
+				probe.sockets
+					.at(-1)!
+					.socket.send(
+						JSON.stringify({ v: 2, op: 'room.profile', payload: { nickname: 'Mobile identity' } })
+					);
+			});
+			await expect(guest.getByTestId('edit-pseudonym')).toContainText('Mobile identity');
+			await admin.getByLabel('People', { exact: true }).click();
+			await admin.getByRole('button', { name: 'Promote Mobile identity', exact: true }).click();
+			await expect(guest.getByTestId('own-role')).toHaveText('participant');
+			const identity = await guest.evaluate(() => sessionStorage.getItem('spectrum-v2-user'));
+			const publicID = await guest.evaluate(
+				() =>
+					(window as unknown as { __mobileRecovery: { room: { userId: string } } }).__mobileRecovery
+						.room.userId
+			);
+			const roomURL = guest.url();
+			await guest.evaluate(() => {
+				const probe = (
+					window as unknown as { __mobileRecovery: { sockets: { frozen: boolean }[] } }
+				).__mobileRecovery;
+				probe.sockets.at(-1)!.frozen = true;
+			});
+			if (demoteWhileSuspended)
+				await admin.getByRole('button', { name: 'Demote Mobile identity', exact: true }).click();
+			await guest.evaluate(() => window.dispatchEvent(new Event('pageshow')));
+			await expect
+				.poll(
+					() =>
+						guest.evaluate(
+							() =>
+								(window as unknown as { __mobileRecovery: { sockets: unknown[] } }).__mobileRecovery
+									.sockets.length
+						),
+					{ timeout: 15000 }
+				)
+				.toBe(2);
+			await expect(guest.getByTestId('own-role')).toHaveText(
+				demoteWhileSuspended ? 'spectator' : 'participant'
+			);
+			await expect(guest.getByTestId('edit-pseudonym')).toContainText('Mobile identity');
+			await guest.reload();
+			await expect(guest.getByTestId('own-role')).toHaveText(
+				demoteWhileSuspended ? 'spectator' : 'participant'
+			);
+			await expect(guest.getByTestId('edit-pseudonym')).toContainText('Mobile identity');
+			expect(await guest.evaluate(() => sessionStorage.getItem('spectrum-v2-user'))).toBe(identity);
+			expect(
+				await guest.evaluate(
+					() =>
+						(window as unknown as { __mobileRecovery: { room: { userId: string } } })
+							.__mobileRecovery.room.userId
+				)
+			).toBe(publicID);
+			expect(guest.url()).toBe(roomURL);
+		} finally {
+			await context.close();
+		}
+	});
+}
+
 test('lobby explains invalid invitations and accepts a pasted lowercase invitation', async ({
 	page,
 	browser

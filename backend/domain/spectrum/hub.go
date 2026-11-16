@@ -592,6 +592,33 @@ func (h *Hub) MessageRoomV2(roomID string, op string, payload any, allow func(us
 	}
 }
 
+// A replaced socket may close after its successor has already signed in.
+// Only the current connection may unlink the user or begin the room grace period.
+func (h *Hub) unregisterClient(client *Client) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if _, ok := h.clients[client]; !ok {
+		return
+	}
+	userID := client.UserID()
+	if user := h.users[userID]; user != nil && user.IsInRoom() {
+		if room := h.rooms[user.Room()]; room != nil {
+			id := room.memberIDs[userID]
+			if session := room.browserTranscripts[id]; session != nil && session.owner == client {
+				delete(room.browserTranscripts, id)
+			}
+		}
+		if h.mappingUserIDToClient[userID] == client {
+			user.beginningGracePeriod = time.Now().Unix()
+		}
+	}
+	delete(h.clients, client)
+	if h.mappingUserIDToClient[userID] == client {
+		delete(h.mappingUserIDToClient, userID)
+	}
+	client.SetUserID("")
+}
+
 func (h *Hub) Run(ctx context.Context) {
 	h.context = ctx
 	go h.prepareVoice(ctx)
@@ -610,26 +637,7 @@ func (h *Hub) Run(ctx context.Context) {
 				"connectionsOpened": len(h.clients),
 			}).Debug("New client connected")
 		case client := <-h.unregister:
-			h.mu.Lock()
-			if _, ok := h.clients[client]; ok {
-				log.WithFields(log.Fields{
-					"player": (*client).UserID(),
-				}).Debug("Unregistering client")
-
-				if client.UserID() != "" && h.users[client.UserID()].IsInRoom() {
-					if room := h.rooms[h.users[client.UserID()].Room()]; room != nil {
-						id := room.memberIDs[client.UserID()]
-						if session := room.browserTranscripts[id]; session != nil && session.owner == client {
-							delete(room.browserTranscripts, id)
-						}
-					}
-					h.users[client.UserID()].beginningGracePeriod = time.Now().Unix()
-				}
-				delete(h.clients, client)
-				delete(h.mappingUserIDToClient, client.UserID())
-				client.SetUserID("")
-			}
-			h.mu.Unlock()
+			h.unregisterClient(client)
 		case message := <-h.messages:
 			if message.IsBroadcastMessage() {
 				h.mu.RLock()
