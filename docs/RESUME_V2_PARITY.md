@@ -1,6 +1,6 @@
 # Resume: finish v1 → v2 parity
 
-## Voice incident follow-up — 2026-11-16 (local changes, not deployed)
+## Voice incident follow-up — 2026-11-16 (beta.14 deployed)
 
 The real-device meeting on November 15 (~14:45–15:25 UTC,
 `OSR-JGPZJ4DBZ9B1`) experienced repeated voice interruptions. LiveKit logs
@@ -14,7 +14,7 @@ overflow was observed during the incident.
 Approved implementation scope: frontend, backend, and LiveKit configuration;
 restore a previously active microphone after involuntary rejoin if fresh
 credentials still allow publication. User explicitly approved deployment after
-the complete local validation; beta.14 publication/deployment is in progress.
+the complete local validation. Beta.14 is deployed; release details follow below.
 Beta.13 (`0f73e09`, CI 43805245204) passed the full frontend/voice jobs but did
 not publish: CI's newer golangci-lint 2.15.0 required string constants and an
 explicit test request context. These mechanical fixes pass that exact linter
@@ -59,7 +59,7 @@ locally and the full Go race suite; tags are not rewritten.
 - LiveKit: `departure_timeout` changes from 10 to 25 seconds in the development
   config, France example, and backend `CreateRoom` request. Important correction:
   this is the room's post-departure empty lifetime, **not** an individual
-  participant's reconnection timeout. Runtime config on France is untouched.
+  participant's reconnection timeout. France now uses the same 25-second value.
 - Validation: `go test -race ./...`, frontend check/lint/build, 165 frontend
   unit/component tests, and 24 Python transcription tests pass. All ten gated
   Chromium/Firefox voice E2E cases pass against local LiveKit 1.13.11: app
@@ -80,8 +80,52 @@ locally and the full Go race suite; tags are not rewritten.
   backend-triggered room retirement. Real Safari/iOS/Android and cross-network
   acceptance remains necessary; synthetic browser microphones cannot prove it.
   **The new backend must ship with the Nginx gateway routing change**; private
-  native signalling must not be exposed as an alternate route. Runtime France
-  config, services, images, and rooms have not been changed.
+  native signalling must not be exposed as an alternate route.
+
+### Approved deployment — beta.14
+
+- Source `1c14b08c75ecd5638e1090495edd3968723d8e14`, tag
+  `v2.0.0-beta.14`; full release CI **43807137652** succeeded, including backend
+  lint/race tests, v1 regression, v2 Chromium/Firefox/WebKit, voice tests, image
+  publication/smokes, and aggregate digest manifest. No `main` push.
+- Frontend:
+  `ghcr.io/opinions-sur-rue/spectrum-frontend@sha256:0f7070e3afa6b9ce107f1fd2c0df443da13341251069b24b4e69374cb3f22d74`.
+- Backend:
+  `ghcr.io/opinions-sur-rue/spectrum-backend@sha256:c31ea1c7ef119dd9d4db32a4ac8f67392688e871f84e6fa9951a63c56a4d1b2c`.
+- Manual deployment started at **2026-11-16 05:16 UTC** after checking zero SFU
+  rooms/participants and zero established backend connections, then rechecking
+  after image pulls. Both image source labels matched the exact release commit.
+  Snapshot: `/opt/spectrum/deploy-voice-beta14-20261116T051602Z` (root-only),
+  including previous image references, `beta.env`, LiveKit config, Compose, and
+  the original Spectrum Nginx site. No runtime secrets or migration files were
+  added to Git.
+- Changed Spectrum's public signalling route to the backend gateway first
+  (fail-closed while the old backend lacked that route), disabled signal access
+  logs on both public hosts, validated/reloaded Nginx, applied the 25-second
+  departure window, and recreated only LiveKit/backend/frontend. LiveKit retained
+  pinned image `sha256:25cd902de7cacbd5f1f779f6a6ac1eae20ba8f56b0935934ce6b0ab80d1e3d20`.
+  Backend/frontend started at 05:16:32/05:16:33 UTC. PeerJS and v1 TURN image
+  references and `StartedAt` were unchanged; no other application was recreated.
+- Public Chromium production checks passed in direct UDP mode and forced
+  TURN/TLS mode (`iceTransportPolicy=relay`, selected `relayProtocol=tls`):
+  v1 `/` and PeerJS OPEN, v2 room create/join, real remote audio playback from
+  synthetic microphones, two promotion/demotion cycles without reconnecting
+  target or other listeners, unchanged admin capture, kick affecting only target,
+  stale/current kicked-token rejection, application-WS reconnect preserving mic,
+  and automatic mic restoration after an intentional test-room SFU retirement.
+  Initial five-second remote guest-join assertion timed out; independent baseline
+  smoke and rerun with a 20-second network allowance passed. No product change
+  was made for that assertion timeout.
+- Security HTTP checks: `/` and `/v2` returned 200; unauthenticated signalling on
+  both public hosts returned 403; Twirp/admin paths returned 404. Nginx config
+  passed validation. Runtime secret/env files remain root-owned mode 0600,
+  transcription remains disabled, and test rooms were explicitly stopped.
+  Final activity check returned zero rooms, participants, and backend connections;
+  all Spectrum containers had zero restart counts.
+- Rollback requires the saved image pair **and** original Nginx/LiveKit config,
+  not merely one image: old backend does not implement the admission gateway.
+  Backend restart cannot recover ephemeral room state. Real Safari/iOS/Android
+  microphones and multiple physical networks remain acceptance work.
 
 ## Active UI/UX follow-up — second pass
 
