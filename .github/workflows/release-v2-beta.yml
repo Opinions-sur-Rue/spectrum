@@ -114,6 +114,11 @@ jobs:
       - run: npx playwright install --with-deps chromium firefox webkit
       - name: v1 route regression
         run: npm run test:e2e
+      - name: Model loading harness regressions (no weight downloads)
+        env:
+          WEBKIT_DISABLE_COMPOSITING_MODE: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: npm run test:e2e:parakeet -- --grep 'cache refusal|removed Whisper tiers'
       - name: Start isolated backend and voice fixtures
         working-directory: .
         run: |

@@ -1,5 +1,20 @@
 # Resume: finish v1 → v2 parity
 
+## beta.21 CI routing failure; correction for beta.22
+
+- Beta.21 tag `220d1716fb896a303cebafb49d5a54f023888d6b`, CI **44106180694**:
+  backend passed, frontend failed in the v1 production-preview suite. No images
+  were published and production stayed beta.20.
+- The new cache-refusal and retired-model tests require Vite source modules.
+  Default Playwright discovery incorrectly included them on preview port 4173,
+  where `/src/lib/canvas/browser-stt-load.ts` and source worker URLs do not exist.
+- Route `parakeet.test.ts` away from the v1 preview, like the existing browser
+  transcription suite. Add a mandatory dedicated model-loading harness step
+  covering all three browsers, cache refusal and retired-model rejection without
+  downloading weights. Keep every assertion and all existing v1/v2/voice gates.
+- Exact corrected v1 and model-harness commands passed locally before publishing
+  the next immutable tag. Full beta.22 release validation still required.
+
 ## beta.20 rollout — 2026-11-17
 
 - Release `v2.0.0-beta.20`, source `fd28304e86484480c19c6866182c321aa74bcdb6`.

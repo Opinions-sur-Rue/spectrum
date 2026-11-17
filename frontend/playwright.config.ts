@@ -7,7 +7,8 @@ export default defineConfig({
 		'v2.test.ts',
 		'voice.test.ts',
 		'transcription.test.ts',
-		'browser-transcription.test.ts'
+		'browser-transcription.test.ts',
+		'parakeet.test.ts'
 	],
 	use: { baseURL: 'http://localhost:4173' },
 	webServer: {
