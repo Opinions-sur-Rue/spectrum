@@ -1,5 +1,13 @@
 # Browser-local transcription research
 
+> **Status update 2026-11-17:** the open questions in this file (model size
+> against the download budget, and whether a self-compiled runtime is required)
+> are answered with measurements for `parakeet-tdt-0.6b-v3-redux` w2a8 in
+> [`BROWSER_ASR_PARAKEET.md`](BROWSER_ASR_PARAKEET.md): ≈ 208 MB raw /
+> ≈ 148 MB transferred, and Spectrum's stock `onnxruntime-web` WASM build already
+> executes the MatMulNBits encoder. This file stays as the research record; no
+> production integration is approved yet.
+
 ## User intent and scope
 
 - Run transcription on each participant's own PC or mobile browser, without an

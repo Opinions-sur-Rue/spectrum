@@ -4,6 +4,10 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+## [v2.0.0-beta.19] - 2026-11-17
+
+Deployed to the france host as a digest-pinned frontend/backend pair; LiveKit, v1 PeerJS and v1 TURN were left untouched.
+
 ### Added
 - Add targeted admin microphone muting without demotion or disruption to other voice participants. Only the muted member can explicitly restore publishing; cached publishing tokens stay revoked. Muting is limited to participants, never co-admins.
 - Add shared per-member speaking time for a Spectrum, accumulated by the server from self-reported turn boundaries and shown in the Participants panel. Turns stop on mute, stage change, or disconnect.
@@ -13,10 +17,10 @@ All notable changes to **Spectrum** are documented in this file.
 - Cancel pending microphone permission/publication and delayed device restarts when a hold is released. Keep the default continuous microphone mode unchanged.
 
 ### Changed
-- Administration is now additive: "Transfer administration" becomes "Make {name} admin", which adds a co-admin without taking anything from the caller, plus a voluntary "Give up my admin rights" action that is refused for the last admin.
+- Administration is now additive: "Transfer administration" becomes "Make {name} admin", which adds a co-admin without taking anything from the caller, plus a voluntary "Give up my admin rights" action that is refused for the last admin. `room.transfer` is gone, so frontend and backend ship together.
 - Transcription is now opt-in per room: `transcriptionEnabled` defaults to false, so the Discussion Transcript tab stays hidden until an admin turns it on. `SPECTRUM_TRANSCRIPTION_ENABLED` still overrides the deployment default.
 
-### Fixed in v2.0.0-beta.18 (pre-release validation)
+### Fixed
 - Keep the board visible on very small screens: below 359 px the header's session menus no longer wrap into three rows but form one scrollable row, restoring ~50 px of canvas height (121 → 171 px measured at 320×568) and satisfying the > 80 px tiny-screen invariant that CI re-broke under different font metrics.
 - Name repeated chat/voice JSON payload keys in the backend test suite so it passes the CI-pinned golangci-lint v2.15.0 (`goconst`) without relaxing the linter.
 

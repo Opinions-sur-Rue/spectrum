@@ -1,6 +1,6 @@
 # Resume: finish v1 → v2 parity
 
-## Tiny-screen chrome regression found by CI — fixed locally, not deployed
+## Tiny-screen chrome regression found by CI — fixed and deployed in beta.19
 
 - beta.18 CI (run 44043444880) failed twice, and neither failure was a
   configuration quirk to wave away:
@@ -69,7 +69,7 @@
   until 2026-12-14). Removing the vhosts plus `certbot delete` would be the
   follow-up, not done here without separate approval.
 
-## Chat channels (Room / Stage / Admin) and masked moderation — validated locally, not deployed
+## Chat channels (Room / Stage / Admin) and masked moderation — deployed in beta.19
 
 - Three room-scoped channels with separate histories and one shared send
   cooldown per member, so switching channels cannot bypass the rate limit and a
@@ -102,9 +102,9 @@
   scenarios, **18/18** real-SFU voice scenarios. New coverage proves channel
   audiences across three clients, masked removal visible to author and admin,
   role-change refetch, per-channel drafts, and the demotion fallback.
-- Not deployed. Production remains beta.17.
 
-## Additive co-admins and voluntary step-down — validated locally, not deployed
+
+## Additive co-admins and voluntary step-down — deployed in beta.19
 
 - Replace the v2 `room.transfer` op (which handed authority over and silently
   stripped the caller) with two ops:
@@ -130,9 +130,9 @@
   sessions scenarios cover additive appointment, the refused last-admin
   step-down, a co-admin keeping real authority, and the claim draft surviving
   appointment but not an actual authority change.
-- Not deployed. Production remains beta.17.
 
-## Private notes and opt-in transcription tab — validated locally, not deployed
+
+## Private notes and opt-in transcription tab — deployed in beta.19
 
 - Discussion gains a **Notes** tab holding the member's own scratchpad. It is
   written only to `localStorage` under `spectrum-personal-notes:<roomId>` and is
@@ -162,7 +162,7 @@
 - Not deployed. Production remains beta.17, so transcription is still on by
   default there until this ships.
 
-## Shared speaking time — validated locally, not deployed
+## Shared speaking time — deployed in beta.19
 
 - Track per-member speaking totals in the Room, keyed by the room-scoped public
   member ID. Only the caller's own membership is addressable; the request carries
@@ -184,7 +184,7 @@
   two post-expiry status checks now allow 30 s instead of 5 s. The invariants the
   scenario guards are unchanged: no new capture, same live tracks, role preserved.
 
-## Targeted admin microphone mute — validated locally, not deployed
+## Targeted admin microphone mute — deployed in beta.19
 
 - Add `voice.mute` for admins using only room-scoped public member IDs. Revoke
   publishing for the targeted on-stage participant through the existing SFU
@@ -211,9 +211,9 @@
   only while concurrent check/build/edit commands reloaded the shared Vite dev
   server; the tree-untouched runs were green. No product reconnect limit was
   relaxed by that diagnosis.
-- Not deployed. Production remains beta.17.
 
-## Voice ergonomics follow-up — push-to-talk local, not deployed
+
+## Voice ergonomics follow-up — push-to-talk, deployed in beta.19
 
 User requested continuing the remaining improvements after beta.17. First sublot
 is opt-in push-to-talk; targeted admin noise mute and per-Spectrum speaking times
