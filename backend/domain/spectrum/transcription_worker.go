@@ -9,6 +9,11 @@ const transcriptionModeBrowser = "browser"
 const transcriptionModeServer = "server"
 
 func transcriptionFlagEnabled() bool {
+	// Availability is independent from a room's initial opt-in. Preserve the
+	// historical flag as fallback for deployments that have not migrated yet.
+	if available, ok := envBool("SPECTRUM_TRANSCRIPTION_AVAILABLE"); ok {
+		return available
+	}
 	enabled, _ := envBool("SPECTRUM_TRANSCRIPTION_ENABLED")
 	return enabled
 }

@@ -13,6 +13,11 @@ ASR or hidden server fallback. Unsupported devices can still use voice.
 ### Parakeet Redux w2a8: read-only host assets (option A)
 
 Parakeet is an additional explicit CPU option, not a change to room defaults.
+The production overlay sets `SPECTRUM_TRANSCRIPTION_AVAILABLE=true` and
+`SPECTRUM_TRANSCRIPTION_MODE=browser`, while keeping
+`SPECTRUM_TRANSCRIPTION_ENABLED=false` for new rooms. The availability flag is
+a separate deployment kill switch; when absent, legacy deployments retain the
+old availability behavior based on `SPECTRUM_TRANSCRIPTION_ENABLED`.
 Transcription remains admin-enabled and individually consented. Set the room
 language to French or English; Redux has no automatic language detector. Tiny
 remains the default model while phone performance is unverified. WebGPU remains
@@ -50,7 +55,8 @@ secrets or microphone data.
 
 Set `SPECTRUM_STT_ASSET_DIR` to that verified absolute release path in the
 root-only deployment environment. Apply `docker-compose.stt-assets.yaml` after
-the production compose file; it adds a read-only frontend bind mount at
+the production compose file; it enables the browser engine without opting rooms
+in and adds a read-only frontend bind mount at
 `/usr/share/nginx/html/stt` and refuses an absent host directory. The overlay
 must be included in **every subsequent deploy and rollback** command. Update
 the reviewed deployment runner accordingly; an ad-hoc `docker compose up` with

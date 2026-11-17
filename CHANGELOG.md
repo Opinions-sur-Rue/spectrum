@@ -9,6 +9,7 @@ All notable changes to **Spectrum** are documented in this file.
 - Add a read-only host-assets Compose overlay and offline verification command for separately provisioned transcription weights, VAD and pinned ORT runtimes. Production activation remains gated on release and room/voice acceptance.
 
 ### Fixed
+- Separate transcription engine availability from the new-room default. Browser transcription can be available for admin opt-in while rooms still start with transcription off; legacy deployment flag behavior remains the fallback.
 - Serve browser transcription assets without lying: `/stt/...` now returns 404 for a missing weight instead of falling through to the SPA `index.html`. Previously every `/stt/` request — including a nonexistent model — answered with the app shell (`Content-Type: text/html`), so a browser model download would fail with an opaque inference error rather than a clear missing-file one.
 
 ## [v2.0.0-beta.19] - 2026-11-17
