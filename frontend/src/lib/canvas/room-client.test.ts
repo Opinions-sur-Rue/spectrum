@@ -35,6 +35,8 @@ function fixture(roomId = 'ROOM') {
 		roomClosed: vi.fn(),
 		reaction: vi.fn(),
 		live: vi.fn(),
+		voiceError: vi.fn(),
+		speakingTime: vi.fn(),
 		error: vi.fn()
 	};
 	const client = new RoomClient('anonymous-user', roomId, callbacks);
@@ -408,6 +410,54 @@ describe('RoomClient', () => {
 		socket.onclose?.();
 		next.receive({ procedure: 'ack', arguments: ['signin'] });
 		expect(client.send('room.get')).toBe(true);
+		client.destroy();
+	});
+
+	it('routes admin mute failures to the room alert rather than an unrelated mic request', () => {
+		const { client, socket, callbacks } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		socket.receive({
+			v: 2,
+			op: 'error',
+			payload: { code: 'microphone_mute_failed', message: 'voice service unavailable' }
+		});
+		expect(callbacks.error).toHaveBeenCalledWith('voice service unavailable');
+		expect(callbacks.voiceError).not.toHaveBeenCalled();
+		socket.receive({
+			v: 2,
+			op: 'error',
+			payload: {
+				code: 'voice_resume_failed',
+				message: 'voice service unavailable',
+				requestId: 'self-resume'
+			}
+		});
+		expect(callbacks.voiceError).toHaveBeenCalledWith({
+			message: 'voice service unavailable',
+			requestId: 'self-resume'
+		});
+		client.destroy();
+	});
+
+	it('accepts speaking totals only for the room this client is in', () => {
+		const { client, socket, callbacks } = fixture();
+		socket.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM', role: 'participant' } });
+		socket.receive({
+			v: 2,
+			op: 'voice.speaking',
+			payload: { roomId: 'OTHER', memberId: 'm_a', speakingSeconds: 9 }
+		});
+		expect(callbacks.speakingTime).not.toHaveBeenCalled();
+		socket.receive({
+			v: 2,
+			op: 'voice.speaking',
+			payload: { roomId: 'ROOM', memberId: 'm_a', speakingSeconds: 12 }
+		});
+		expect(callbacks.speakingTime).toHaveBeenCalledWith({
+			roomId: 'ROOM',
+			memberId: 'm_a',
+			speakingSeconds: 12
+		});
 		client.destroy();
 	});
 });

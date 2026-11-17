@@ -32,6 +32,9 @@ type Room struct {
 	spectators            map[string]*User
 	memberIDs             map[string]string
 	voiceAdmissions       map[string]string
+	voiceMuted            map[string]bool
+	speakingStartedAt     map[string]int64
+	speakingSeconds       map[string]int64
 	transcriptionRevision uint64
 	spectrumRevision      uint64
 	timer                 roomTimerState

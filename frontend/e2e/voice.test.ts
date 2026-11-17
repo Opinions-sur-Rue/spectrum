@@ -1,4 +1,4 @@
-import { expect, type BrowserContext } from '@playwright/test';
+import { expect, type BrowserContext, type Page } from '@playwright/test';
 import { newRoomContext, test } from './network-assets';
 import { englishLocale } from './locale-state';
 
@@ -374,6 +374,226 @@ test('promotion, demotion and kick never reconnect other voice participants', as
 	}
 });
 
+test('admin mute targets one microphone; only its owner resumes, and hold mode requires a fresh press', async ({
+	page: admin,
+	browser
+}) => {
+	await syntheticMicrophone(admin.context());
+	await admin.goto('/v2');
+	await admin.getByTestId('create-room').click();
+	await expect(admin.getByTestId('own-role')).toHaveText('admin');
+	const actorContext = await newRoomContext(browser, { storageState: englishLocale });
+	const listenerContext = await newRoomContext(browser, { storageState: englishLocale });
+	await syntheticMicrophone(actorContext);
+	await syntheticMicrophone(listenerContext);
+	async function send(client: Page, op: string, payload: unknown = {}) {
+		await client.evaluate(
+			({ op, payload }) =>
+				window.__voiceFixture.appSockets.at(-1)!.send(JSON.stringify({ v: 2, op, payload })),
+			{ op, payload }
+		);
+	}
+	async function baseline(client: Page) {
+		return client.evaluate(() => ({
+			captures: window.__voiceFixture.calls,
+			connections: window.__voiceFixture.voiceSockets.length
+		}));
+	}
+	try {
+		const actor = await actorContext.newPage();
+		const listener = await listenerContext.newPage();
+		const grants: { token: string; url: string; requestId: string; canPublish: boolean }[] = [];
+		actor.on('websocket', (socket) => {
+			if (socket.url().includes('/spectrum/ws'))
+				socket.on('framereceived', ({ payload }) => {
+					for (const line of String(payload).split(/\r?\n/).filter(Boolean)) {
+						const event = JSON.parse(line);
+						if (event.op === 'voice.credentials') grants.push(event.payload);
+					}
+				});
+		});
+		for (const client of [actor, listener]) {
+			await client.goto(admin.url());
+			await expect(client.getByTestId('own-role')).toHaveText('spectator');
+		}
+		await send(actor, 'room.profile', { nickname: 'Noisy' });
+		await expect(actor.getByTestId('edit-pseudonym')).toContainText('Noisy');
+		await admin.getByLabel('People', { exact: true }).click();
+		await admin.getByRole('button', { name: 'Promote Noisy', exact: true }).click();
+		await admin.getByLabel('People', { exact: true }).click();
+		for (const client of [admin, actor, listener]) {
+			await client.getByTestId('audio-toggle').click();
+			await expect(client.getByTestId('voice-controls')).toHaveAttribute(
+				'data-status',
+				'connected',
+				{ timeout: 30000 }
+			);
+		}
+		for (const client of [admin, actor]) {
+			await client.getByRole('button', { name: 'Enable microphone', exact: true }).click();
+			await expect(client.getByTestId('voice-controls')).toHaveAttribute('data-microphone', 'true');
+		}
+		const actorControls = actor.getByTestId('voice-controls');
+		const listenerControls = listener.getByTestId('voice-controls');
+		await expect(listenerControls).toHaveAttribute('data-remote-tracks', '2', { timeout: 30000 });
+		const adminBaseline = await baseline(admin),
+			listenerBaseline = await baseline(listener),
+			actorBaseline = await baseline(actor);
+		const old = grants.find((grant) => grant.canPublish)!;
+		expect(old).toBeTruthy();
+		const validationURL = old.url.replace(/^ws/, 'http') + '/rtc/validate?protocol=16';
+		await admin.getByLabel('People', { exact: true }).click();
+		const mute = admin.getByRole('button', { name: "Mute Noisy's microphone", exact: true });
+		await mute.click();
+		await expect(mute).toBeDisabled();
+		await expect(actorControls).toHaveAttribute('data-microphone', 'false');
+		await expect(actorControls).toHaveAttribute('data-status', 'connected');
+		await expect(actor.getByTestId('own-role')).toHaveText('participant');
+		await expect(listenerControls).toHaveAttribute('data-remote-tracks', '1');
+		await expect(admin.getByRole('slider', { name: 'Volume for Noisy', exact: true })).toHaveValue(
+			'1'
+		);
+		expect(await baseline(actor)).toEqual(actorBaseline);
+		expect(
+			(
+				await actor.request.get(validationURL, {
+					headers: { Authorization: 'Bearer ' + old.token }
+				})
+			).status()
+		).toBe(403);
+		await send(actor, 'voice.join', { requestId: 'probe-muted-grant', transcriptionConsent: true });
+		await expect
+			.poll(() => grants.find((grant) => grant.requestId === 'probe-muted-grant')?.canPublish)
+			.toBe(false);
+		await actor.evaluate(() => window.__voiceFixture.appSockets.at(-1)!.close());
+		await expect(actor.getByTestId('connection-state')).toHaveAttribute(
+			'data-status',
+			'Reconnecting'
+		);
+		await expect(actor.getByTestId('connection-state')).toHaveAttribute(
+			'data-status',
+			'Connected',
+			{ timeout: 15000 }
+		);
+		await expect(actorControls).toHaveAttribute('data-microphone', 'false');
+		await actor.getByRole('button', { name: 'Re-enable my microphone', exact: true }).click();
+		await expect(actorControls).toHaveAttribute('data-microphone', 'true', { timeout: 15000 });
+		await expect(listenerControls).toHaveAttribute('data-remote-tracks', '2', { timeout: 15000 });
+		await expect(mute).toBeEnabled();
+		expect(
+			(
+				await actor.request.get(validationURL, {
+					headers: { Authorization: 'Bearer ' + old.token }
+				})
+			).status()
+		).toBe(403);
+		await actor.getByTestId('mic-options').click();
+		await actor.getByTestId('push-to-talk-mode').check();
+		await actor.getByTestId('mic-options').click();
+		const hold = actor.getByTestId('push-to-talk');
+		await hold.focus();
+		await actor.keyboard.down('Space');
+		await expect(actorControls).toHaveAttribute('data-microphone', 'true');
+		// Background-page evaluate avoids blurring the held button before the
+		// server moderation event, so this specifically exercises forced release.
+		await admin.evaluate(() => {
+			const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+				(node) => node.getAttribute('aria-label') === "Mute Noisy's microphone"
+			);
+			button!.click();
+		});
+		await expect(actorControls).toHaveAttribute('data-microphone', 'false');
+		await expect(hold).toHaveAttribute('aria-pressed', 'false');
+		await expect(listenerControls).toHaveAttribute('data-remote-tracks', '1');
+		await actor.getByRole('button', { name: 'Re-enable my microphone', exact: true }).click();
+		await expect(hold).toBeEnabled({ timeout: 15000 });
+		await expect(actorControls).toHaveAttribute('data-microphone', 'false');
+		await expect(listenerControls).toHaveAttribute('data-remote-tracks', '1');
+		await actor.keyboard.up('Space');
+		await hold.focus();
+		await actor.keyboard.down('Space');
+		await expect(actorControls).toHaveAttribute('data-microphone', 'true');
+		await expect(listenerControls).toHaveAttribute('data-remote-tracks', '2');
+		await actor.keyboard.up('Space');
+		await expect(listenerControls).toHaveAttribute('data-remote-tracks', '1');
+		expect(await baseline(admin)).toEqual(adminBaseline);
+		expect(await baseline(listener)).toEqual(listenerBaseline);
+		await expect(admin.getByTestId('voice-controls')).toHaveAttribute('data-microphone', 'true');
+	} finally {
+		await actorContext.close();
+		await listenerContext.close();
+	}
+});
+
+test('speaking time is attributed to the member who spoke and shared live', async ({
+	page: admin,
+	browser
+}) => {
+	await admin.goto('/v2');
+	await admin.getByTestId('create-room').click();
+	await expect(admin.getByTestId('own-role')).toHaveText('admin');
+	const actorContext = await newRoomContext(browser, { storageState: englishLocale });
+	await syntheticMicrophone(actorContext);
+	const openPeople = async (client: Page) => {
+		const panel = client.getByTestId('people-panel');
+		if (!(await panel.isVisible())) await client.getByLabel('People', { exact: true }).click();
+		await expect(panel).toBeVisible();
+	};
+	try {
+		const actor = await actorContext.newPage();
+		await actor.goto(admin.url());
+		await expect(actor.getByTestId('own-role')).toHaveText('spectator');
+		await actor.evaluate(() =>
+			window.__voiceFixture.appSockets
+				.at(-1)!
+				.send(JSON.stringify({ v: 2, op: 'room.profile', payload: { nickname: 'Speaker' } }))
+		);
+		await expect(actor.getByTestId('edit-pseudonym')).toContainText('Speaker');
+		await openPeople(admin);
+		await admin.getByRole('button', { name: 'Promote Speaker', exact: true }).click();
+		await expect(actor.getByTestId('own-role')).toHaveText('participant');
+		await openPeople(admin);
+		const row = admin.locator('[data-member-id]').filter({ hasText: 'Speaker' });
+		const memberId = await row.getAttribute('data-member-id');
+		expect(memberId).toBeTruthy();
+		await actor.evaluate(() =>
+			window.__voiceFixture.appSockets
+				.at(-1)!
+				.send(JSON.stringify({ v: 2, op: 'voice.speaking', payload: { speaking: true } }))
+		);
+		await actor.waitForTimeout(1200);
+		await actor.evaluate(() =>
+			window.__voiceFixture.appSockets
+				.at(-1)!
+				.send(JSON.stringify({ v: 2, op: 'voice.speaking', payload: { speaking: false } }))
+		);
+		await expect(admin.locator(`[data-speaking-time="${memberId}"]`)).toHaveText(/^[1-9]\d* s$/);
+		await expect(row.locator(`[data-speaking-time="${memberId}"]`)).toBeVisible();
+		const own = admin.locator('[data-member-id]').filter({ hasText: '(you)' });
+		await expect(own.locator('[data-speaking-time]')).toHaveCount(0);
+		// The same counter must also grow from real microphone activity, which is
+		// reported by the client rather than driven through the socket here.
+		const seconds = async () => {
+			const text = (await admin.locator(`[data-speaking-time="${memberId}"]`).textContent()) ?? '';
+			const parts = /(?:(\d+) min)? ?(\d+) s/.exec(text);
+			return parts ? Number(parts[1] ?? 0) * 60 + Number(parts[2]) : 0;
+		};
+		const before = await seconds();
+		await actor.getByRole('button', { name: 'Join audio', exact: true }).click();
+		await expect(actor.getByTestId('voice-controls')).toHaveAttribute('data-status', 'connected', {
+			timeout: 30000
+		});
+		await actor.getByRole('button', { name: 'Enable microphone', exact: true }).click();
+		await expect(actor.getByTestId('voice-controls')).toHaveAttribute('data-microphone', 'true');
+		await actor.waitForTimeout(2500);
+		await actor.getByRole('button', { name: 'Mute microphone', exact: true }).click();
+		await expect(actor.getByTestId('voice-controls')).toHaveAttribute('data-microphone', 'false');
+		await expect.poll(seconds, { timeout: 20000 }).toBeGreaterThan(before);
+	} finally {
+		await actorContext.close();
+	}
+});
+
 test('an expired speaker does not disconnect the remaining microphone', async ({
 	page,
 	browser
@@ -407,8 +627,11 @@ test('an expired speaker does not disconnect the remaining microphone', async ({
 		// Close without room.leave: membership expires through the cleanup path.
 		await actorContext.close();
 		await expect(page.locator('[data-member-id]')).toHaveCount(1, { timeout: 100000 });
-		await expect(controls).toHaveAttribute('data-status', 'connected');
-		await expect(controls).toHaveAttribute('data-microphone', 'true');
+		// Both participants hold two-minute SFU tokens, so a legitimate token
+		// refresh window can overlap this check. Microphone continuity is proven
+		// below by the unchanged capture count and live tracks.
+		await expect(controls).toHaveAttribute('data-status', 'connected', { timeout: 30000 });
+		await expect(controls).toHaveAttribute('data-microphone', 'true', { timeout: 30000 });
 		expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(captures);
 		expect(
 			await page.evaluate(() =>

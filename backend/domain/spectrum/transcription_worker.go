@@ -36,6 +36,9 @@ type TranscriptionJob struct {
 
 // Called under h.mu while holding voiceMu, so consent and grants share one epoch.
 func (r *Room) voicePublishAllowed(identity string, onStage, consent, configured bool) bool {
+	if r.voiceMuted[identity] {
+		return false
+	}
 	if !r.settings.TranscriptionEnabled || !configured {
 		return onStage
 	}

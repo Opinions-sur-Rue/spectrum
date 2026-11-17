@@ -1,5 +1,56 @@
 # Resume: finish v1 → v2 parity
 
+## Shared speaking time — validated locally, not deployed
+
+- Track per-member speaking totals in the Room, keyed by the room-scoped public
+  member ID. Only the caller's own membership is addressable; the request carries
+  a boolean turn boundary, never a target, audio, or transcript.
+- Publish rights gate the counter: an off-stage member, a moderation-muted member
+  and a closed room cannot accrue time, and a duplicate start never reopens or
+  resets a running turn. Totals accumulate across demotion/promotion within the
+  same Spectrum rather than being wiped by stage changes.
+- An open turn is closed by self-report, mute, stage change, kick/leave (through
+  the existing voice clear) and by socket unregister, so a suspended tab cannot
+  accrue during its grace period. Each interval is capped at 90 minutes to bound
+  clock skew and a client that never reports its release.
+- Totals ship in `room.state` members (`speakingSeconds`) and a `voice.speaking`
+  event at turn end, so every client shares the same numbers without polling.
+  Participants shows the duration per on-stage member with an accessible title;
+  nothing is stored after the room ends.
+- Existing SFU fixtures issue two-minute tokens, so the long membership-expiry
+  scenario can legitimately overlap the surviving admin's own token refresh. Its
+  two post-expiry status checks now allow 30 s instead of 5 s. The invariants the
+  scenario guards are unchanged: no new capture, same live tracks, role preserved.
+
+## Targeted admin microphone mute — validated locally, not deployed
+
+- Add `voice.mute` for admins using only room-scoped public member IDs. Revoke
+  publishing for the targeted on-stage participant through the existing SFU
+  barrier; preserve their role, the physical room and all other peers'
+  permissions/tokens. Co-admins are not mute targets, matching stage moderation.
+- Keep a room-local moderation flag and fence old publishing admissions, including
+  cached/refreshed tokens. Normal joins, consent requests, app reconnects and
+  transcription-policy retirement do not clear the flag.
+- Add `voice.resume` scoped exclusively to the caller's own membership and fresh
+  publishing request. Apply current role and server-transcription consent checks.
+  There is no admin action/API to reactivate somebody else's microphone.
+- Participants shows a distinct admin microphone action and moderated-state badge,
+  separate from listener-local volume. Owner sees a self-resume control. Normal
+  mic intent is cleared on moderation; hold mode requires a new press even after
+  self-resume. Errors reach the appropriate room/microphone alert.
+- Backend race-enabled tests/lint plus frontend check/lint/build and **205 unit
+  tests** pass. Full batch validation: **180/180** UI scenarios across
+  Chromium/Firefox/WebKit and **18/18** real-SFU voice scenarios twice in a row.
+  Actual-SFU integration covers targeted cutoff, no unrelated reconnect,
+  old-token rejection, sticky moderation across reconnect, explicit self-resume,
+  and fresh-press behavior in hold mode. Co-admin selectors are rejected by the
+  server and hidden from the admin's People panel.
+- Two apparent failures of the long membership-expiry voice scenario reproduced
+  only while concurrent check/build/edit commands reloaded the shared Vite dev
+  server; the tree-untouched runs were green. No product reconnect limit was
+  relaxed by that diagnosis.
+- Not deployed. Production remains beta.17.
+
 ## Voice ergonomics follow-up — push-to-talk local, not deployed
 
 User requested continuing the remaining improvements after beta.17. First sublot

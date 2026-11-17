@@ -12,9 +12,14 @@
 	let volume = $derived(connection?.getVolume(member.id) ?? 1);
 </script>
 
-{#if speaking || (connection && !own && member.role !== 'spectator')}<div
+{#if speaking || (member.microphoneMuted && member.role !== 'spectator') || (connection && !own && member.role !== 'spectator')}<div
 		class="member-audio flex w-full flex-wrap items-center gap-2"
 	>
+		{#if member.microphoneMuted && member.role !== 'spectator'}<span
+				data-muted-member={member.id}
+				class="text-xs"
+				title={m.voice_resume_self_hint()}>{m.voice_muted_by_admin()}</span
+			>{/if}
 		{#if speaking}<span
 				class="rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] text-white"
 				role="status"

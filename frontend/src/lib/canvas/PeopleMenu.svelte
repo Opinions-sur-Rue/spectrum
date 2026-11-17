@@ -9,6 +9,7 @@
 	import MemberAudio from './MemberAudio.svelte';
 	import type { VoiceConnection } from './voice-connection';
 	import { roleLabel } from './labels';
+	import { formatSpeakingTime, speakingSecondsFor } from './speaking-time';
 	import { panelModality, trapPanelFocus } from './panel-modality';
 	let {
 		room,
@@ -16,6 +17,7 @@
 		send,
 		connection = null,
 		speakers = [],
+		speakingTime = {},
 		onModalChange
 	}: {
 		room: RoomState;
@@ -23,6 +25,7 @@
 		send: (op: string, payload: unknown) => boolean;
 		connection?: VoiceConnection | null;
 		speakers?: string[];
+		speakingTime?: Record<string, number>;
 		onModalChange?: (modal: boolean) => void;
 	} = $props();
 	let action = $state<Confirmation | null>(null);
@@ -200,6 +203,23 @@
 							>{member.nickname}{member.id === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
 						>
 						<span class="text-xs opacity-60">{roleLabel(member.role)}</span>
+						{#if member.role !== 'spectator' && speakingSecondsFor(member.id, member.speakingSeconds, speakingTime) > 0}
+							{@const spoken = formatSpeakingTime(
+								speakingSecondsFor(member.id, member.speakingSeconds, speakingTime)
+							)}
+							<span
+								class="text-xs tabular-nums opacity-70"
+								data-speaking-time={member.id}
+								title={m.voice_speaking_time_aria({ name: member.nickname, time: spoken })}
+								>{spoken}</span
+							>
+						{/if}
+						{#if admin && member.role === 'participant' && room.voice?.available}<IconButton
+								icon="micOff"
+								label={m.voice_mute_member({ name: member.nickname })}
+								disabled={!ready || !!member.microphoneMuted}
+								onclick={() => send('voice.mute', { memberId: member.id })}
+							/>{/if}
 						{#if admin && member.role === 'participant'}<IconButton
 								icon="demote"
 								label={m.v2_demote({ name: member.nickname })}

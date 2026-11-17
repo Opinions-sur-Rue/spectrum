@@ -604,6 +604,9 @@ func (h *Hub) unregisterClient(client *Client) {
 	if user := h.users[userID]; user != nil && user.IsInRoom() {
 		if room := h.rooms[user.Room()]; room != nil {
 			id := room.memberIDs[userID]
+			// A disconnect must not let an open turn accrue during the grace
+			// period; the total survives if the member resumes speaking.
+			room.stopSpeaking(id, time.Now().UnixMilli())
 			if session := room.browserTranscripts[id]; session != nil && session.owner == client {
 				delete(room.browserTranscripts, id)
 			}

@@ -78,6 +78,7 @@
 	let voiceInvalidation = $state(0);
 	let voiceConnection = $state.raw<VoiceConnection | null>(null);
 	let speakers = $state<string[]>([]);
+	let speakingTime = $state<Record<string, number>>({});
 	let peopleMenu = $state<{ editNickname: () => void }>();
 	let peopleModal = $state(false);
 	let reaction = $state<ReactionEvent | null>(null);
@@ -204,6 +205,9 @@
 					live: (value) => {
 						live = value;
 					},
+					speakingTime: (value) => {
+						speakingTime = { ...speakingTime, [value.memberId]: value.speakingSeconds };
+					},
 					roomClosed: () => {
 						roomConfirmed = false;
 						noteDrafts.clear();
@@ -231,6 +235,7 @@
 						presentation = false;
 						reaction = null;
 						speakers = [];
+						speakingTime = {};
 						instance?.setNotes([]);
 						instance?.setEdges([]);
 						const url = new URL(location.href);
@@ -240,6 +245,7 @@
 					room: (value) => {
 						noteDrafts.enter(value);
 						if (!room) createTopic = '';
+						if (room && room.roomId !== value.roomId) speakingTime = {};
 						room = value;
 						roomConfirmed = true;
 						missingRoom = false;
@@ -446,6 +452,7 @@
 					{send}
 					connection={voiceConnection}
 					{speakers}
+					{speakingTime}
 				/>
 				{#key room.roomId}<RoomTimer {room} {ready} {send} />{/key}
 				{#if admin && pendingNotes.length}<PendingNotesMenu

@@ -26,11 +26,13 @@ type roomStatePayload struct {
 }
 
 type roomMemberPayload struct {
-	ID           string `json:"id"`
-	Nickname     string `json:"nickname"`
-	Role         Role   `json:"role"`
-	Color        string `json:"color,omitempty"`
-	HandRaisedAt int64  `json:"handRaisedAt,omitempty"`
+	ID              string `json:"id"`
+	Nickname        string `json:"nickname"`
+	Role            Role   `json:"role"`
+	Color           string `json:"color,omitempty"`
+	HandRaisedAt    int64  `json:"handRaisedAt,omitempty"`
+	MicrophoneMuted bool   `json:"microphoneMuted,omitempty"`
+	SpeakingSeconds int64  `json:"speakingSeconds,omitempty"`
 }
 
 func init() {
@@ -129,7 +131,7 @@ func handleRoomGet(c *Client, envelope *valueobjects.Envelope) error {
 		for _, member := range append(room.Participants(), room.Spectators()...) {
 			memberRole, _ := room.RoleOf(member.UserID)
 			publicID := room.memberIDs[member.UserID]
-			state.Members = append(state.Members, roomMemberPayload{ID: publicID, Nickname: room.memberName(member), Role: memberRole, Color: member.Color, HandRaisedAt: room.raisedHands[member.UserID]})
+			state.Members = append(state.Members, roomMemberPayload{ID: publicID, Nickname: room.memberName(member), Role: memberRole, Color: member.Color, HandRaisedAt: room.raisedHands[member.UserID], MicrophoneMuted: room.voiceMuted[publicID], SpeakingSeconds: room.speakingSecondsFor(publicID)})
 		}
 		state.Spectrum = room.spectrumFor(user.UserID, state.Role)
 		state.Voice = voiceStatus{Available: c.hub.voiceEnabled && c.hub.voiceBackend != nil && c.hub.voiceError == nil, Generation: room.voiceGeneration}

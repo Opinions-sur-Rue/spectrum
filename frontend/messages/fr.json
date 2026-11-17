@@ -1,4 +1,9 @@
 {
+	"voice_mute_member": "Couper le micro de {name}",
+	"voice_muted_by_admin": "Micro coupé par un admin",
+	"voice_resume_self": "Réactiver mon micro",
+	"voice_resume_self_hint": "Seule cette personne peut réactiver son micro. Les admins ne peuvent pas réactiver celui des autres.",
+	"voice_speaking_time_aria": "Temps de parole de {name} : {time}",
 	"ptt_mode": "Mode talkie-walkie",
 	"ptt_hold": "Maintenir pour parler",
 	"ptt_hold_short": "Maintenir",

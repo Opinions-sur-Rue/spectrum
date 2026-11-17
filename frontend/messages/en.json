@@ -1,4 +1,9 @@
 {
+	"voice_mute_member": "Mute {name}'s microphone",
+	"voice_muted_by_admin": "Microphone muted by an admin",
+	"voice_resume_self": "Re-enable my microphone",
+	"voice_resume_self_hint": "Only this person can re-enable their microphone. Admins cannot unmute other people.",
+	"voice_speaking_time_aria": "Spoken time for {name}: {time}",
 	"ptt_mode": "Push-to-talk mode",
 	"ptt_hold": "Hold to talk",
 	"ptt_hold_short": "Hold",

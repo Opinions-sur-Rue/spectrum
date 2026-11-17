@@ -12,6 +12,15 @@ export interface RoomMember {
 	role: 'admin' | 'participant' | 'spectator';
 	color?: string;
 	handRaisedAt?: number;
+	microphoneMuted?: boolean;
+	speakingSeconds?: number;
+}
+
+/** Server-accumulated speaking totals, updated when a turn ends. */
+export interface SpeakingTimeUpdate {
+	roomId: string;
+	memberId: string;
+	speakingSeconds: number;
 }
 
 export interface ReactionEvent {
@@ -108,6 +117,7 @@ interface Callbacks {
 	voice?: (credentials: VoiceCredentials) => void;
 	voiceError?: (error: VoiceError) => void;
 	voiceInvalidated?: () => void;
+	speakingTime?: (update: SpeakingTimeUpdate) => void;
 	transcript?: (transcript: TranscriptState) => void;
 	reaction?: (reaction: ReactionEvent) => void;
 	live?: (state: LiveState) => void;
@@ -275,6 +285,8 @@ export class RoomClient {
 					} else if (op === 'voice.invalidate') {
 						this.callbacks.voiceInvalidated?.();
 						this.send('room.get');
+					} else if (op === 'voice.speaking') {
+						if (payload.roomId === this.roomId) this.callbacks.speakingTime?.(payload);
 					} else if (op === 'chat.message') {
 						if (!this.chatRoomId || payload.roomId !== this.chatRoomId) continue;
 						this.chatState = appendChatMessage(this.chatState, payload);

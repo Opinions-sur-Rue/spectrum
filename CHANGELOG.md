@@ -5,6 +5,8 @@ All notable changes to **Spectrum** are documented in this file.
 ## [Unreleased]
 
 ### Added
+- Add targeted admin microphone muting without demotion or disruption to other voice participants. Only the muted member can explicitly restore publishing; cached publishing tokens stay revoked. Muting is limited to participants, never co-admins.
+- Add shared per-member speaking time for a Spectrum, accumulated by the server from self-reported turn boundaries and shown in the Participants panel. Turns stop on mute, stage change, or disconnect.
 - Add opt-in push-to-talk with a held pointer or Space outside text/interactive controls. Release, cancellation, backgrounding or lost authorization stops capture; reconnects require a new press in hold mode.
 - Cancel pending microphone permission/publication and delayed device restarts when a hold is released. Keep the default continuous microphone mode unchanged.
 

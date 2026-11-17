@@ -164,6 +164,7 @@ func (r *Room) commitVoiceChange(retired bool, identities []string, publishing m
 		r.transcriptionRevision++
 	}
 	clear := func(identity string) {
+		r.stopSpeaking(identity, time.Now().UnixMilli())
 		delete(r.voiceAdmissions, identity)
 		delete(r.transcriptionConsents, identity)
 		delete(r.browserTranscripts, identity)

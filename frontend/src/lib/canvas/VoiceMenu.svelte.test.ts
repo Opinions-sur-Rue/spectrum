@@ -282,3 +282,62 @@ it('consent in push-to-talk mode grants access but does not start capture', asyn
 		else Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
 	}
 });
+
+it('moderation clears normal mic intent and only explicit self-resume requests publishing', async () => {
+	const { view, room, mic, send, credentials } = await setup();
+	await fireEvent.click(mic());
+	const member = { id: room.userId, nickname: 'Me', role: room.role, microphoneMuted: true };
+	await view.rerender({ room: { ...room, members: [member] } });
+	expect(view.getByTestId('voice-controls').dataset.microphone).toBe('false');
+	expect(fixture.toggle).toHaveBeenCalledTimes(1);
+	await fireEvent.click(view.getByRole('button', { name: m.voice_resume_self() }));
+	expect(send.mock.lastCall?.[0]).toBe('voice.resume');
+	await view.rerender({ room: { ...room, members: [{ ...member, microphoneMuted: false }] } });
+	await credentials();
+	await waitFor(() => expect(fixture.toggle).toHaveBeenCalledTimes(2));
+	expect(view.getByTestId('voice-controls').dataset.microphone).toBe('true');
+});
+
+it('another tab clearing moderation does not restore this tabs old microphone intent', async () => {
+	const { view, room, mic } = await setup();
+	await fireEvent.click(mic());
+	const member = { id: room.userId, nickname: 'Me', role: room.role, microphoneMuted: true };
+	await view.rerender({ room: { ...room, members: [member] } });
+	fixture.callbacks!.permissions(true);
+	await view.rerender({ room: { ...room, members: [{ ...member, microphoneMuted: false }] } });
+	expect(fixture.toggle).toHaveBeenCalledTimes(1);
+	expect(view.getByTestId('voice-controls').dataset.microphone).toBe('false');
+});
+
+it('self-resume in hold mode restores permission, never the previous held press', async () => {
+	const { view, room, send, credentials } = await setup();
+	await fireEvent.click(view.getByTestId('push-to-talk-mode'));
+	await fireEvent.keyDown(view.getByTestId('push-to-talk'), { key: ' ', code: 'Space' });
+	await waitFor(() => expect(fixture.toggle).toHaveBeenCalledTimes(1));
+	const member = { id: room.userId, nickname: 'Me', role: room.role, microphoneMuted: true };
+	await view.rerender({ room: { ...room, members: [member] } });
+	expect(view.getByTestId('voice-controls').dataset.microphone).toBe('false');
+	await fireEvent.click(view.getByRole('button', { name: m.voice_resume_self() }));
+	expect(send.mock.lastCall?.[0]).toBe('voice.resume');
+	await view.rerender({ room: { ...room, members: [{ ...member, microphoneMuted: false }] } });
+	await credentials();
+	expect(fixture.toggle).toHaveBeenCalledTimes(1);
+	expect(view.getByTestId('push-to-talk')).toHaveAttribute('aria-pressed', 'false');
+	await fireEvent.keyUp(view.getByTestId('push-to-talk'), { key: ' ', code: 'Space' });
+	await fireEvent.keyDown(view.getByTestId('push-to-talk'), { key: ' ', code: 'Space' });
+	await waitFor(() => expect(fixture.toggle).toHaveBeenCalledTimes(2));
+});
+
+it('reports only its own turn boundaries and closes an open turn on unmount', async () => {
+	const { view, room, send } = await setup();
+	await view.rerender({ speakers: ['m_somebody_else'] });
+	expect(send.mock.calls.filter(([op]) => op === 'voice.speaking')).toHaveLength(0);
+	await view.rerender({ speakers: [room.userId] });
+	await waitFor(() => expect(send).toHaveBeenLastCalledWith('voice.speaking', { speaking: true }));
+	await view.rerender({ speakers: [] });
+	await waitFor(() => expect(send).toHaveBeenLastCalledWith('voice.speaking', { speaking: false }));
+	await view.rerender({ speakers: [room.userId] });
+	await waitFor(() => expect(send).toHaveBeenLastCalledWith('voice.speaking', { speaking: true }));
+	view.unmount();
+	expect(send).toHaveBeenLastCalledWith('voice.speaking', { speaking: false });
+});

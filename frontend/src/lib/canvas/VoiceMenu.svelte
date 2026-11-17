@@ -30,7 +30,6 @@
 		browserFailure = null,
 		invalidation,
 		connection = $bindable(null),
-		// eslint-disable-next-line no-useless-assignment -- Bindable output consumed by the parent.
 		speakers = $bindable([]),
 		send
 	}: {
@@ -97,8 +96,37 @@
 			!!room.settings.transcriptionEnabled
 	);
 	const onStage = $derived(room.role !== 'spectator');
+	const moderationMuted = $derived(
+		room.members.some((member) => member.id === room.userId && member.microphoneMuted)
+	);
 	const connected = $derived(status === 'connected');
-	const canHold = $derived(pttMode && wanted && onStage && connected && granted && ready);
+	const canHold = $derived(
+		pttMode && wanted && onStage && connected && granted && ready && !moderationMuted
+	);
+	$effect(() => {
+		if (moderationMuted && connection) {
+			microphoneWanted = false;
+			startAfterConsent = false;
+			restorePending = false;
+			untrack(() => {
+				void connection?.setPublishAllowed(false);
+			});
+		}
+	});
+	// Turn boundaries are self-reported for the shared per-member totals. The
+	// server still validates that the caller may publish, so this only adds data.
+	let reportedSpeaking = false;
+	$effect(() => {
+		const speaking = wanted && connected && speakers.includes(room.userId);
+		if (speaking === reportedSpeaking) return;
+		reportedSpeaking = speaking;
+		send('voice.speaking', { speaking });
+	});
+	$effect(() => () => {
+		if (!reportedSpeaking) return;
+		reportedSpeaking = false;
+		send('voice.speaking', { speaking: false });
+	});
 	const summary = $derived(
 		!wanted
 			? m.ux_audio_off()
@@ -109,11 +137,13 @@
 					: connected
 						? !onStage
 							? m.ux_audio_listen_only()
-							: busy
-								? m.ux_audio_permission()
-								: microphone
-									? m.ux_microphone_on()
-									: m.ux_microphone_off()
+							: moderationMuted
+								? m.voice_muted_by_admin()
+								: busy
+									? m.ux_audio_permission()
+									: microphone
+										? m.ux_microphone_on()
+										: m.ux_microphone_off()
 						: m.ux_audio_off()
 	);
 	$effect(() => {
@@ -160,13 +190,18 @@
 			void instance.disconnect();
 		};
 	});
-	function join(consent = false) {
+	function join(consent = false, resume = false) {
 		if (!ready || !connection) return;
 		needsJoin = false;
 		error = '';
 		granted = false;
 		request = crypto.randomUUID();
-		if (!send('voice.join', { requestId: request, transcriptionConsent: consent })) {
+		if (
+			!send(resume ? 'voice.resume' : 'voice.join', {
+				requestId: request,
+				transcriptionConsent: consent
+			})
+		) {
 			request = null;
 			status = 'error';
 			error = m.ux_connection_unavailable();
@@ -250,7 +285,15 @@
 		});
 	});
 	$effect(() => {
-		if (restorePending && ready && connected && onStage && granted && connection) {
+		if (
+			restorePending &&
+			ready &&
+			connected &&
+			onStage &&
+			granted &&
+			connection &&
+			!moderationMuted
+		) {
 			restorePending = false;
 			// One attempt per rejoin: a denied permission must not cause a loop.
 			if (!microphone && !busy)
@@ -320,15 +363,22 @@
 			>{wanted ? m.ux_leave_audio() : m.ux_join_audio()}</span
 		></button
 	>
-	{#if wanted && onStage && (!pttMode || (transcribing && !granted))}<IconButton
+	{#if wanted && onStage && (!pttMode || (transcribing && !granted) || moderationMuted)}<IconButton
 			icon={microphone ? 'micOff' : 'mic'}
-			label={microphone ? m.ux_mute_microphone() : m.ux_enable_microphone()}
-			disabled={!connected || (!granted && !transcribing) || busy || !ready}
+			label={moderationMuted
+				? m.voice_resume_self()
+				: microphone
+					? m.ux_mute_microphone()
+					: m.ux_enable_microphone()}
+			disabled={!connected || (!granted && !transcribing && !moderationMuted) || busy || !ready}
 			aria-pressed={microphone}
 			onclick={() => {
 				if (!onStage) return;
 				if (transcribing && !granted) consentOpen = true;
-				else if (granted) {
+				else if (moderationMuted) {
+					startAfterConsent = !pttMode;
+					join(false, true);
+				} else if (granted) {
 					if (microphone) microphoneWanted = false;
 					void connection?.toggleMicrophone();
 				}
@@ -478,7 +528,7 @@
 				onclick={() => {
 					consentOpen = false;
 					startAfterConsent = !pttMode;
-					join(true);
+					join(true, moderationMuted);
 				}}>{pttMode ? m.ptt_consent_accept() : m.ux_consent_accept()}</button
 			>
 		</div>
