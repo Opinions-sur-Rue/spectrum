@@ -1,7 +1,13 @@
 import { API_URL } from '$lib/env';
 import type { EdgeModel, NoteModel } from './models';
 import { applySpectrumMovement, mergeSpectrumSnapshot } from './spectrum-state';
-import { appendChatMessage, mergeChatSnapshot, type ChatState, type ChatError } from './chat-state';
+import {
+	appendChatMessage,
+	markChatRemoved,
+	mergeChatSnapshot,
+	type ChatState,
+	type ChatError
+} from './chat-state';
 import type { VoiceCredentials, VoiceError } from './voice-connection';
 import { mergeTranscript, type TranscriptState } from './transcript-state';
 import type { BrowserTranscriptSession, BrowserTranscriptFailure } from './browser-stt';
@@ -226,6 +232,7 @@ export class RoomClient {
 							this.send('room.get');
 							continue;
 						}
+						const previousRole = this.role;
 						this.roomId = payload.roomId;
 						this.admittedRoom = true;
 						this.role = payload.role ?? null;
@@ -238,12 +245,18 @@ export class RoomClient {
 							? mergeSpectrumSnapshot(this.spectrumState, payload.spectrum)
 							: null;
 						this.callbacks.room({ ...payload, spectrum: this.spectrumState });
-						if (this.chatRoomId !== payload.roomId) {
+						const chatRoomChanged = this.chatRoomId !== payload.roomId;
+						// A role change moves the member into or out of the stage and admin
+						// audiences: drop the cached history instead of merging it, so a
+						// demoted member cannot keep reading stage messages and a promoted
+						// one does receive the earlier ones.
+						const audienceChanged = previousRole !== null && previousRole !== this.role;
+						if (chatRoomChanged || audienceChanged) {
 							this.chatState = null;
-							this.transcriptState = null;
+							if (chatRoomChanged) this.transcriptState = null;
 							this.chatRoomId = payload.roomId;
 							this.send('chat.get');
-							this.send('transcript.get');
+							if (chatRoomChanged) this.send('transcript.get');
 						}
 					} else if (op === 'transcript.started') {
 						if (payload.roomId === this.roomId) this.callbacks.browserTranscript?.(payload);
@@ -291,6 +304,16 @@ export class RoomClient {
 						if (!this.chatRoomId || payload.roomId !== this.chatRoomId) continue;
 						this.chatState = appendChatMessage(this.chatState, payload);
 						this.callbacks.chat?.(this.chatState);
+					} else if (op === 'chat.removed') {
+						if (!this.chatRoomId || payload.roomId !== this.chatRoomId) continue;
+						// Moderation masks content in place rather than deleting the entry.
+						if (this.chatState) {
+							const next = markChatRemoved(this.chatState, payload.messageId);
+							if (next !== this.chatState) {
+								this.chatState = next;
+								this.callbacks.chat?.(next);
+							}
+						}
 					} else if (op === 'canvas.snapshot') {
 						this.callbacks.snapshot(payload);
 					} else if (op === 'room.invalidate') {

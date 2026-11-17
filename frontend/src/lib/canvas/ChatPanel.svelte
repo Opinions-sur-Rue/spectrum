@@ -2,7 +2,14 @@
 	import { tick } from 'svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import type { RoomState } from './room-client';
-	import type { ChatState, ChatError } from './chat-state';
+	import {
+		canWriteChannel,
+		channelMessages,
+		unreadInChannel,
+		type ChatChannel,
+		type ChatError,
+		type ChatState
+	} from './chat-state';
 	import { m } from '$lib/paraglide/messages.js';
 	let {
 		room,
@@ -19,31 +26,72 @@
 		send: (op: string, payload: unknown) => boolean;
 		active?: boolean;
 	} = $props();
-	let draft = $state('');
-	let request = $state<{ id: string; text: string } | null>(null);
+	const empty = { room: '', stage: '', admin: '' } as const;
+	const none = { room: null, stage: null, admin: null } as Record<ChatChannel, null>;
+	let drafts = $state<Record<ChatChannel, string>>({ ...empty });
+	let requests = $state<Record<ChatChannel, { id: string; text: string } | null>>({ ...none });
+	let channel = $state<ChatChannel>('room');
+	let confirming = $state<number | null>(null);
 	let waiting = $state(false);
 	let sticky = $state(true);
 	let log = $state<HTMLDivElement>();
 	let form = $state<HTMLFormElement>();
-	const canWrite = $derived(room.role !== 'spectator' || room.settings.spectatorChatEnabled);
-	const messages = $derived(chat?.messages ?? []);
+	const labels: Record<ChatChannel, () => string> = {
+		room: () => m.chat_channel_room(),
+		stage: () => m.chat_channel_stage(),
+		admin: () => m.chat_channel_admin()
+	};
+	const hints: Record<ChatChannel, () => string> = {
+		room: () => m.chat_channel_room_hint(),
+		stage: () => m.chat_channel_stage_hint(),
+		admin: () => m.chat_channel_admin_hint()
+	};
+	const channels = $derived<ChatChannel[]>(
+		room.role === 'admin'
+			? ['room', 'stage', 'admin']
+			: room.role === 'participant'
+				? ['room', 'stage']
+				: ['room']
+	);
+	// Losing access to a channel (demotion) must fall back to the shared room.
+	$effect(() => {
+		if (!channels.includes(channel)) channel = 'room';
+	});
+	const canWrite = $derived(
+		canWriteChannel(room.role, channel, room.settings.spectatorChatEnabled)
+	);
+	const messages = $derived(channelMessages(chat, channel));
+	const draft = $derived(drafts[channel]);
+	const request = $derived(requests[channel]);
+	let lastRead = $state<Record<ChatChannel, number | null>>({
+		room: null,
+		stage: null,
+		admin: null
+	});
+	function unreadFor(item: ChatChannel) {
+		if (item === channel) return 0;
+		return unreadInChannel(chat, item, lastRead[item], room.userId);
+	}
+	$effect(() => {
+		if (active && chat) lastRead[channel] = chat.messages.at(-1)?.id ?? -1;
+	});
 	$effect(() => {
 		if (!ready || !canWrite) waiting = false;
-		if (request && error && (!error.requestId || error.requestId === request.id)) waiting = false;
+		if (!request) return;
+		if (error && (!error.requestId || error.requestId === request.id)) waiting = false;
 		if (
-			request &&
 			messages.some(
-				(message) => message.memberId === room.userId && message.clientId === request?.id
+				(message) => message.memberId === room.userId && message.clientId === request.id
 			)
 		) {
-			if (draft.trim() === request.text) draft = '';
-			request = null;
+			if (drafts[channel] === request.text) drafts[channel] = '';
+			requests[channel] = null;
 			waiting = false;
 		}
 	});
 	$effect(() => {
-		const sequence = chat?.sequence;
-		if (active && sticky && sequence !== undefined)
+		const count = messages.length;
+		if (active && sticky && count)
 			void tick().then(() => {
 				if (log) log.scrollTop = log.scrollHeight;
 			});
@@ -51,15 +99,50 @@
 
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
-		const text = draft.trim();
+		const text = drafts[channel].trim();
 		if (!ready || !canWrite || waiting || !text || [...text].length > 1000) return;
-		const id = request?.text === text ? request.id : crypto.randomUUID();
-		request = { id, text };
-		waiting = send('chat.send', { text, clientId: id });
+		const pending = requests[channel];
+		const id = pending?.text === text ? pending.id : crypto.randomUUID();
+		requests[channel] = { id, text };
+		waiting = send('chat.send', { text, clientId: id, channel });
+	}
+	function remove(messageId: number) {
+		if (!ready || confirming !== messageId) return;
+		confirming = null;
+		send('chat.remove', { messageId });
 	}
 </script>
 
 <section id="room-chat" aria-label={m.ux_chat_room()} class="flex h-full min-h-0 min-w-0 flex-col">
+	{#if channels.length > 1}
+		<div
+			class="chat-channels flex gap-1 border-b px-2 py-2"
+			role="group"
+			aria-label={m.chat_channel_group()}
+		>
+			{#each channels as item (item)}
+				<button
+					type="button"
+					class="btn btn-sm min-h-11 flex-1"
+					class:btn-primary={channel === item}
+					class:btn-ghost={channel !== item}
+					aria-pressed={channel === item}
+					data-testid="chat-channel-{item}"
+					onclick={() => {
+						channel = item;
+						confirming = null;
+					}}
+					>{labels[item]()}{#if unreadFor(item)}<span
+							class="bg-error text-error-contrast rounded-full px-1.5 text-[10px]"
+							aria-label={m.ux_chat_unread({ count: String(unreadFor(item)) })}
+							>{unreadFor(item)}</span
+						>{/if}</button
+				>{/each}
+		</div>
+	{/if}
+	<p class="chat-hint border-b px-4 py-2 text-[11px] opacity-70" data-testid="chat-channel-hint">
+		{hints[channel]()}
+	</p>
 	<div
 		bind:this={log}
 		role="log"
@@ -75,7 +158,36 @@
 				<span class="text-xs font-semibold"
 					>{message.nickname}{message.memberId === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
 				>
-				<p class="whitespace-pre-wrap">{message.text}</p>
+				{#if message.removed}
+					<p class="text-xs italic opacity-60" data-chat-removed={message.id}>
+						{m.chat_removed_message()}
+					</p>
+				{:else}
+					<p class="whitespace-pre-wrap">{message.text}</p>
+				{/if}
+				{#if room.role === 'admin' && !message.removed}<span
+						class="chat-actions inline-flex items-center gap-1"
+					>
+						{#if confirming === message.id}<button
+								type="button"
+								class="btn btn-error btn-xs min-h-11"
+								data-testid="chat-remove-confirm"
+								onclick={() => remove(message.id)}>{m.chat_remove_confirm()}</button
+							><button
+								type="button"
+								class="btn btn-ghost btn-xs min-h-11"
+								onclick={() => {
+									confirming = null;
+								}}>{m.session_cancel()}</button
+							>{:else}<IconButton
+								icon="trash"
+								label={m.chat_remove()}
+								disabled={!ready}
+								onclick={() => {
+									confirming = message.id;
+								}}
+							/>{/if}
+					</span>{/if}
 			</div>
 		{:else}<p class="text-xs opacity-60">
 				{chat ? m.ux_chat_empty() : m.ux_chat_loading()}
@@ -103,7 +215,7 @@
 			class="textarea min-h-12 min-w-0 flex-1 text-sm"
 			rows="2"
 			maxlength="1000"
-			bind:value={draft}
+			bind:value={drafts[channel]}
 			disabled={!ready || !canWrite}
 			placeholder={canWrite ? m.ux_chat_placeholder() : m.ux_chat_readonly_placeholder()}
 			onkeydown={(event) => {
@@ -133,12 +245,39 @@
 		resize: none;
 		max-height: 8rem;
 	}
+	.chat-actions {
+		margin-left: 0.25rem;
+		vertical-align: middle;
+	}
+	/* The audience line costs vertical space a short mobile viewport does not
+	   have, so it stays a screen-reader description there. */
+	.chat-hint {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	@media (min-width: 1024px) {
+		.chat-hint {
+			position: static;
+			width: auto;
+			height: auto;
+			overflow: visible;
+			clip-path: none;
+			white-space: normal;
+		}
+	}
 	@media (max-width: 1023px) {
 		.chat-form textarea {
 			font-size: max(1rem, 16px);
 		}
 		.chat-form :global(button) {
 			min-width: 44px;
+			min-height: 44px;
+		}
+		.chat-channels :global(button) {
 			min-height: 44px;
 		}
 	}

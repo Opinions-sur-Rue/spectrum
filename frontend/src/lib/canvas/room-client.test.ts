@@ -190,6 +190,75 @@ describe('RoomClient', () => {
 		expect(callbacks.chat).toHaveBeenCalledTimes(delivered);
 		client.destroy();
 	});
+	it('refetches and drops cached chat when the member role changes', () => {
+		const { client, socket, callbacks } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		socket.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM', role: 'spectator' } });
+		socket.receive({
+			v: 2,
+			op: 'chat.snapshot',
+			payload: { roomId: 'ROOM', sequence: 1, messages: [] }
+		});
+		const before = socket.sent.length;
+		socket.receive({
+			v: 2,
+			op: 'chat.message',
+			payload: {
+				roomId: 'ROOM',
+				id: 2,
+				channel: 'stage',
+				memberId: 'm_other',
+				nickname: 'Other',
+				text: 'Stage history',
+				createdAt: '2026-11-17T00:00:00Z'
+			}
+		});
+		expect(callbacks.chat.mock.lastCall?.[0].messages).toHaveLength(1);
+		// Promotion must not leave the member on a stale stage-less history.
+		socket.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM', role: 'participant' } });
+		expect(
+			socket.sent
+				.slice(before)
+				.map((raw) => JSON.parse(raw).op)
+				.filter((op) => op === 'chat.get')
+		).toHaveLength(1);
+		expect(
+			socket.sent
+				.slice(before)
+				.map((raw) => JSON.parse(raw).op)
+				.filter((op) => op === 'transcript.get')
+		).toHaveLength(0);
+		socket.receive({
+			v: 2,
+			op: 'chat.snapshot',
+			payload: {
+				roomId: 'ROOM',
+				sequence: 2,
+				messages: [
+					{
+						roomId: 'ROOM',
+						id: 2,
+						channel: 'stage',
+						memberId: 'm_other',
+						nickname: 'Other',
+						text: 'Stage history',
+						createdAt: '2026-11-17T00:00:00Z'
+					}
+				]
+			}
+		});
+		expect(callbacks.chat.mock.lastCall?.[0].messages).toHaveLength(1);
+		// Demotion drops the cached stage entry instead of merging it back in.
+		socket.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM', role: 'spectator' } });
+		socket.receive({
+			v: 2,
+			op: 'chat.snapshot',
+			payload: { roomId: 'ROOM', sequence: 2, messages: [] }
+		});
+		expect(callbacks.chat.mock.lastCall?.[0].messages).toHaveLength(0);
+		client.destroy();
+	});
+
 	it('applies live deltas without refetching and coalesces structural refreshes', () => {
 		const { client, socket, callbacks } = fixture();
 		socket.receive({ procedure: 'ack', arguments: ['signin'] });
@@ -436,6 +505,48 @@ describe('RoomClient', () => {
 			message: 'voice service unavailable',
 			requestId: 'self-resume'
 		});
+		client.destroy();
+	});
+
+	it('routes chat removal to a masked entry without a new message id', () => {
+		const { client, socket, callbacks } = fixture();
+		socket.receive({ procedure: 'ack', arguments: ['signin'] });
+		socket.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM', role: 'admin' } });
+		socket.receive({
+			v: 2,
+			op: 'chat.snapshot',
+			payload: {
+				roomId: 'ROOM',
+				sequence: 2,
+				messages: [
+					{
+						roomId: 'ROOM',
+						id: 1,
+						channel: 'room',
+						memberId: 'm_a',
+						nickname: 'A',
+						text: 'keep this',
+						createdAt: '2026-11-17T00:00:00Z'
+					},
+					{
+						roomId: 'ROOM',
+						id: 2,
+						channel: 'stage',
+						memberId: 'm_b',
+						nickname: 'B',
+						text: 'remove this',
+						createdAt: '2026-11-17T00:00:01Z'
+					}
+				]
+			}
+		});
+		socket.receive({ v: 2, op: 'chat.removed', payload: { roomId: 'ROOM', messageId: 2 } });
+		const state = callbacks.chat.mock.calls.at(-1)?.[0] as {
+			messages: { id: number; text: string; removed?: boolean }[];
+		};
+		expect(state.messages).toHaveLength(2);
+		expect(state.messages[1]).toMatchObject({ id: 2, removed: true, text: '' });
+		expect(state.messages[0].text).toBe('keep this');
 		client.destroy();
 	});
 

@@ -8,6 +8,7 @@ All notable changes to **Spectrum** are documented in this file.
 - Add targeted admin microphone muting without demotion or disruption to other voice participants. Only the muted member can explicitly restore publishing; cached publishing tokens stay revoked. Muting is limited to participants, never co-admins.
 - Add shared per-member speaking time for a Spectrum, accumulated by the server from self-reported turn boundaries and shown in the Participants panel. Turns stop on mute, stage change, or disconnect.
 - Add a private Notes tab in Discussion, stored only in this browser per room and never sent to the server, so it stays unreadable by admins; pending text is flushed when switching rooms.
+- Add Room / Stage / Admin chat channels with separate histories, a shared per-member send cooldown, and server-side audience filtering (spectators never receive stage or admin content, and neither reaches the v1 chat bridge). Admins can mask a message with `chat.remove`, which keeps its place while dropping the text for everyone.
 - Add opt-in push-to-talk with a held pointer or Space outside text/interactive controls. Release, cancellation, backgrounding or lost authorization stops capture; reconnects require a new press in hold mode.
 - Cancel pending microphone permission/publication and delayed device restarts when a hold is released. Keep the default continuous microphone mode unchanged.
 

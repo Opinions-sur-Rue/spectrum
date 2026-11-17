@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/rand"
 	"slices"
+	"time"
 
 	canvasdomain "Opinions-sur-Rue/spectrum/domain/canvas"
 	"Opinions-sur-Rue/spectrum/domain/social"
@@ -38,7 +39,8 @@ type Room struct {
 	transcriptionRevision uint64
 	spectrumRevision      uint64
 	timer                 roomTimerState
-	chatMessages          []chatMessage
+	chatMessages          map[ChatChannel][]chatMessage
+	chatLastSent          map[string]time.Time
 	chatSequence          uint64
 	raisedHands           map[string]int64
 	reactionLastSent      map[string]int64

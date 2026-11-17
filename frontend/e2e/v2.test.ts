@@ -1667,6 +1667,12 @@ test('live controls display votes, select external pellets and disconnect using 
 	).toHaveCount(0);
 });
 
+async function openPeople(client: Page) {
+	const panel = client.getByTestId('people-panel');
+	if (!(await panel.isVisible())) await client.getByLabel('People', { exact: true }).click();
+	await expect(panel).toBeVisible();
+}
+
 async function confirmSession(page: Page) {
 	await expect(page.getByRole('dialog')).toBeVisible();
 	await page.getByTestId('confirm-session-action').click();
@@ -1676,11 +1682,6 @@ test('session controls appoint co-admins, let an admin step down, and close room
 	page,
 	browser
 }) => {
-	const openPeople = async (client: Page) => {
-		const panel = client.getByTestId('people-panel');
-		if (!(await panel.isVisible())) await client.getByLabel('People', { exact: true }).click();
-		await expect(panel).toBeVisible();
-	};
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
@@ -2370,6 +2371,104 @@ test('spectrum positions, topic and visibility stay authoritative across clients
 	} finally {
 		await participantContext.close();
 		await spectatorContext.close();
+	}
+});
+
+test('chat channels confine stage and admin messages, and admin removal masks text', async ({
+	page,
+	browser
+}) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const guestContext = await newRoomContext(browser, { storageState: englishLocale });
+	try {
+		const guest = await guestContext.newPage();
+		await guest.goto(page.url());
+		await expect(guest.getByTestId('own-role')).toHaveText('spectator');
+		await openChat(guest);
+		await openChat(page);
+		// A spectator has no channel choice at all.
+		await expect(page.getByTestId('chat-channel-stage')).toBeVisible();
+		await expect(page.getByTestId('chat-channel-admin')).toBeVisible();
+		await expect(guest.getByTestId('chat-channel-stage')).toHaveCount(0);
+		await page.getByTestId('chat-channel-stage').click();
+		await expect(page.getByTestId('chat-channel-hint')).toHaveText(
+			'Only people on stage can read and write here.'
+		);
+		await page.getByLabel('Chat message', { exact: true }).fill('Stage-only briefing');
+		await page.getByRole('button', { name: 'Send message', exact: true }).click();
+		// One send cooldown per member applies across channels, so the next
+		// channel message has to wait for it rather than bypass it.
+		await page.waitForTimeout(600);
+		await page.getByTestId('chat-channel-admin').click();
+		await page.getByLabel('Chat message', { exact: true }).fill('Admin moderation note');
+		await page.getByRole('button', { name: 'Send message', exact: true }).click();
+		// The audience filter happens server-side: the spectator never receives
+		// the text at all, not even in a hidden element.
+		await expect(guest.locator('body')).not.toContainText('Stage-only briefing');
+		await expect(guest.locator('body')).not.toContainText('Admin moderation note');
+		// The admin sees each channel separately.
+		await expect(page.getByRole('log', { name: 'Chat messages' })).toContainText(
+			'Admin moderation note'
+		);
+		await expect(page.getByRole('log', { name: 'Chat messages' })).not.toContainText(
+			'Stage-only briefing'
+		);
+		await page.getByTestId('chat-channel-room').click();
+		await expect(page.getByRole('log', { name: 'Chat messages' })).not.toContainText(
+			'Admin moderation note'
+		);
+		await page.getByTestId('discussion-close').click();
+		// Promotion grants stage membership, still without the admin channel.
+		await page.getByLabel('People', { exact: true }).click();
+		await page.getByRole('button', { name: /^Promote / }).click();
+		await expect(guest.getByTestId('own-role')).toHaveText('participant');
+		await openChat(guest);
+		await expect(guest.getByTestId('chat-channel-stage')).toBeVisible();
+		await expect(guest.getByTestId('chat-channel-admin')).toHaveCount(0);
+		await guest.getByTestId('chat-channel-stage').click();
+		await expect(guest.getByRole('log', { name: 'Chat messages' })).toContainText(
+			'Stage-only briefing'
+		);
+		await guest.getByLabel('Chat message', { exact: true }).fill('Harassment from the stage');
+		await guest.getByRole('button', { name: 'Send message', exact: true }).click();
+		await openPeople(page);
+		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTestId('discussion-toggle').click();
+		await page.getByTestId('chat-channel-stage').click();
+		await expect(page.getByRole('log', { name: 'Chat messages' })).toContainText(
+			'Harassment from the stage'
+		);
+		const entry = page.locator('[data-chat-id]').filter({ hasText: 'Harassment from the stage' });
+		await entry.getByLabel('Remove this message').click();
+		await page.getByTestId('chat-remove-confirm').click();
+		await expect(page.locator('[data-chat-removed]')).toBeVisible();
+		await expect(page.getByRole('log', { name: 'Chat messages' })).not.toContainText(
+			'Harassment from the stage'
+		);
+		await expect(page.getByRole('log', { name: 'Chat messages' })).toContainText(
+			'Message removed by an admin'
+		);
+		await expect(guest.getByRole('log', { name: 'Chat messages' })).not.toContainText(
+			'Harassment from the stage'
+		);
+		await expect(guest.getByText('Message removed by an admin')).toBeVisible();
+		// Reloading the author must still show the masked entry, never the text.
+		await guest.reload();
+		await openChat(guest);
+		await guest.getByTestId('chat-channel-stage').click();
+		await expect(guest.getByRole('log', { name: 'Chat messages' })).not.toContainText(
+			'Harassment from the stage'
+		);
+		await expect(guest.getByRole('log', { name: 'Chat messages' })).toContainText(
+			'Message removed by an admin'
+		);
+		// Other channels stay intact, and the shared room channel is unaffected.
+		await guest.getByTestId('chat-channel-room').click();
+		await expect(guest.getByTestId('chat-channel-admin')).toHaveCount(0);
+	} finally {
+		await guestContext.close();
 	}
 });
 

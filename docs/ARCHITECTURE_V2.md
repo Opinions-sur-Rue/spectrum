@@ -31,6 +31,17 @@ Three roles, stored per room:
 | `participant` | yes | yes | yes | propose (queued), edit own pending note |
 | `spectator` | no | no (listen only) | only if `spectatorChatEnabled` | read visible notes only |
 
+Chat is split into three room-scoped channels with separate histories and one
+shared per-member send cooldown: `room` (audience and writing as the table
+above), `stage` (read and written only by `admin`/`participant`) and `admin`
+(`admin` only). The audience filter runs before delivery, so a member never
+receives, counts or caches content from a channel they cannot read; a role
+change therefore re-fetches the history and replaces it rather than merging.
+Stage and admin content is also excluded from the v1 chat bridge. `chat.remove`
+is admin-only moderation that masks an entry in place: the id and position
+survive so the conversation does not shift, while the text is dropped
+server-side and unrecoverable by any client.
+
 Rules:
 
 - **Everyone joins as `spectator`.** Admins promote to `participant` ("bring on stage").
@@ -385,9 +396,13 @@ joining as spectator rather than immediately taking a pellet is intentional.
 
 #### First UI/UX pass
 
-- One persistent discussion dock groups Chat, Activity and Transcript. Desktop
-  docking resizes the canvas; mobile uses a bottom sheet. Chat drafts and pending
-  acknowledgments survive tab switches and closing/reopening the dock.
+- One persistent discussion dock groups Chat, Private notes, Activity and
+  Transcript (the Transcript tab only while the room has transcription on).
+  Desktop docking resizes the canvas; mobile uses a bottom sheet. Chat drafts
+  and pending acknowledgments survive tab switches and closing/reopening the
+  dock, and each chat channel keeps its own draft. Private notes are browser
+  storage only: they are never sent to the server, so they stay unreadable by
+  admins.
 - Tabs support arrow keys, Home/End and roving focus. Escape/close restores focus
   to the discussion toggle. Unread chat/activity counts appear on tabs and toggle.
 - Room identity/settings/sharing, audio controls, and content actions are separated.

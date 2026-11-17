@@ -1,5 +1,40 @@
 # Resume: finish v1 → v2 parity
 
+## Chat channels (Room / Stage / Admin) and masked moderation — validated locally, not deployed
+
+- Three room-scoped channels with separate histories and one shared send
+  cooldown per member, so switching channels cannot bypass the rate limit and a
+  busy channel cannot evict another one's history. `chat.send` carries a
+  channel; an omitted channel means the room channel, so older clients keep
+  working.
+- Audiences are enforced server-side, never in the UI: the room channel follows
+  the existing role plus spectator-chat rule, the stage channel is read and
+  written only by people on stage, and the admin channel only by admins. Because
+  filtering happens before delivery, a spectator cannot even count stage or
+  admin messages, and stage/admin content never reaches the v1 chat bridge.
+- `chat.remove` is admin moderation that **masks** rather than deletes: the
+  entry keeps its id and position so the conversation does not silently shift,
+  while the text is dropped server-side and cannot be re-read by any client,
+  including after a reload. Clients show a localized "message removed" line.
+- Role changes re-fetch and replace the cached history instead of merging it, so
+  a promoted member receives earlier stage messages and a demoted member stops
+  reading them. A channel the member lost is removed from the selector and the
+  selection falls back to the room channel.
+- Participants UI: a per-channel selector with unread counts, separate drafts per
+  channel, an audience description (visible on desktop, screen-reader only on
+  short mobile layouts where the extra line pushed the composer out of the
+  keyboard-visible viewport), and a two-step remove control for admins.
+- Fixed while validating: a channel with no messages serialized Go `nil` into
+  `chat.snapshot` as `messages: null`, which left clients stuck on "Loading
+  messages". Empty histories now serialize as `[]` and the client merge tolerates
+  either shape.
+- Validation: backend race suite and lint (0 issues), frontend check/lint/build
+  and **220 unit tests**, **124/124** Chromium+Firefox and **62/62** WebKit UI
+  scenarios, **18/18** real-SFU voice scenarios. New coverage proves channel
+  audiences across three clients, masked removal visible to author and admin,
+  role-change refetch, per-channel drafts, and the demotion fallback.
+- Not deployed. Production remains beta.17.
+
 ## Additive co-admins and voluntary step-down — validated locally, not deployed
 
 - Replace the v2 `room.transfer` op (which handed authority over and silently
@@ -307,8 +342,14 @@ and local fixtures now force the densest toolbar regardless of backend flags.
 
 Remaining agreed feedback, intentionally outside this first UI batch:
 
-Status update: items 1–2 were subsequently implemented in beta.17 (see sections
-above), except physical-device acceptance. Items 3–4 remain in progress/backlog.
+Status update: items 1–2 shipped in beta.17 (see sections above). Items 3–4 are
+now implemented, committed and fully validated locally on `v2` but **not yet
+deployed**: push-to-talk, targeted admin mute with self-only resume, shared
+speaking time, private browser-only notes, opt-in transcription tab, additive
+co-admins with voluntary step-down, and the Room/Stage/Admin chat channels with
+masked admin moderation. What remains from this list is physical-device
+acceptance (real iPhone/Safari and Android keyboards, app-switch and audio) and
+the rollout itself.
 
 Execution order confirmed by the user: finish the approved production rollout,
 then mobile reliability (item 1), then readability and notes (item 2).
