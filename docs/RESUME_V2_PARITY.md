@@ -1,5 +1,48 @@
 # Resume: finish v1 → v2 parity
 
+## beta.19 production acceptance — 2026-11-17
+
+Deployed as a digest-pinned pair (frontend `sha256:5fb10a70…`, backend
+`sha256:12823242…`, source `fb941d4`), after an observed idle gate
+(`sfuRooms 0 / sfuParticipants 0 / backendEstablishedConnections 0`), with the
+rollback snapshot `/opt/spectrum/deploy-v2.0.0-beta.19-20261117T092326Z` and
+LiveKit, v1 PeerJS and v1 TURN left untouched (same digests, same start times).
+
+Evidence, all against production:
+
+- Existing release smokes, run sequentially: notes attribution / author-only
+  content / revalidation / no-unreviewed-leak / mobile resume / multiline claim
+  on Chromium **and** WebKit; French mobile UI (profile, contained scroll,
+  no overlapping toolbar, short viewport, chat draft preserved, inline help, v1
+  restored) on Chromium **and** WebKit; voice over direct UDP and over
+  TURN/TLS, each including the v1 route + PeerJS check.
+- New beta.19 acceptance probe (`france-beta19-smoke.mjs voice`), 11/11:
+  transcript tab absent while the room is opted out; per-role channel strips
+  (admin 3, participant 2, spectator none) and audience isolation with stage and
+  admin text never delivered to a lower audience; masked removal visible to
+  author and admin with the original text gone after a reload; private notes
+  restored locally with no frame ever leaving the browser and no canvas note
+  created; additive co-admin appointment then voluntary step-down with the
+  last-admin guard; shared speaking time visible to the other client;
+  push-to-talk capturing only while held with exactly one capture; targeted
+  mute stopping only that microphone while the member stays connected and on
+  stage, with resume available solely to its owner and no unmute affordance
+  anywhere in the admin's panel.
+- First probe runs of these two scripts failed, and in every case the cause was
+  the **test tooling**, not the product: an ambiguous `textarea` selector in the
+  mobile smoke once the Notes tab added a second one; a spectator joined via a
+  URL read before the client had written `?room=`; a `chat.remove` assertion that
+  read once instead of waiting for the reloaded snapshot; an `async` helper that
+  wrapped a Locator in a Promise. Each was fixed in the scripts and re-run.
+- Two deployment gaps found during this work, both recorded in
+  `BROWSER_ASR_PARAKEET.md`: browser transcription assets were never served
+  (excluded from the image, and every `/stt/` path fell through to the SPA shell,
+  returning HTML with a 200), now fixed to 404 with `gzip_static`; and the
+  deployed nginx has no zstd/brotli module, so download-size promises must be
+  measured with gzip rather than taken from the model repo's `.zst` sizes.
+- Still open: real-device acceptance on iPhone/Android. Every result above comes
+  from local or CI browsers, and CI's "WebKit" is not real Safari.
+
 ## Tiny-screen chrome regression found by CI — fixed and deployed in beta.19
 
 - beta.18 CI (run 44043444880) failed twice, and neither failure was a
