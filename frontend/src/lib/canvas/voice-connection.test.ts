@@ -6,7 +6,8 @@ const fixture = vi.hoisted(() => ({
 	events: new Map<string, (...args: unknown[]) => void>(),
 	setVolume: vi.fn(),
 	createLocalAudioTrack: vi.fn(),
-	publishTrack: vi.fn()
+	publishTrack: vi.fn(),
+	unpublishTrack: vi.fn()
 }));
 
 vi.mock('livekit-client', () => ({
@@ -21,7 +22,10 @@ vi.mock('livekit-client', () => ({
 	},
 	Room: class {
 		state = 'connected';
-		localParticipant = { publishTrack: fixture.publishTrack };
+		localParticipant = {
+			publishTrack: fixture.publishTrack,
+			unpublishTrack: fixture.unpublishTrack
+		};
 		remoteParticipants = new Map([['m_speaker', { setVolume: fixture.setVolume }]]);
 		private disconnected?: () => void;
 		on(event: string, callback: (...args: unknown[]) => void) {
@@ -73,6 +77,7 @@ afterEach(() => {
 	fixture.setVolume.mockClear();
 	fixture.createLocalAudioTrack.mockReset();
 	fixture.publishTrack.mockReset();
+	fixture.unpublishTrack.mockReset();
 });
 
 it('reports an early SDK disconnect instead of swallowing the media failure', async () => {
@@ -210,3 +215,112 @@ it.each([false, true])(
 		await connection.disconnect();
 	}
 );
+
+it('release cancels a pending permission prompt without publishing late capture', async () => {
+	fixture.mode = 'success';
+	const track = {
+		mediaStreamTrack: Object.assign(new EventTarget(), { readyState: 'live' }),
+		stop: vi.fn()
+	};
+	let finish!: (value: typeof track) => void;
+	fixture.createLocalAudioTrack.mockReturnValue(
+		new Promise((resolve) => {
+			finish = resolve;
+		})
+	);
+	const { connection, callbacks } = setup();
+	await connection.connect({ ...credentials, canPublish: true });
+	const enabling = connection.toggleMicrophone();
+	await vi.waitFor(() => expect(fixture.createLocalAudioTrack).toHaveBeenCalledOnce());
+	await connection.disableMicrophone();
+	finish(track);
+	await enabling;
+	expect(track.stop).toHaveBeenCalled();
+	expect(fixture.publishTrack).not.toHaveBeenCalled();
+	expect(callbacks.microphone).toHaveBeenLastCalledWith(false, false);
+	await connection.disconnect();
+});
+
+it('an old delayed publication cannot reactivate or clear a newer held microphone', async () => {
+	fixture.mode = 'success';
+	const tracks = [0, 1].map(() => ({
+		mediaStreamTrack: Object.assign(new EventTarget(), { readyState: 'live' }),
+		stop: vi.fn()
+	}));
+	fixture.createLocalAudioTrack.mockResolvedValueOnce(tracks[0]).mockResolvedValueOnce(tracks[1]);
+	let finish!: () => void;
+	fixture.publishTrack
+		.mockImplementationOnce(
+			() =>
+				new Promise<void>((resolve) => {
+					finish = resolve;
+				})
+		)
+		.mockResolvedValueOnce(undefined);
+	const { connection, callbacks } = setup();
+	await connection.connect({ ...credentials, canPublish: true });
+	const first = connection.toggleMicrophone();
+	await vi.waitFor(() => expect(fixture.publishTrack).toHaveBeenCalledOnce());
+	await connection.disableMicrophone();
+	await connection.toggleMicrophone();
+	finish();
+	await first;
+	expect(tracks[0].stop).toHaveBeenCalled();
+	expect(tracks[1].stop).not.toHaveBeenCalled();
+	expect(callbacks.microphone).toHaveBeenLastCalledWith(true, false);
+	expect(fixture.unpublishTrack).not.toHaveBeenCalledWith(tracks[1], true);
+	await connection.disconnect();
+});
+
+it('permission revocation cancels pending capture even if permissions return before it resolves', async () => {
+	fixture.mode = 'success';
+	const track = {
+		mediaStreamTrack: Object.assign(new EventTarget(), { readyState: 'live' }),
+		stop: vi.fn()
+	};
+	let finish!: (value: typeof track) => void;
+	fixture.createLocalAudioTrack.mockReturnValue(
+		new Promise((resolve) => {
+			finish = resolve;
+		})
+	);
+	const { connection, callbacks } = setup();
+	await connection.connect({ ...credentials, canPublish: true });
+	const enabling = connection.toggleMicrophone();
+	await vi.waitFor(() => expect(fixture.createLocalAudioTrack).toHaveBeenCalledOnce());
+	await connection.setPublishAllowed(false);
+	await connection.setPublishAllowed(true);
+	finish(track);
+	await enabling;
+	expect(track.stop).toHaveBeenCalled();
+	expect(fixture.publishTrack).not.toHaveBeenCalled();
+	expect(callbacks.microphone).toHaveBeenLastCalledWith(false, false);
+	await connection.disconnect();
+});
+
+it('release prevents a delayed input-device switch from restarting capture', async () => {
+	fixture.mode = 'success';
+	const track = {
+		mediaStreamTrack: Object.assign(new EventTarget(), { readyState: 'live' }),
+		stop: vi.fn()
+	};
+	fixture.createLocalAudioTrack.mockResolvedValue(track);
+	const { connection, callbacks } = setup();
+	await connection.connect({ ...credentials, canPublish: true });
+	await connection.toggleMicrophone();
+	let finish!: () => void;
+	fixture.unpublishTrack.mockImplementationOnce(
+		() =>
+			new Promise<void>((resolve) => {
+				finish = resolve;
+			})
+	);
+	const switching = connection.setMicrophoneDevice('another-device');
+	await vi.waitFor(() => expect(fixture.unpublishTrack).toHaveBeenCalledOnce());
+	await connection.disableMicrophone();
+	finish();
+	await switching;
+	expect(fixture.createLocalAudioTrack).toHaveBeenCalledTimes(1);
+	expect(callbacks.microphone).toHaveBeenLastCalledWith(false, false);
+	await connection.disconnect();
+});

@@ -1,5 +1,42 @@
 # Resume: finish v1 → v2 parity
 
+## Voice ergonomics follow-up — push-to-talk local, not deployed
+
+User requested continuing the remaining improvements after beta.17. First sublot
+is opt-in push-to-talk; targeted admin noise mute and per-Spectrum speaking times
+remain subsequent work, followed by private Discussion/channels/co-admin changes.
+
+- Opt-in microphone option, default off and held only in tab memory. With audio
+  joined and current publish authorization, hold the button (touch/mouse) or
+  Space outside editing/interactive controls; focused hold button also supports
+  Enter. No capture occurs merely by selecting the mode.
+- Release, pointer cancellation/lost capture, focus change, window blur,
+  backgrounding/pagehide, room readiness loss or role/voice permission loss mute
+  local capture. Re-entry/reconnect requires a fresh press; held intent is never
+  restored like the normal continuous microphone. Normal mic mode stays default.
+- A generation-checked microphone cancellation path handles late permission and
+  publication completions, avoids overwriting a newer capture, and prevents a
+  delayed input-device restart after release. Server consent remains required;
+  accepting consent in hold mode grants access but does not start capture.
+- Narrow French layouts keep a short hold label and named icon-only leave-audio
+  control; the redundant microphone summary remains screen-reader accessible.
+  The new 320×568 connected-audio test retains the existing canvas-space minimum
+  (>80 px), rather than weakening it to fit additional controls.
+- Final validation: check/lint including E2E, build and **197 unit tests** pass.
+  Complete UI suite passed **180/180** across Chromium/Firefox/WebKit; real SFU
+  fixture voice suite passed **14/14** across Chromium/Firefox, including hold,
+  typing, blur, app reconnect, late permissions, narrow French UI, moderation,
+  cached-token revocation and expiration without disrupting another mic.
+  Component tests additionally verify fresh-press requirements after readiness
+  or role changes, and consent without automatic capture in hold mode.
+- The existing controlled-disconnection fixture now refuses retries while paused
+  rather than holding mock sockets past the bounded signin deadline. No runtime
+  reconnect limit or assertion was weakened. Logs/screenshots are under
+  `/tmp/opencode/spectrum-mobile-pass/ptt-complete-*` and `ptt-unit-complete.log`.
+  Physical-device audio acceptance remains outstanding.
+- No production change: beta.17 remains deployed. This sublot does not implement
+  remote mute/unmute or shared speaking-time accounting.
+
 ## Readability and notes (group 2) — beta.17 deployed
 
 User requested group 2 before deploying it together with mobile reliability.
@@ -160,6 +197,9 @@ and local fixtures now force the densest toolbar regardless of backend flags.
   grace period are unchanged; production frontend is beta.16, backend beta.14.
 
 Remaining agreed feedback, intentionally outside this first UI batch:
+
+Status update: items 1–2 were subsequently implemented in beta.17 (see sections
+above), except physical-device acceptance. Items 3–4 remain in progress/backlog.
 
 Execution order confirmed by the user: finish the approved production rollout,
 then mobile reliability (item 1), then readability and notes (item 2).

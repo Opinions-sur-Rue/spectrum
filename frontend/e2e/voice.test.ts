@@ -1,4 +1,5 @@
-import { expect, test, type BrowserContext } from '@playwright/test';
+import { expect, type BrowserContext } from '@playwright/test';
+import { newRoomContext, test } from './network-assets';
 import { englishLocale } from './locale-state';
 
 declare global {
@@ -7,6 +8,8 @@ declare global {
 			calls: number;
 			tracks: MediaStreamTrack[];
 			deny: boolean;
+			delay: boolean;
+			resumeCapture: (() => void) | null;
 			appSockets: WebSocket[];
 			voiceSockets: WebSocket[];
 		};
@@ -15,7 +18,15 @@ declare global {
 
 async function syntheticMicrophone(context: BrowserContext) {
 	await context.addInitScript(() => {
-		window.__voiceFixture = { calls: 0, tracks: [], deny: false, appSockets: [], voiceSockets: [] };
+		window.__voiceFixture = {
+			calls: 0,
+			tracks: [],
+			deny: false,
+			delay: false,
+			resumeCapture: null,
+			appSockets: [],
+			voiceSockets: []
+		};
 		window.WebSocket = new Proxy(window.WebSocket, {
 			construct(target, args) {
 				const socket = Reflect.construct(target, args) as WebSocket;
@@ -29,6 +40,13 @@ async function syntheticMicrophone(context: BrowserContext) {
 			window.__voiceFixture.calls++;
 			if (window.__voiceFixture.deny)
 				throw new DOMException('Permission denied', 'NotAllowedError');
+			if (window.__voiceFixture.delay)
+				await new Promise<void>((resolve) => {
+					window.__voiceFixture.resumeCapture = () => {
+						window.__voiceFixture.resumeCapture = null;
+						resolve();
+					};
+				});
 			const audio = new AudioContext();
 			const oscillator = audio.createOscillator();
 			const gain = audio.createGain();
@@ -56,6 +74,121 @@ async function syntheticMicrophone(context: BrowserContext) {
 	});
 }
 
+test('push-to-talk holds only while pressed, never hijacks typing, and cancels late microphone permission', async ({
+	page
+}) => {
+	await syntheticMicrophone(page.context());
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await page.getByRole('button', { name: 'Join audio', exact: true }).click();
+	const controls = page.getByTestId('voice-controls');
+	await expect(controls).toHaveAttribute('data-status', 'connected', { timeout: 30000 });
+	await page.getByTestId('mic-options').click();
+	await page.getByTestId('push-to-talk-mode').check();
+	await page.getByTestId('mic-options').click();
+	const hold = page.getByTestId('push-to-talk');
+	await expect(hold).toBeEnabled();
+	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(0);
+	await hold.focus();
+	await page.keyboard.down('Space');
+	await expect(controls).toHaveAttribute('data-microphone', 'true');
+	await page.keyboard.down('Space');
+	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(1);
+	await page.keyboard.up('Space');
+	await expect(controls).toHaveAttribute('data-microphone', 'false');
+	await expect
+		.poll(() =>
+			page.evaluate(() =>
+				window.__voiceFixture.tracks.every((track) => track.readyState === 'ended')
+			)
+		)
+		.toBe(true);
+	await page.getByTestId('discussion-toggle').click();
+	await page.getByTestId('discussion-tab-chat').click();
+	const input = page.getByTestId('discussion-panel').locator('textarea');
+	await input.fill('Typing');
+	await input.press('End');
+	await input.press('Space');
+	await expect(input).toHaveValue('Typing ');
+	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(1);
+	await page.getByTestId('discussion-close').click();
+	const point = (await hold.boundingBox())!;
+	await page.mouse.move(point.x + point.width / 2, point.y + point.height / 2);
+	await page.mouse.down();
+	await expect(controls).toHaveAttribute('data-microphone', 'true');
+	await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+	await expect(controls).toHaveAttribute('data-microphone', 'false');
+	await page.mouse.up();
+	await hold.focus();
+	await page.keyboard.down('Space');
+	await expect(controls).toHaveAttribute('data-microphone', 'true');
+	await page.evaluate(() => window.__voiceFixture.appSockets.at(-1)!.close());
+	await expect(page.getByTestId('connection-state')).toHaveAttribute('data-status', 'Reconnecting');
+	await expect(controls).toHaveAttribute('data-microphone', 'false');
+	await page.keyboard.up('Space');
+	await expect(page.getByTestId('connection-state')).toHaveAttribute('data-status', 'Connected', {
+		timeout: 15000
+	});
+	await expect(hold).toHaveAttribute('aria-pressed', 'false');
+	await expect(controls).toHaveAttribute('data-microphone', 'false');
+	const captures = await page.evaluate(() => window.__voiceFixture.calls);
+	const tracks = await page.evaluate(() => window.__voiceFixture.tracks.length);
+	await page.evaluate(() => {
+		window.__voiceFixture.delay = true;
+	});
+	await hold.focus();
+	await page.keyboard.down('Space');
+	await expect.poll(() => page.evaluate(() => window.__voiceFixture.calls)).toBe(captures + 1);
+	await page.keyboard.up('Space');
+	await page.evaluate(() => window.__voiceFixture.resumeCapture?.());
+	await expect
+		.poll(() => page.evaluate(() => window.__voiceFixture.tracks.length))
+		.toBe(tracks + 1);
+	await expect
+		.poll(() =>
+			page.evaluate(() =>
+				window.__voiceFixture.tracks.every((track) => track.readyState === 'ended')
+			)
+		)
+		.toBe(true);
+	await expect(controls).toHaveAttribute('data-microphone', 'false');
+	await page.getByTestId('mic-options').click();
+	await page.getByTestId('push-to-talk-mode').uncheck();
+	await page.getByTestId('mic-options').click();
+	await expect(page.getByRole('button', { name: 'Enable microphone', exact: true })).toBeVisible();
+});
+
+test('push-to-talk remains usable in a small French mobile viewport', async ({ page }) => {
+	await syntheticMicrophone(page.context());
+	await page
+		.context()
+		.addCookies([{ name: 'PARAGLIDE_LOCALE', value: 'fr', domain: 'localhost', path: '/' }]);
+	await page.setViewportSize({ width: 320, height: 568 });
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveAttribute('data-role', 'admin');
+	await page.getByTestId('audio-toggle').click();
+	const controls = page.getByTestId('voice-controls');
+	await expect(controls).toHaveAttribute('data-status', 'connected', { timeout: 30000 });
+	await page.getByTestId('mic-options').click();
+	await page.getByTestId('push-to-talk-mode').check();
+	await page.getByTestId('mic-options').click();
+	const hold = page.getByTestId('push-to-talk');
+	await expect(hold).toBeEnabled();
+	const box = (await hold.boundingBox())!;
+	expect(box.x).toBeGreaterThanOrEqual(0);
+	expect(box.y + box.height).toBeLessThanOrEqual(568);
+	expect(box.x + box.width).toBeLessThanOrEqual(320);
+	await page.screenshot({ path: test.info().outputPath('push-to-talk-fr-mobile.png') });
+	expect((await page.getByTestId('canvas-viewport').boundingBox())!.height).toBeGreaterThan(80);
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	await expect(controls).toHaveAttribute('data-microphone', 'true');
+	await page.mouse.up();
+	await expect(controls).toHaveAttribute('data-microphone', 'false');
+});
+
 test('voice survives app reconnect and another member leaving; active mic returns after SFU retirement', async ({
 	page,
 	browser
@@ -79,7 +212,7 @@ test('voice survives app reconnect and another member leaving; active mic return
 	});
 	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(captures);
 
-	const listenerContext = await browser.newContext({ storageState: englishLocale });
+	const listenerContext = await newRoomContext(browser, { storageState: englishLocale });
 	await syntheticMicrophone(listenerContext);
 	try {
 		const listener = await listenerContext.newPage();
@@ -159,7 +292,7 @@ test('promotion, demotion and kick never reconnect other voice participants', as
 		captures: window.__voiceFixture.calls,
 		connections: window.__voiceFixture.voiceSockets.length
 	}));
-	const actorContext = await browser.newContext({ storageState: englishLocale });
+	const actorContext = await newRoomContext(browser, { storageState: englishLocale });
 	await syntheticMicrophone(actorContext);
 	try {
 		const actor = await actorContext.newPage();
@@ -255,7 +388,7 @@ test('an expired speaker does not disconnect the remaining microphone', async ({
 	await page.getByRole('button', { name: 'Enable microphone', exact: true }).click();
 	await expect(controls).toHaveAttribute('data-microphone', 'true');
 	const captures = await page.evaluate(() => window.__voiceFixture.calls);
-	const actorContext = await browser.newContext({ storageState: englishLocale });
+	const actorContext = await newRoomContext(browser, { storageState: englishLocale });
 	await syntheticMicrophone(actorContext);
 	try {
 		const actor = await actorContext.newPage();
@@ -302,8 +435,8 @@ test('self-hosted voice: consent, spectator listening, live audio, and cached-to
 	if (await transcription.isVisible()) await transcription.uncheck();
 	await page.getByLabel('Room options', { exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Join audio', exact: true })).toBeVisible();
-	const actorContext = await browser.newContext({ storageState: englishLocale });
-	const listenerContext = await browser.newContext({ storageState: englishLocale });
+	const actorContext = await newRoomContext(browser, { storageState: englishLocale });
+	const listenerContext = await newRoomContext(browser, { storageState: englishLocale });
 	await syntheticMicrophone(actorContext);
 	await syntheticMicrophone(listenerContext);
 	try {

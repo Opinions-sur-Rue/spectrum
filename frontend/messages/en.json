@@ -1,4 +1,9 @@
 {
+	"ptt_mode": "Push-to-talk mode",
+	"ptt_hold": "Hold to talk",
+	"ptt_hold_short": "Hold",
+	"ptt_consent_accept": "Accept, then hold to talk",
+	"ptt_hint": "Hold this button, or Space outside text fields, to speak. Release to mute. Returning from another app requires a new press.",
 	"ux_note_author": "By {name}",
 	"ux_note_author_only": "Only the author can edit the content",
 	"ux_note_unknown_author": "Former participant",

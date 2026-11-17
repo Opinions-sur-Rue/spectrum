@@ -20,6 +20,7 @@
 	} from './audio-inputs';
 	import type { BrowserTranscriptSession, BrowserTranscriptFailure } from './browser-stt';
 	import { toolbarMenu } from './toolbar-menu';
+	import { pushToTalk } from './push-to-talk';
 	let {
 		room,
 		ready,
@@ -67,6 +68,29 @@
 	let startAfterConsent = $state(false);
 	let inputs = $state<AudioInputOption[]>([]);
 	let deviceId = $state('');
+	let pttMode = $state(false);
+	let pttPressed = $state(false);
+	let hold = $state(0);
+	let attemptedHold = 0;
+	function holdMicrophone(pressed: boolean) {
+		pttPressed = pressed;
+		microphoneWanted = false;
+		restorePending = false;
+		if (pressed) hold++;
+		else void connection?.disableMicrophone();
+	}
+	function changePttMode(enabled: boolean) {
+		pttMode = enabled;
+		holdMicrophone(false);
+	}
+	$effect(() => {
+		if (canHold && pttPressed && !busy && !microphone && connection && attemptedHold !== hold) {
+			attemptedHold = hold;
+			untrack(() => {
+				void connection?.toggleMicrophone();
+			});
+		}
+	});
 	const transcribing = $derived(
 		!!room.transcription?.available &&
 			room.transcription.mode !== 'browser' &&
@@ -74,6 +98,7 @@
 	);
 	const onStage = $derived(room.role !== 'spectator');
 	const connected = $derived(status === 'connected');
+	const canHold = $derived(pttMode && wanted && onStage && connected && granted && ready);
 	const summary = $derived(
 		!wanted
 			? m.ux_audio_off()
@@ -111,7 +136,7 @@
 			},
 			microphone: (enabled, working) => {
 				microphone = enabled;
-				if (enabled) microphoneWanted = true;
+				if (enabled && !pttMode) microphoneWanted = true;
 				busy = working;
 			},
 			playbackBlocked: (value) => {
@@ -266,6 +291,7 @@
 
 <div
 	class="flex min-w-0 flex-wrap items-center gap-2"
+	class:ptt-compact={pttMode && wanted && onStage}
 	data-testid="voice-controls"
 	data-status={status}
 	data-remote-tracks={remoteTracks}
@@ -276,6 +302,7 @@
 		class="btn btn-sm gap-2"
 		data-testid="audio-toggle"
 		aria-label={wanted ? m.ux_leave_audio() : m.ux_join_audio()}
+		title={wanted ? m.ux_leave_audio() : m.ux_join_audio()}
 		disabled={!ready}
 		aria-pressed={wanted}
 		onclick={() => {
@@ -289,10 +316,11 @@
 				void connection?.disconnect();
 			}
 		}}
-		><Icon name="headphones" /><span>{wanted ? m.ux_leave_audio() : m.ux_join_audio()}</span
+		><Icon name="headphones" /><span class="audio-label"
+			>{wanted ? m.ux_leave_audio() : m.ux_join_audio()}</span
 		></button
 	>
-	{#if wanted && onStage}<IconButton
+	{#if wanted && onStage && (!pttMode || (transcribing && !granted))}<IconButton
 			icon={microphone ? 'micOff' : 'mic'}
 			label={microphone ? m.ux_mute_microphone() : m.ux_enable_microphone()}
 			disabled={!connected || (!granted && !transcribing) || busy || !ready}
@@ -306,6 +334,24 @@
 				}
 			}}
 		/>{/if}
+	{#if wanted && onStage && pttMode}<button
+			type="button"
+			class="btn btn-sm ptt-button"
+			class:btn-primary={pttPressed}
+			data-testid="push-to-talk"
+			aria-label={m.ptt_hold()}
+			title={m.ptt_hint()}
+			aria-keyshortcuts="Space"
+			aria-pressed={pttPressed}
+			aria-describedby="push-to-talk-hint"
+			disabled={!canHold}
+			use:pushToTalk={{ enabled: canHold, change: holdMicrophone }}
+			><Icon name="mic" /><span class="ptt-label">{m.ptt_hold()}</span><span class="ptt-short"
+				>{m.ptt_hold_short()}</span
+			></button
+		>
+		<span id="push-to-talk-hint" class="sr-only">{m.ptt_hint()}</span>
+	{/if}
 	{#if wanted && playbackBlocked}<IconButton
 			icon="speaker"
 			label={m.ux_enable_sound()}
@@ -341,6 +387,17 @@
 				<Icon name="mic" /><span class="hidden text-xs sm:inline">{m.ux_mic_options()}</span>
 			</summary>
 			<div class="toolbar-popover bg-base-100 w-72 space-y-3 rounded-xl border p-4 shadow-xl">
+				<label class="flex items-center gap-2 text-xs">
+					<input
+						type="checkbox"
+						class="checkbox checkbox-sm"
+						data-testid="push-to-talk-mode"
+						checked={pttMode}
+						onchange={(event) => changePttMode(event.currentTarget.checked)}
+					/>
+					{m.ptt_mode()}
+				</label>
+				{#if pttMode}<p class="text-xs opacity-70">{m.ptt_hint()}</p>{/if}
 				<label class="block text-xs"
 					>{m.ux_mic_device()}
 					<select
@@ -420,15 +477,42 @@
 				class="btn btn-primary"
 				onclick={() => {
 					consentOpen = false;
-					startAfterConsent = true;
+					startAfterConsent = !pttMode;
 					join(true);
-				}}>{m.ux_consent_accept()}</button
+				}}>{pttMode ? m.ptt_consent_accept() : m.ux_consent_accept()}</button
 			>
 		</div>
 	</dialog>
 {/if}
 
 <style>
+	.ptt-button {
+		min-height: 44px;
+		touch-action: none;
+		user-select: none;
+	}
+	.ptt-short {
+		display: none;
+	}
+	@media (max-width: 359px) {
+		.ptt-compact .audio-label {
+			display: none;
+		}
+		.ptt-compact .voice-summary {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+		.ptt-label {
+			display: none;
+		}
+		.ptt-short {
+			display: inline;
+		}
+	}
 	.voice-summary {
 		font-size: var(--v2-text-xs);
 		opacity: 0.65;

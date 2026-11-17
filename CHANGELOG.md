@@ -4,6 +4,10 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Add opt-in push-to-talk with a held pointer or Space outside text/interactive controls. Release, cancellation, backgrounding or lost authorization stops capture; reconnects require a new press in hold mode.
+- Cancel pending microphone permission/publication and delayed device restarts when a hold is released. Keep the default continuous microphone mode unchanged.
+
 ### Fixed in v2.0.0-beta.17
 - Recover suspended mobile WebSockets without changing tab identity, the 60-second grace period, or server-authoritative stage roles; ignore late events from replaced connections.
 - Keep replacement server connections registered when old sockets close late.

@@ -1,4 +1,9 @@
 {
+	"ptt_mode": "Mode talkie-walkie",
+	"ptt_hold": "Maintenir pour parler",
+	"ptt_hold_short": "Maintenir",
+	"ptt_consent_accept": "Accepter, puis maintenir pour parler",
+	"ptt_hint": "Maintenez ce bouton, ou Espace hors des champs de texte, pour parler. Relâchez pour couper le micro. Après un changement d’application, appuyez à nouveau.",
 	"ux_note_author": "Par {name}",
 	"ux_note_author_only": "Seul l’auteur peut modifier le contenu",
 	"ux_note_unknown_author": "Ancien participant",

@@ -34,6 +34,7 @@ export class VoiceConnection {
 	private allowed = false;
 	private operation = 0;
 	private micBusy = false;
+	private microphoneRequest = 0;
 	private audio = new Map<RemoteTrack, HTMLMediaElement[]>();
 	private volumes = new Map<string, number>();
 	private audioOwners = new Map<RemoteTrack, string>();
@@ -174,15 +175,7 @@ export class VoiceConnection {
 	async setPublishAllowed(allowed: boolean): Promise<void> {
 		this.allowed = allowed;
 		this.callbacks.permissions?.(allowed);
-		if (allowed || !this.microphone) return;
-		const track = this.microphone;
-		const room = this.room;
-		this.stopCapture();
-		try {
-			await room?.localParticipant.unpublishTrack(track, true);
-		} catch {
-			/* Already revoked by the SFU. */
-		}
+		if (!allowed) await this.disableMicrophone();
 	}
 
 	/** Remember a microphone choice; restart capture only if it is already live. */
@@ -193,35 +186,33 @@ export class VoiceConnection {
 		const room = this.room;
 		if (!room || !this.microphone || this.micBusy) return;
 		const track = this.microphone;
+		const request = ++this.microphoneRequest;
 		this.stopCapture();
 		try {
 			await room.localParticipant.unpublishTrack(track, true);
 		} catch {
 			/* Capture is already stopped. */
 		}
-		await this.toggleMicrophone();
+		if (request === this.microphoneRequest && this.room === room && this.allowed)
+			await this.toggleMicrophone();
 	}
 
 	async toggleMicrophone(): Promise<void> {
 		if (this.micBusy || !this.room || !this.allowed || this.room.state !== 'connected') return;
 		const room = this.room;
 		if (this.microphone) {
-			const track = this.microphone;
-			this.stopCapture();
-			try {
-				await room.localParticipant.unpublishTrack(track, true);
-			} catch {
-				/* Capture is already stopped. */
-			}
+			await this.disableMicrophone();
 			return;
 		}
 		const operation = this.operation;
+		const request = ++this.microphoneRequest;
 		this.micBusy = true;
 		this.callbacks.microphone(false, true);
 		let track: LocalAudioTrack | null = null;
 		try {
 			const sdk = await import('livekit-client');
-			if (operation !== this.operation || !this.allowed) return;
+			if (operation !== this.operation || request !== this.microphoneRequest || !this.allowed)
+				return;
 			// Capture starts only after a mic action or restoration of that intent
 			// following an involuntary rejoin with fresh publishing permission.
 			track = await sdk.createLocalAudioTrack({
@@ -230,7 +221,12 @@ export class VoiceConnection {
 				autoGainControl: true,
 				...(this.deviceId ? { deviceId: this.deviceId } : {})
 			});
-			if (operation !== this.operation || this.room !== room || !this.allowed) {
+			if (
+				operation !== this.operation ||
+				request !== this.microphoneRequest ||
+				this.room !== room ||
+				!this.allowed
+			) {
 				track.stop();
 				return;
 			}
@@ -243,8 +239,18 @@ export class VoiceConnection {
 				{ once: true }
 			);
 			await room.localParticipant.publishTrack(track, { source: sdk.Track.Source.Microphone });
-			if (operation !== this.operation || this.room !== room || !this.allowed) {
+			if (
+				operation !== this.operation ||
+				request !== this.microphoneRequest ||
+				this.room !== room ||
+				!this.allowed
+			) {
 				track.stop();
+				try {
+					await room.localParticipant.unpublishTrack(track, true);
+				} catch {
+					/* Already removed. */
+				}
 				return;
 			}
 			if (this.microphone !== track || track.mediaStreamTrack.readyState !== 'live') {
@@ -256,15 +262,29 @@ export class VoiceConnection {
 			this.callbacks.localTrack?.(track.mediaStreamTrack);
 		} catch {
 			track?.stop();
-			if (operation === this.operation) {
+			if (operation === this.operation && request === this.microphoneRequest) {
 				this.microphone = null;
 				this.callbacks.error(m.v2_microphone_failed());
 			}
 		} finally {
-			if (operation === this.operation) {
+			if (operation === this.operation && request === this.microphoneRequest) {
 				this.micBusy = false;
 				this.callbacks.microphone(this.microphone !== null, false);
 			}
+		}
+	}
+
+	/** A release must cancel even a pending permission prompt/publication. */
+	async disableMicrophone(): Promise<void> {
+		this.microphoneRequest++;
+		const track = this.microphone;
+		const room = this.room;
+		this.stopCapture();
+		if (!track) return;
+		try {
+			await room?.localParticipant.unpublishTrack(track, true);
+		} catch {
+			/* Local capture is already stopped. */
 		}
 	}
 

@@ -870,10 +870,11 @@ function cssPixels(style: string | null, property: string) {
 async function roomInterruption(page: Page) {
 	let current: { close: (options: { code: number; reason: string }) => void } | undefined;
 	let paused = false;
-	const pending: { connectToServer: () => unknown }[] = [];
 	await page.routeWebSocket('**/spectrum/ws', (socket) => {
 		current = socket;
-		if (paused) pending.push(socket);
+		// Refuse retries while offline rather than retaining mock sockets that
+		// the client's bounded signin timeout may already have retired.
+		if (paused) socket.close({ code: 1013, reason: 'Controlled offline transport' });
 		else socket.connectToServer();
 	});
 	return {
@@ -889,7 +890,6 @@ async function roomInterruption(page: Page) {
 		},
 		async resume() {
 			paused = false;
-			for (const socket of pending.splice(0)) socket.connectToServer();
 			await expect(page.getByTestId('connection-state')).toHaveAttribute(
 				'data-status',
 				'Connected'
