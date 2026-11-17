@@ -1,5 +1,45 @@
 # Resume: finish v1 → v2 parity
 
+## Old Spectrum host decommissioned — 2026-11-17
+
+- Evidence first: `spectrum.utile.space` and `api.spectrum.utile.space` resolve to
+  the france host; the utile nginx logs show zero requests for those hosts today
+  and yesterday (only historical rotations had hits); zero established sockets on
+  2001/3001/9000/3478/5349; utile's peerjs log contained only external probes and
+  coturn only rejected `test` credential scans. The old containers had no volumes,
+  and the shared `.env` held no Spectrum secrets, so there was nothing to migrate
+  (v1 rooms are memory-only).
+- Removed on `utile`: `utile-compose-spectrum-frontend-1` and
+  `utile-compose-spectrum-backend-1` (stopped then removed), plus stopped
+  `peerjs` and `coturn` with `--restart=no` so they stay down across reboots.
+  France already runs its own v1 PeerJS, TURN and LiveKit, and the bundle served
+  by france references only `spectrum.utile.space` / `api.spectrum.utile.space`,
+  so nothing current depended on the old pair.
+- nginx on `utile`: the two Spectrum 443 vhosts now `return 410` instead of
+  proxying to 2001/3001/9000. TLS blocks and the port-80 Certbot redirects were
+  left intact, the Let's Encrypt certificate for `spectrum.utile.space` was NOT
+  deleted, `nginx -t` passed before reload, and the other sites were re-checked
+  after reload (utile.space 200, card.n9n1.tech 200, alvesdi.as 403, Spectrum
+  410). Old ports are no longer listening.
+- Local images `ghcr.io/opinions-sur-rue/spectrum-{frontend,backend}:latest` were
+  removed from utile only. Registry packages, the `latest` tag in GHCR and the
+  france production stack are untouched.
+- Restore material in `/root/decommission-spectrum-20261117/` (mode 700, files
+  600): nginx config before, the compose file before, the peerjs compose and
+  turnserver config, `docker ps`/`inspect` dumps, image list, and a restore
+  README. Only environment variable *names* were recorded, never values.
+- Two residual resurrection paths, deliberately left for a separate decision:
+  the utile compose checkout still declares the two Spectrum services, and the
+  committed `main` copy of `.github/workflows/publish-images-utile.yml` still
+  dispatches `deploy-spectrum-*` to `SonnyAD/utile-compose`. The working copy of
+  that workflow already removes the deploy job but is uncommitted, so until it
+  lands on `main` a future `main` push can recreate the containers. Durable
+  removal belongs in the `utile-compose` repository, outside this workspace.
+- Certificate renewal note: because DNS no longer points at utile, a renewal
+  attempt for `spectrum.utile.space` on that machine will fail (the cert is valid
+  until 2026-12-14). Removing the vhosts plus `certbot delete` would be the
+  follow-up, not done here without separate approval.
+
 ## Chat channels (Room / Stage / Admin) and masked moderation — validated locally, not deployed
 
 - Three room-scoped channels with separate histories and one shared send
