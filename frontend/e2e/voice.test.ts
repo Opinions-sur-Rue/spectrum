@@ -181,6 +181,12 @@ test('push-to-talk remains usable in a small French mobile viewport', async ({ p
 	expect(box.y + box.height).toBeLessThanOrEqual(568);
 	expect(box.x + box.width).toBeLessThanOrEqual(320);
 	await page.screenshot({ path: test.info().outputPath('push-to-talk-fr-mobile.png') });
+	// Session menus must stay on one row: wrapped menu rows are what previously
+	// starved the board of vertical space (and did so again in CI, where font
+	// metrics differ), so the guard is on the menu height as well as the canvas.
+	expect(
+		Math.round((await page.locator('.session-controls').boundingBox())!.height)
+	).toBeLessThanOrEqual(48);
 	expect((await page.getByTestId('canvas-viewport').boundingBox())!.height).toBeGreaterThan(80);
 	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 	await page.mouse.down();

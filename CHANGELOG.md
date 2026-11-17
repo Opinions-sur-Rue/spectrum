@@ -16,6 +16,10 @@ All notable changes to **Spectrum** are documented in this file.
 - Administration is now additive: "Transfer administration" becomes "Make {name} admin", which adds a co-admin without taking anything from the caller, plus a voluntary "Give up my admin rights" action that is refused for the last admin.
 - Transcription is now opt-in per room: `transcriptionEnabled` defaults to false, so the Discussion Transcript tab stays hidden until an admin turns it on. `SPECTRUM_TRANSCRIPTION_ENABLED` still overrides the deployment default.
 
+### Fixed in v2.0.0-beta.18 (pre-release validation)
+- Keep the board visible on very small screens: below 359 px the header's session menus no longer wrap into three rows but form one scrollable row, restoring ~50 px of canvas height (121 → 171 px measured at 320×568) and satisfying the > 80 px tiny-screen invariant that CI re-broke under different font metrics.
+- Name repeated chat/voice JSON payload keys in the backend test suite so it passes the CI-pinned golangci-lint v2.15.0 (`goconst`) without relaxing the linter.
+
 ### Fixed in v2.0.0-beta.17
 - Recover suspended mobile WebSockets without changing tab identity, the 60-second grace period, or server-authoritative stage roles; ignore late events from replaced connections.
 - Keep replacement server connections registered when old sockets close late.

@@ -1,5 +1,34 @@
 # Resume: finish v1 → v2 parity
 
+## Tiny-screen chrome regression found by CI — fixed locally, not deployed
+
+- beta.18 CI (run 44043444880) failed twice, and neither failure was a
+  configuration quirk to wave away:
+  - `backend`: 14 `goconst` findings. CI pins golangci-lint **v2.15.0** while the
+    local tool was 2.5.0, so earlier "0 issues" claims were meaningless; the
+    beta.17 baseline is clean under v2.15.0, which proved the new tests caused
+    it by repeating JSON field keys. Fixed by reusing the repository's field
+    constants instead of relaxing the linter (commit 7f7cd61).
+  - `frontend`: the last voice scenario failed at 320×568 in French because the
+    board kept only 58.5 px against the project's > 80 px invariant (the same
+    class of defect that blocked beta.15). Locally the same test measured 121 px;
+    the difference is CI font metrics.
+- Root cause of the layout failure, measured rather than guessed: at 320 px the
+  header's session menus wrapped into **three rows (94 px)**, the claim block
+  cost 136 px, help 44 px and the action bar 113 px, so the chrome consumed
+  nearly the whole viewport.
+- Fix: below 359 px the session menu row becomes one horizontally scrollable
+  row (nothing is removed from the tab order or hit targets). Measured after the
+  change: menus 44 px, board **121 → 171 px**, document width still bounded. The
+  voice scenario now also asserts menu height ≤ 48 so this cannot silently
+  return.
+- Re-validation with the CSS change (global to mobile): PTT 320×568
+  Chromium+Firefox 2/2, **220 unit tests**, **124/124** Chromium+Firefox UI,
+  **62/62** WebKit UI, **18/18** real-SFU voice.
+- beta.18 published nothing (`publish` needs backend+frontend), so it stays a
+  dead marker and the release continues as beta.19. Real-device Safari/Android
+  acceptance is still outstanding and cannot be covered here.
+
 ## Old Spectrum host decommissioned — 2026-11-17
 
 - Evidence first: `spectrum.utile.space` and `api.spectrum.utile.space` resolve to

@@ -1084,6 +1084,19 @@
 		.session-controls {
 			flex-basis: 100%;
 			margin-left: 0;
+			/* Three wrapped menu rows consumed 94px of a 568px screen, leaving the
+			   board barely visible. One scrollable row keeps every control
+			   reachable and returns ~64px to the canvas. */
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			overscroll-behavior-x: contain;
+			scrollbar-width: none;
+		}
+		.session-controls::-webkit-scrollbar {
+			display: none;
+		}
+		.session-controls > * {
+			flex-shrink: 0;
 		}
 		.content-action-label {
 			display: none;
