@@ -12,7 +12,7 @@ import (
 func chatSendEnvelope(t *testing.T, channel ChatChannel, text, clientID string) *valueobjects.Envelope {
 	t.Helper()
 	envelope, err := valueobjects.NewEnvelope("chat.send", map[string]string{
-		"text": text, "clientId": clientID, "channel": string(channel),
+		fieldText: text, fieldClientID: clientID, fieldChannel: string(channel),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +65,7 @@ func TestChatChannelsGateWritingAndReading(t *testing.T) {
 	if _, _, err := room.appendChat(hub.users[spectator.userID], ChatRoom, "needs setting", "r2", now); err != ErrForbidden {
 		t.Fatalf("spectator room write without setting = %v", err)
 	}
-	settings := spectrumEnvelope(t, "room.settings", map[string]bool{"spectatorChatEnabled": true})
+	settings := spectrumEnvelope(t, "room.settings", map[string]bool{fieldSpectatorChat: true})
 	if err := handleRoomSettings(admin, settings); err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestChatChannelHistoriesAreSeparateAndCooldownIsShared(t *testing.T) {
 
 func TestChatRemovalMasksTextAndKeepsConversationAnchored(t *testing.T) {
 	hub, admin, spectator, room := stageFixture(t)
-	settings := spectrumEnvelope(t, "room.settings", map[string]bool{"spectatorChatEnabled": true})
+	settings := spectrumEnvelope(t, "room.settings", map[string]bool{fieldSpectatorChat: true})
 	if err := handleRoomSettings(admin, settings); err != nil {
 		t.Fatal(err)
 	}
@@ -129,17 +129,17 @@ func TestChatRemovalMasksTextAndKeepsConversationAnchored(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := handleChatRemove(spectator, spectrumEnvelope(t, "chat.remove", map[string]any{"messageId": speaker.ID})); err != ErrForbidden {
+	if err := handleChatRemove(spectator, spectrumEnvelope(t, "chat.remove", map[string]any{fieldMessageID: speaker.ID})); err != ErrForbidden {
 		t.Fatalf("spectator removal = %v", err)
 	}
-	if err := handleChatRemove(admin, spectrumEnvelope(t, "chat.remove", map[string]any{"messageId": speaker.ID})); err != nil {
+	if err := handleChatRemove(admin, spectrumEnvelope(t, "chat.remove", map[string]any{fieldMessageID: speaker.ID})); err != nil {
 		t.Fatal(err)
 	}
 	stored := room.chatMessages[ChatStage][0]
 	if !stored.Removed || stored.Text != "" || stored.ClientID != "" || stored.ID != speaker.ID {
 		t.Fatalf("stored message after removal = %+v", stored)
 	}
-	if err := handleChatRemove(admin, spectrumEnvelope(t, "chat.remove", map[string]any{"messageId": 9999})); err != ErrChatContent {
+	if err := handleChatRemove(admin, spectrumEnvelope(t, "chat.remove", map[string]any{fieldMessageID: 9999})); err != ErrChatContent {
 		t.Fatalf("unknown message removal = %v", err)
 	}
 	// The removal is only announced inside the channel audience.
@@ -164,7 +164,7 @@ func TestChatRemoveKeepsAdminChannelPrivateFromStageMembers(t *testing.T) {
 	if len(chatSnapshotFor(t, guest).Messages) != 0 {
 		t.Fatal("participant saw the admin channel")
 	}
-	if err := handleChatRemove(guest, spectrumEnvelope(t, "chat.remove", map[string]any{"messageId": private.ID})); err != ErrForbidden {
+	if err := handleChatRemove(guest, spectrumEnvelope(t, "chat.remove", map[string]any{fieldMessageID: private.ID})); err != ErrForbidden {
 		t.Fatalf("participant removed an admin-channel message: %v", err)
 	}
 	if room.chatMessages[ChatAdmin][0].Removed {

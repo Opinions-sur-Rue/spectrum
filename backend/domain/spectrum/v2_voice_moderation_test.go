@@ -10,7 +10,7 @@ import (
 
 func resumeEnvelope(t *testing.T, consent bool) *valueobjects.Envelope {
 	t.Helper()
-	envelope, err := valueobjects.NewEnvelope("voice.resume", map[string]any{"requestId": "self-resume", "transcriptionConsent": consent})
+	envelope, err := valueobjects.NewEnvelope("voice.resume", map[string]any{fieldRequestID: "self-resume", "transcriptionConsent": consent})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,9 @@ func TestAdminMuteTargetsOnePublisherAndFencesCachedTokens(t *testing.T) {
 }
 
 func TestMuteRejectsUntrustedSelectorsAndNonAdmins(t *testing.T) {
-	for _, kind := range []string{"private-signin", "outside", "spectator", "participant", "co-admin"} {
+	// Case labels describe the selector being attacked rather than reusing role
+	// values, so a future role rename cannot silently change what is covered.
+	for _, kind := range []string{"private-signin", "outside", "bench-member", "stage-peer", "co-admin"} {
 		t.Run(kind, func(t *testing.T) {
 			hub, admin, actor, room, driver := voiceFixture(t)
 			caller, target := admin, room.memberIDs[actor.userID]
@@ -70,16 +72,16 @@ func TestMuteRejectsUntrustedSelectorsAndNonAdmins(t *testing.T) {
 			case "private-signin":
 				target = actor.userID
 			case "outside":
-				target = "m_outside"
+				target = fixtureOutsideMemberID
 			case "co-admin":
 				target = room.memberIDs[admin.userID]
-			case "spectator":
-				hub.users["spectator"] = NewUser("spectator")
-				if err := hub.JoinSpectator(room.id, "spectator"); err != nil {
+			case "bench-member":
+				hub.users[fixtureBenchID] = NewUser(fixtureBenchID)
+				if err := hub.JoinSpectator(room.id, fixtureBenchID); err != nil {
 					t.Fatal(err)
 				}
-				target = room.memberIDs["spectator"]
-			case "participant":
+				target = room.memberIDs[fixtureBenchID]
+			case "stage-peer":
 				caller, target = actor, room.memberIDs[admin.userID]
 			}
 			if err := handleVoiceMute(caller, stageEnvelope(t, "voice.mute", target)); !errors.Is(err, ErrForbidden) {
@@ -98,7 +100,7 @@ func TestAdminCannotResumeAnotherMembersMicrophone(t *testing.T) {
 	if err := handleVoiceMute(admin, stageEnvelope(t, "voice.mute", id)); err != nil {
 		t.Fatal(err)
 	}
-	forged, _ := valueobjects.NewEnvelope("voice.resume", map[string]string{"requestId": "forged", "memberId": id})
+	forged, _ := valueobjects.NewEnvelope("voice.resume", map[string]string{fieldRequestID: "forged", "memberId": id})
 	if err := handleVoiceResume(admin, forged); !errors.Is(err, ErrForbidden) {
 		t.Fatal("admin resumed another member", err)
 	}
@@ -165,7 +167,7 @@ func TestPolicyChangeDoesNotUndoModerationMute(t *testing.T) {
 	if err := handleVoiceMute(admin, stageEnvelope(t, "voice.mute", id)); err != nil {
 		t.Fatal(err)
 	}
-	change, _ := valueobjects.NewEnvelope("room.settings", map[string]string{"transcriptionLanguage": "en"})
+	change, _ := valueobjects.NewEnvelope("room.settings", map[string]string{fieldTranscriptionLang: "en"})
 	if err := handleRoomSettings(admin, change); err != nil {
 		t.Fatal(err)
 	}
