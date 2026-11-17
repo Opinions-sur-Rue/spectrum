@@ -4,6 +4,9 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Serve browser transcription assets without lying: `/stt/...` now returns 404 for a missing weight instead of falling through to the SPA `index.html`. Previously every `/stt/` request — including a nonexistent model — answered with the app shell (`Content-Type: text/html`), so a browser model download would fail with an opaque inference error rather than a clear missing-file one.
+
 ## [v2.0.0-beta.19] - 2026-11-17
 
 Deployed to the france host as a digest-pinned frontend/backend pair; LiveKit, v1 PeerJS and v1 TURN were left untouched.

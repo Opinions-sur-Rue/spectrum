@@ -15,7 +15,7 @@ same model family.
 | Decoder/joiner | `int8/decoder_joint-model.int8.onnx` 18 203 490 B (zstd 12 731 860 B) |
 | Mel front-end | `nemo128.onnx` 139 764 B |
 | Vocabulary | `vocab.txt` 93 939 B, 8 198 logits |
-| **Total per participant** | **≈ 208 Mo raw / ≈ 148 Mo over the wire (zstd)** |
+| **Total per participant** | **≈ 208 Mo brut** (the repo's zstd copies total ≈ 148 Mo; gzip transfer size still to be measured — see "Production blocker") |
 | French quality (your harness, 10 clips) | WER 3,52 %, 4,1× realtime, `ort=wasm` |
 | License | `cc-by-4.0` (also the base model `moondream/parakeet-redux`) — commercial use allowed, attribution required |
 | Languages | 33 including `fr` and `en` |
@@ -70,6 +70,43 @@ build from a stock one:
 - `vocab.txt` is 8 198 lines; blank/duration/until-token indices come from the
   TDT config (`config.json`: `nemo-conformer-tdt`, 128 features, subsampling 8).
 
+## Production blocker found while measuring
+
+Browser transcription assets are **not served today**, in either tier:
+
+- `frontend/.dockerignore` and `.gitignore` both exclude `static/stt/`, which is
+  where `npm run setup:browser-stt` puts the Whisper weights, the Silero VAD and
+  the ORT runtime files. The deployed frontend image is 93.6 MB and contains no
+  `stt` directory (`docker inspect` shows no mounts either), so nothing to serve.
+- `frontend/nginx.conf` only has the SPA fallback
+  `location / { try_files $uri $uri/ /index.html; }`. `.onnx` is not in the
+  cached-asset regex, so **every `/stt/...` request falls through to
+  `index.html`**. Verified against production:
+  `GET https://spectrum.utile.space/stt/vad/silero_vad.onnx` → `Content-Type:
+  text/html`, 1831 bytes — the shell, not a model.
+- Consequence: with the feature switched on in a browser today, ORT/Transformers
+  would receive HTML where a model is expected and fail with an opaque error.
+  `docs/BROWSER_STT.md` already warns "Do not rewrite missing `/stt/` files to
+  index.html", which is precisely what the shipped config does.
+
+So Parakeet integration needs the serving story fixed first, and that is a
+deployment decision, not a code detail: either bake the weights into the image
+(frontend image ≈ 300 MB for Parakeet, slow CI pushes and restarts) or mount a
+read-only host directory and add an explicit
+
+```
+location /stt/ { try_files $uri =404; }
+```
+
+so a missing asset fails loudly instead of masquerading as the app. Compression has to follow what the deployed nginx can actually do, and that was
+measured here: the frontend image's `nginx -V` lists
+`--with-http_gzip_static_module` and `--with-http_slice_module`, **no zstd and no
+brotli**. So the weight pipeline should ship `.onnx.gz` siblings and rely on
+`gzip_static on` (already added to the `/stt/` block), not on the `.zst` files the
+Hugging Face repo publishes. ONNX weights compress poorly (already quantized
+tables), so the realistic saving is modest; the 148 MB figure above is the repo's
+own zstd size and should not be promised to users until measured with gzip.
+
 ## Integration plan for Spectrum
 
 Spectrum is GPLv3 and the reference Parakeet Web implementation is AGPLv3, so the
@@ -78,9 +115,11 @@ weights and runtime stay same-origin, matching the current
 `env.allowRemoteModels = false` stance:
 
 1. **Assets** — extend `scripts/setup-browser-stt.mjs` to fetch the four files
-   into `public/stt/parakeet/…` with pinned sha256 checksums, plus zstd
-   precompression and `Content-Encoding` serving, so a participant downloads
-   ≈ 148 Mo once and the browser cache holds it afterwards.
+   into the served `stt` root with pinned sha256 checksums, plus `.gz` siblings
+   for `gzip_static` (the deployed nginx has no zstd/brotli module), so a
+   participant downloads the weights once and the browser cache holds them
+   afterwards. Measured sizes, not the repo's zstd numbers, go into the consent
+   text.
 2. **Worker path** — a second inference path in `browser-stt-worker.ts`: instead
    of `WhisperForConditionalGeneration`, three plain `ort.InferenceSession`s and
    a greedy TDT step loop (argmax over `outputs`, `duration_logits` for
