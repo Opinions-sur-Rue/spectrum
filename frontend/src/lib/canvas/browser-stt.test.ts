@@ -36,7 +36,7 @@ class FakeContext {
 	destination = {};
 }
 let engine: BrowserSTT;
-const callbacks = { ready: vi.fn(), segment: vi.fn(), failure: vi.fn() };
+const callbacks = { ready: vi.fn(), segment: vi.fn(), failure: vi.fn(), progress: vi.fn() };
 beforeEach(() => {
 	vi.useFakeTimers();
 	vi.clearAllMocks();
@@ -56,7 +56,7 @@ it('starts no worker or microphone before explicit load; stopping fences late mo
 	expect(callbacks.ready).not.toHaveBeenCalled();
 	engine.load();
 	const worker = FakeWorker.last;
-	expect(worker.postMessage).toHaveBeenCalledWith({ type: 'load', model: 'tiny', backend: 'wasm' });
+	expect(worker.postMessage).toHaveBeenCalledWith({ type: 'load', model: 'base', backend: 'wasm' });
 	engine.stop();
 	worker.emit({ type: 'ready', backend: 'wasm' });
 	expect(worker.terminate).toHaveBeenCalledOnce();
@@ -94,11 +94,64 @@ it('emits ordered final text with capture-relative timestamps, never audio', asy
 	expect(callbacks.segment.mock.lastCall?.[0]).not.toHaveProperty('audio');
 });
 
-it('times out model startup rather than blocking voice indefinitely', () => {
+it('times out stalled downloads rather than blocking voice indefinitely', () => {
 	engine.load();
-	vi.advanceTimersByTime(120000);
-	expect(callbacks.failure).toHaveBeenCalledWith('failed');
+	vi.advanceTimersByTime(90000);
+	expect(callbacks.failure).toHaveBeenCalledWith('download');
 	expect(FakeWorker.last.terminate).toHaveBeenCalledOnce();
+});
+
+it('keeps progressing downloads alive beyond two minutes, then stops on inactivity', () => {
+	engine.load();
+	for (let loaded = 1; loaded <= 3; loaded++) {
+		vi.advanceTimersByTime(60000);
+		FakeWorker.last.emit({
+			type: 'progress',
+			progress: { phase: 'download', asset: 'encoder', loaded, total: 100 }
+		});
+	}
+	expect(callbacks.failure).not.toHaveBeenCalled();
+	expect(callbacks.progress).toHaveBeenCalledTimes(3);
+	vi.advanceTimersByTime(90000);
+	expect(callbacks.failure).toHaveBeenCalledWith('download');
+});
+
+it('bounds initialization separately and retains a hard total download deadline', () => {
+	engine.load();
+	FakeWorker.last.emit({
+		type: 'progress',
+		progress: { phase: 'initializing', asset: 'encoder', loaded: 100, total: 100 }
+	});
+	vi.advanceTimersByTime(179999);
+	expect(callbacks.failure).not.toHaveBeenCalled();
+	vi.advanceTimersByTime(1);
+	expect(callbacks.failure).toHaveBeenCalledWith('engine');
+	engine = new BrowserSTT('fr', callbacks);
+	callbacks.failure.mockClear();
+	engine.load();
+	for (let minute = 1; minute < 30; minute++) {
+		vi.advanceTimersByTime(60000);
+		FakeWorker.last.emit({
+			type: 'progress',
+			progress: { phase: 'download', asset: 'encoder', loaded: minute, total: 100 }
+		});
+	}
+	vi.advanceTimersByTime(60000);
+	expect(callbacks.failure).toHaveBeenCalledWith('download');
+});
+
+it('ignores late progress after readiness and reports distinct asset failures', () => {
+	engine.load();
+	FakeWorker.last.emit({ type: 'ready', backend: 'wasm' });
+	FakeWorker.last.emit({
+		type: 'progress',
+		progress: { phase: 'download', asset: 'encoder', loaded: 1, total: 100 }
+	});
+	vi.advanceTimersByTime(180000);
+	expect(callbacks.failure).not.toHaveBeenCalled();
+	expect(callbacks.progress).not.toHaveBeenCalled();
+	FakeWorker.last.emit({ type: 'error', reason: 'assets' });
+	expect(callbacks.failure).toHaveBeenCalledWith('assets');
 });
 
 it('loads base only when explicitly selected', () => {
@@ -112,11 +165,11 @@ it('loads base only when explicitly selected', () => {
 });
 
 it('loads GPU only when explicitly selected and reports GPU failure distinctly', () => {
-	engine = new BrowserSTT('fr', callbacks, 'tiny', 'webgpu');
+	engine = new BrowserSTT('fr', callbacks, 'base', 'webgpu');
 	engine.load();
 	expect(FakeWorker.last.postMessage).toHaveBeenCalledWith({
 		type: 'load',
-		model: 'tiny',
+		model: 'base',
 		backend: 'webgpu'
 	});
 	FakeWorker.last.emit({ type: 'error', reason: 'gpu' });
@@ -149,7 +202,7 @@ it('offers WebGPU only for hardware adapters with FP16, never a software fallbac
 });
 
 it('rejects a silent GPU-to-CPU backend mismatch', () => {
-	engine = new BrowserSTT('fr', callbacks, 'tiny', 'webgpu');
+	engine = new BrowserSTT('fr', callbacks, 'base', 'webgpu');
 	engine.load();
 	FakeWorker.last.emit({ type: 'ready', backend: 'wasm' });
 	expect(callbacks.ready).not.toHaveBeenCalled();

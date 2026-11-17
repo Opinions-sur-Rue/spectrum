@@ -1,8 +1,6 @@
 import * as ort from 'onnxruntime-web/webgpu';
 import { parakeetGreedy, parakeetText, parakeetVocabulary } from './parakeet-tdt';
-
-// Versioned URL: immutable assets may coexist across image upgrades/rollbacks.
-export const PARAKEET_ROOT = '/stt/parakeet/de66c10f18f6d94cb3e910e48034e45ce51109bc';
+import type { STTAssetLoader, STTAssetId } from './browser-stt-load';
 
 function dispose(values: Record<string, ort.Tensor>) {
 	for (const tensor of Object.values(values)) tensor.dispose();
@@ -16,24 +14,17 @@ export class ParakeetRuntime {
 		private vocabulary: string[]
 	) {}
 
-	static async load() {
+	static async load(assets: STTAssetLoader) {
 		const sessions: ort.InferenceSession[] = [];
 		try {
-			// Fetch explicitly to reject HTML/SPA fallback before ORT sees it.
-			const asset = async (file: string) => {
-				const response = await fetch(`${PARAKEET_ROOT}/${file}`);
-				if (!response.ok || response.headers.get('content-type')?.includes('text/html'))
-					throw new Error('Missing Parakeet asset');
-				return response;
-			};
-			const vocabulary = parakeetVocabulary(await (await asset('vocab.txt')).text());
-			for (const file of [
-				'nemo128.onnx',
-				'w2a8/encoder-model.w2a8.onnx',
-				'int8/decoder_joint-model.int8.onnx'
-			]) {
+			const vocabulary = parakeetVocabulary(
+				new TextDecoder().decode(await assets.read('vocabulary'))
+			);
+			for (const id of ['features', 'encoder', 'decoder'] as STTAssetId[]) {
+				const data = await assets.read(id);
+				assets.initializing(id);
 				sessions.push(
-					await ort.InferenceSession.create(await (await asset(file)).arrayBuffer(), {
+					await ort.InferenceSession.create(data, {
 						executionProviders: ['wasm'],
 						logSeverityLevel: 3
 					})

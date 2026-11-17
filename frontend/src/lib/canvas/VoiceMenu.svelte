@@ -60,6 +60,7 @@
 	let needsJoin = $state(false);
 	let error = $state('');
 	let localCaptions = $state(false);
+	let captionStatus = $state('');
 	let signature = '';
 	let granted = $state(false);
 	let consentOpen = $state(false);
@@ -427,73 +428,76 @@
 		data-testid="voice-summary">{summary}</span
 	>
 	<div bind:this={audio} class="hidden" aria-hidden="true"></div>
-	{#if wanted && onStage}<details class="relative" use:toolbarMenu>
-			<summary
-				class="toolbar-summary"
-				data-testid="mic-options"
-				aria-label={m.ux_mic_options()}
-				title={m.ux_mic_options()}
-			>
-				<Icon name="mic" /><span class="hidden text-xs sm:inline">{m.ux_mic_options()}</span>
-			</summary>
-			<div class="toolbar-popover bg-base-100 w-72 space-y-3 rounded-xl border p-4 shadow-xl">
-				<label class="flex items-center gap-2 text-xs">
-					<input
-						type="checkbox"
-						class="checkbox checkbox-sm"
-						data-testid="push-to-talk-mode"
-						checked={pttMode}
-						onchange={(event) => changePttMode(event.currentTarget.checked)}
-					/>
-					{m.ptt_mode()}
-				</label>
-				{#if pttMode}<p class="text-xs opacity-70">{m.ptt_hint()}</p>{/if}
-				<label class="block text-xs"
-					>{m.ux_mic_device()}
-					<select
-						class="select select-sm mt-1 w-full"
-						data-testid="mic-device"
-						value={deviceId}
-						onchange={(event) => chooseDevice(event.currentTarget.value)}
-					>
-						<option value="">{m.ux_mic_default()}</option>
-						{#each inputs as input, index (input.id)}<option value={input.id}
-								>{input.label || m.ux_mic_fallback({ number: index + 1 })}</option
-							>{/each}
-					</select>
-				</label>
-				{#if inputs.some((input) => !input.label)}<p class="text-xs opacity-70">
-						{m.ux_mic_permission()}
-					</p>{/if}
-				{#if microphone}<MicLevel track={localTrack} />{:else}<p class="text-xs opacity-70">
-						{m.ux_mic_prompt()}
-					</p>{/if}
-			</div>
-		</details>{/if}
-	{#if onStage && room.transcription?.mode === 'browser'}<details class="relative" use:toolbarMenu>
+	{#if localCaptions}<span
+			class="max-w-36 truncate text-xs"
+			role="status"
+			aria-live="polite"
+			title={captionStatus}
+			data-testid="browser-stt-summary">{captionStatus}</span
+		>{/if}
+	{#if onStage && (wanted || room.transcription?.mode === 'browser')}<details
+			class="relative"
+			use:toolbarMenu
+		>
 			<summary
 				class="toolbar-summary"
 				data-testid="audio-options"
 				aria-label={m.ux_audio_options()}
-				title={localCaptions ? m.ux_experimental_transcription_active() : m.ux_audio_options()}
+				title={m.ux_audio_options()}
 			>
-				<Icon name="more" /><span class="hidden text-xs sm:inline"
-					>{localCaptions ? m.ux_experimental_transcription_active() : m.ux_audio_options()}</span
-				>
+				<Icon name="more" /><span class="hidden text-xs sm:inline">{m.ux_audio_options()}</span>
 			</summary>
 			<div
 				class="experimental-audio-panel toolbar-popover bg-base-100 w-80 space-y-3 rounded-xl border p-4 shadow-xl"
 			>
-				<p class="text-xs">{m.ux_experimental_transcription()}</p>
-				<BrowserTranscriptControl
-					{room}
-					track={localTrack}
-					{ready}
-					session={browserSession}
-					failure={browserFailure}
-					{send}
-					bind:active={localCaptions}
-				/>
+				{#if wanted}
+					<label class="flex items-center gap-2 text-xs">
+						<input
+							type="checkbox"
+							class="checkbox checkbox-sm"
+							data-testid="push-to-talk-mode"
+							checked={pttMode}
+							onchange={(event) => changePttMode(event.currentTarget.checked)}
+						/>
+						{m.ptt_mode()}
+					</label>
+					{#if pttMode}<p class="text-xs opacity-70">{m.ptt_hint()}</p>{/if}
+					<label class="block text-xs"
+						>{m.ux_mic_device()}
+						<select
+							class="select select-sm mt-1 w-full"
+							data-testid="mic-device"
+							value={deviceId}
+							onchange={(event) => chooseDevice(event.currentTarget.value)}
+						>
+							<option value="">{m.ux_mic_default()}</option>
+							{#each inputs as input, index (input.id)}<option value={input.id}
+									>{input.label || m.ux_mic_fallback({ number: index + 1 })}</option
+								>{/each}
+						</select>
+					</label>
+					{#if inputs.some((input) => !input.label)}<p class="text-xs opacity-70">
+							{m.ux_mic_permission()}
+						</p>{/if}
+					{#if microphone}<MicLevel track={localTrack} />{:else}<p class="text-xs opacity-70">
+							{m.ux_mic_prompt()}
+						</p>{/if}
+				{/if}
+				{#if room.transcription?.mode === 'browser'}
+					<div class:border-t={wanted} class:pt-3={wanted} class="space-y-3">
+						<p class="text-xs">{m.ux_experimental_transcription()}</p>
+						<BrowserTranscriptControl
+							{room}
+							track={localTrack}
+							{ready}
+							session={browserSession}
+							failure={browserFailure}
+							{send}
+							bind:active={localCaptions}
+							bind:statusText={captionStatus}
+						/>
+					</div>
+				{/if}
 			</div>
 		</details>{/if}
 </div>

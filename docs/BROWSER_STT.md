@@ -1,5 +1,73 @@
 # Browser-local transcription prototype
 
+Current code offers **Parakeet Redux and Whisper Base only**. Tiny and Small
+have been retired from the picker, worker and setup commands at user request.
+Older benchmark sections below retain their historical model names; they are
+not a list of currently supported choices. Existing production asset releases
+are retained for rollback, not deleted in place. Stale tabs should reload the
+released frontend rather than assume retired choices remain available.
+
+## Loading feedback and slow links
+
+Microphone device, push-to-talk, level and local transcription share one
+**Audio options** menu. Preparation reports decoded model/runtime bytes and a
+percentage while downloading, then explicit cache/check and initialization
+states. A compact status remains visible with the menu closed.
+
+The controller now distinguishes a 90-second stalled download from a
+180-second initialization stall, with a hard 30-minute overall startup bound.
+Actual download progress extends the inactivity deadline: progressing large
+models no longer fail solely because two minutes elapsed. Errors distinguish
+transport interruption, missing/corrupt assets and engine initialization from
+recognition capacity failure; all leave voice usable. Startup cancellation
+still terminates the worker and prevents late capture/publication.
+
+Public runtime, VAD and Parakeet files use same-origin SHA-256-keyed Cache API
+entries, verified before use. Completed files can be reused across workers and
+tabs; private-mode/quota failures degrade to uncached recognition, not audio
+failure. No audio, captions, room ID or nickname enters that cache. Incomplete
+downloads are not advertised as resumable. Browser stream byte counts are
+decoded bytes, not compressed `Content-Length`.
+
+Parakeet uses the stock **CPU-only** ORT WASM build (~14 MB raw) rather than the
+larger JSEP build; its model/VAD/runtime budget is about 225 MB raw. This reduces
+download size, but does not itself solve Firefox's observed slow inference.
+The 20-second live inference/backlog safeguards remain separate from loading.
+
+### Follow-up validation (unreleased code)
+
+- Merged-menu push-to-talk, tiny French viewport and targeted admin mute checks:
+  6/6 Chromium/Firefox with real local SFU fixtures.
+- Parakeet recognition, silence gate, automatic-language rejection and model
+  reload pass in Chromium/Firefox/WebKit. Chromium and Firefox reuse all six
+  public assets from cache. WebKit may resolve cache writes but discard them;
+  readback now detects this and reports uncached operation rather than promising
+  retention. Injected silent-discard/read-error/write-error regression passes.
+- A real short-utterance Firefox room test requires and obtains shared captions,
+  spectator history and independent stop with microphone preserved. Six-second
+  Firefox worker inference remains ~31 seconds: this is not sustained realtime
+  acceptance. Base also hit the capacity guard on the short-room fixture; no
+  successful Firefox/Base realtime result is claimed.
+- Base's clean six-second French comparison decoded but failed its expected-word
+  accuracy assertion. That failure was not hidden or counted as quality success.
+  Parakeet is therefore the FR/EN default; Base remains the explicit alternative
+  and automatic-language choice.
+- Cold public Parakeet/VAD files were downloaded and raw fingerprints verified
+  in a dedicated test browser profile: 307 seconds total on the measured link,
+  including 279 seconds for the encoder. This independently confirms that a
+  progressing download can exceed the old 120-second startup limit. It is not
+  itself a successful production speech-recognition result.
+
+### Hosting measurements
+
+No CDN/Hugging Face browser switch has been made. One 1 MiB range sample of the
+same pinned encoder returned identical bytes from france and Hugging Face;
+measured times were 7.6 and 7.8 seconds respectively on this client link. A small
+range sample is not a full-file throughput benchmark. A future CDN should use
+an assets-only hostname; proxying the entire voice hostname through an HTTP CDN
+could break raw TURN/TLS. Preserve revision/raw-hash verification and separately
+measure compression, CORS, privacy and cold/warm latency before switching.
+
 **Experimental, low-priority feature; shipment is not yet committed.** It must
 not block the core debate, notes or audio experience.
 
@@ -19,8 +87,9 @@ The production overlay sets `SPECTRUM_TRANSCRIPTION_AVAILABLE=true` and
 a separate deployment kill switch; when absent, legacy deployments retain the
 old availability behavior based on `SPECTRUM_TRANSCRIPTION_ENABLED`.
 Transcription remains admin-enabled and individually consented. Set the room
-language to French or English; Redux has no automatic language detector. Tiny
-remains the default model while phone performance is unverified. WebGPU remains
+language to French or English; Redux has no automatic language detector. Parakeet
+is the default for French/English, Base for automatic language detection. The
+choice is shown before download consent, not silently substituted during use. WebGPU remains
 a Whisper-only option: the pinned Redux export is documented as CPU-only.
 
 Prepare a **new** directory on a trusted build machine with the release's locked
@@ -29,10 +98,10 @@ dependencies. Do not overwrite a directory mounted by a running frontend:
 ```sh
 cd frontend
 npm ci
-# Keep the unchanged default Tiny choice usable too.
-npm run setup:browser-stt -- --model=tiny --root=/tmp/opencode/stt-beta20
-npm run setup:browser-stt -- --model=parakeet --root=/tmp/opencode/stt-beta20
-node scripts/verify-parakeet-assets.mjs --root=/tmp/opencode/stt-beta20
+# Prepare the default Base choice too; use a NEW release directory.
+npm run setup:browser-stt -- --model=base --root=/tmp/opencode/stt-next
+npm run setup:browser-stt -- --model=parakeet --root=/tmp/opencode/stt-next
+node scripts/verify-parakeet-assets.mjs --root=/tmp/opencode/stt-next
 ```
 
 Setup pins the model revision and four SHA-256 fingerprints, verifies VAD and
@@ -40,9 +109,12 @@ the exact ORT binaries, writes precompressed `.gz` siblings, attribution and
 `SHA256SUMS.parakeet`. All browsers fetch the same-origin uncompressed URL;
 nginx negotiates `gzip_static` transparently. Missing assets must return 404,
 including runtime `.mjs` (the `/stt/` location has `^~` priority).
+If nginx proxies to the frontend container, its `/stt/` upstream must use
+`proxy_http_version 1.1`; HTTP/1.0 suppresses the container's default
+`gzip_static` negotiation even when the browser advertises gzip. Verify the
+public HTTPS response, not just a loopback request to the container.
 The Parakeet verifier covers Parakeet and shared assets, not Whisper's config
-files. Whisper setup separately checks its pinned ONNX files. Provision Base
-and Small too if those optional tiers should work; absent tiers must fail
+files. Whisper setup separately checks its pinned ONNX files. Absent tiers must fail
 explicitly, never silently substitute a model.
 
 Copy the prepared directory to a **new** release directory under
@@ -77,7 +149,7 @@ runner if acceptance fails. Keep old asset directories until old tabs/rollback
 no longer need them.
 
 Parakeet weights: 208,330,200 bytes raw / 147,981,061 bytes gzip. Including VAD
-and the pinned CPU runtime: 239,058,535 bytes raw / 156,610,419 bytes gzip
+and the pinned CPU-only runtime: 224,948,018 bytes raw / 153,629,140 bytes gzip
 (plus application JavaScript). The consent budget is conservative
 raw size, not a promise of gzip negotiation. CC-BY-4.0 attribution ships beside
 the model and appears in the consent dialog.
@@ -112,20 +184,17 @@ From `frontend/`:
 ```sh
 npm ci
 npm run setup:browser-stt
-# Full menu: Tiny + Base on CPU/GPU and Small on GPU.
+# Full menu: Base CPU/GPU and Parakeet CPU.
 npm run setup:browser-stt -- --model=all
 ```
 
-The default setup prepares Tiny for CPU and GPU. `--model=base` or `--model=small`
-prepares only that model; `--model=all` is required if the interface must offer
-every choice. Setup downloads public Xenova multilingual weights and copies the
+The default setup prepares both supported choices. `--model=base` prepares only
+Base CPU/GPU, `--model=parakeet` only Parakeet, and `--model=all` prepares both. Setup downloads public
+Xenova/Olicorne multilingual weights and copies the
 installed ONNX WASM runtimes into `frontend/static/stt/` (gitignored):
 
-- Tiny Q8: revision `5332fcc35e32a33b86612b9a57a89be7906102b1`.
 - Base Q8: revision `64da57285918e20ea79ea5c88eed7197933abaa8`.
-- Small FP16 only: revision `2d67713f236afa48a18992566e7647f6ca848e13`.
-- GPU variants use FP16 files from the same revisions (not Q8). Small is
-  intentionally GPU-only; no unquantized CPU download is offered.
+- Base GPU uses FP16 files from the same revision (not Q8).
 - Silero VAD v5.1.2, commit `6478567951ae5c9979ad7b234185b5515f4be7a1`.
 
 All ONNX SHA-256 checksums are pinned in
@@ -159,7 +228,7 @@ The GPU option appears only when the browser exposes a **hardware** WebGPU adapt
 with `shader-f16`. A software fallback adapter and adapters without FP16 are
 rejected, and the option stays hidden. There is no silent GPU-to-CPU fallback:
 if the selected GPU fails, transcription stops and the UI asks the user to restart
-without GPU; voice remains active. Small requires GPU.
+without GPU; voice remains active. Parakeet is CPU-only.
 
 On Linux Chromium, WebGPU may remain disabled in the normal profile even though
 the GPU is usable. The tested command is:
@@ -183,13 +252,13 @@ Existing workers and model volumes remain available; no GPU provisioning needed.
 
 1. Join audio, then enable microphone. This alone does **not** opt into ASR.
 2. Open **Audio options**, where local transcription is labelled experimental.
-   Choose local transcription, select Tiny (default), Base, or Small (GPU only),
+   Choose local transcription, select Parakeet (FR/EN default, CPU only) or Base
+   (alternative and automatic-language choice),
    then accept its separate consent dialog. Selecting or cancelling alone
    downloads nothing.
 3. Only then load the selected model, VAD and runtime from the same origin:
-   approximately 75 MB Tiny/CPU, 110 MB Tiny/GPU, 110 MB Base/CPU, 180 MB
-   Base/GPU, or 515 MB Small/GPU. Shared assets may be cached. Asking for GPU is
-   explicit and checked by the user; Small checks it automatically.
+   approximately 110 MB Base/CPU, 180 MB Base/GPU or 225 MB Parakeet/CPU.
+   Shared public assets may be cached. GPU use for Base requires explicit opt-in.
 4. Stop local transcription independently; microphone stays live. Muting, leaving,
     role revocation, room/generation/language changes or lost connection stop ASR.
    The audio-options summary indicates when experimental captions are active even
@@ -221,7 +290,8 @@ server checks cannot prove that text came from a microphone or from Whisper.
   energy segmentation and forced eight-second cuts remain; very short/quiet
   utterances can be missed. Only final chunks are shared.
 - One inference and one pending chunk; overload or 20-second inference timeout
-  explicitly stops transcription, not voice. Model startup timeout: 120 seconds.
+  explicitly stops transcription, not voice. Loading uses the separate progress
+  and inactivity budgets described above, not the live inference timeout.
 - French default; English or Auto (FR/EN) selectable by admin. Auto predicts a
   language token before decoding; other detected languages produce no caption.
 - `transcript.start` requires explicit consent, current stage membership and voice
@@ -301,13 +371,21 @@ After fixing v4 local-path resolution, fresh checks confirmed:
   Svelte checks, targeted ESLint and the production build also passed. Build still
   warns about large chunks.
 
-To repeat the identical-fixture comparison, use `SPECTRUM_TEST_COMPARE=true`,
-`SPECTRUM_TEST_MODELS=tiny,base,small`, `SPECTRUM_TEST_BACKENDS=webgpu`, and
-`SPECTRUM_TEST_WEBGPU=true` in the command below. Use `SPECTRUM_TEST_MODEL=small`
-with `SPECTRUM_TEST_WEBGPU=true` to exercise Small through the actual
-voice/consent/history UI. The comparison bypasses live chunk buffering and permits
+To compare the current models, use `SPECTRUM_TEST_COMPARE=true`,
+`SPECTRUM_TEST_MODELS=base,parakeet` and `SPECTRUM_TEST_BACKENDS=wasm` in the
+command below. For hardware GPU, test Base only with
+`SPECTRUM_TEST_MODELS=base`, `SPECTRUM_TEST_BACKENDS=webgpu` and
+`SPECTRUM_TEST_WEBGPU=true`; `SPECTRUM_TEST_MODEL=base` exercises it through the
+actual voice/consent/history UI. The comparison bypasses live chunk buffering and permits
 up to 120 seconds per request; it is an offline quality check, not a live-capacity
 pass. Public-fixture results attach to Playwright artifacts, not application logs.
+
+For a short-utterance Firefox room check, use a public short WAV plus
+`SPECTRUM_TEST_SPEECH_ONCE=true` and
+`SPECTRUM_TEST_REQUIRE_TRANSCRIPTION=true`. That fixture starts speaking only
+after ASR is ready, rather than finishing while the model is still loading.
+The assertion requires actual shared captions, not a capacity-stop safety pass.
+It does not establish continuous-speech realtime performance.
 
 Mobile, Safari, low-memory devices, representative French accuracy/WER and sustained
 multi-speaker use remain untested. WebGPU was validated only on the AMD Radeon 890M

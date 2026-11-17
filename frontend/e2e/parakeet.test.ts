@@ -30,7 +30,9 @@ test('Redux WASM transcribes a public fixture with no external requests and reje
 		const audio = decoded.getChannelData(0);
 		if (decoded.sampleRate !== 16000 || audio.length > 192000)
 			throw new Error('Public fixture must be at most 12 seconds');
-		const worker = new Worker('/src/lib/canvas/browser-stt-worker.ts', { type: 'module' });
+		let worker = new Worker('/src/lib/canvas/browser-stt-worker.ts', { type: 'module' });
+		const cacheHits: string[] = [];
+		let cacheUnavailable = false;
 		const request = (message: Record<string, unknown>): Promise<Record<string, unknown>> =>
 			new Promise((resolve, reject) => {
 				const timeout = setTimeout(() => reject(new Error('Parakeet timeout')), 120000);
@@ -39,6 +41,10 @@ test('Redux WASM transcribes a public fixture with no external requests and reje
 					reject(new Error('Parakeet worker error'));
 				};
 				worker.onmessage = ({ data }) => {
+					if (data.type === 'progress' && data.progress?.cacheAvailable === false)
+						cacheUnavailable = true;
+					if (data.type === 'progress' && data.progress?.cached)
+						cacheHits.push(data.progress.asset);
 					if (['ready', 'error', 'result'].includes(data.type)) {
 						clearTimeout(timeout);
 						resolve(data);
@@ -64,7 +70,10 @@ test('Redux WASM transcribes a public fixture with no external requests and reje
 				language: 'auto',
 				audio: audio.slice().buffer
 			});
-			return { speech, silence, auto, inferenceMs };
+			worker.terminate();
+			worker = new Worker('/src/lib/canvas/browser-stt-worker.ts', { type: 'module' });
+			const reloaded = await request({ type: 'load', model: 'parakeet', backend: 'wasm' });
+			return { speech, silence, auto, inferenceMs, reloaded, cacheHits, cacheUnavailable };
 		} finally {
 			worker.terminate();
 		}
@@ -80,5 +89,117 @@ test('Redux WASM transcribes a public fixture with no external requests and reje
 	);
 	expect(result.silence).toMatchObject({ type: 'result', text: '', noSpeech: true });
 	expect(result.auto.type).toBe('error');
+	expect(result.reloaded.type).toBe('ready');
+	if (result.cacheUnavailable)
+		test.info().annotations.push({
+			type: 'cache-unavailable',
+			description:
+				'Recognition and reload work without cache; storage operations failed or writes were discarded.'
+		});
+	else
+		expect(result.cacheHits).toEqual(
+			expect.arrayContaining(['runtime', 'vocabulary', 'features', 'encoder', 'decoder', 'vad'])
+		);
 	expect(external).toEqual([]);
+});
+
+test('cache refusal includes silently discarded writes and failed reads', async ({ page }) => {
+	await page.route('**/parakeet-harness', (route) =>
+		route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Cache refusal</title>' })
+	);
+	await page.route('**/stt/cache-probe.bin?*', (route) =>
+		route.fulfill({ contentType: 'application/octet-stream', body: 'abc' })
+	);
+	await page.goto('/parakeet-harness');
+	const results = await page.evaluate(async () => {
+		const modulePath = '/src/lib/canvas/browser-stt-load.ts';
+		const { STTAssetLoader } = await import(/* @vite-ignore */ modulePath);
+		const original = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+		const results = [];
+		try {
+			for (const mode of ['discard', 'read-error', 'write-error']) {
+				let writes = 0;
+				Object.defineProperty(globalThis, 'caches', {
+					configurable: true,
+					value: {
+						open: async () => ({
+							match: async () => {
+								if (mode === 'read-error') throw new Error('Storage refused');
+								return undefined;
+							},
+							put: async () => {
+								writes++;
+								if (mode === 'write-error') throw new Error('Storage refused');
+							}
+						})
+					}
+				});
+				const availability: (boolean | undefined)[] = [];
+				const loader = new STTAssetLoader(
+					[
+						{
+							id: 'encoder',
+							url: '/stt/cache-probe.bin',
+							bytes: 3,
+							sha256: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+						}
+					],
+					(value: { cacheAvailable?: boolean }) => availability.push(value.cacheAvailable)
+				);
+				const data = new TextDecoder().decode(await loader.read('encoder'));
+				results.push({ mode, data, writes, cacheAvailable: availability.at(-1) });
+			}
+		} finally {
+			if (original) Object.defineProperty(globalThis, 'caches', original);
+			else Reflect.deleteProperty(globalThis, 'caches');
+		}
+		return results;
+	});
+	expect(results).toEqual(
+		['discard', 'read-error', 'write-error'].map((mode) => ({
+			mode,
+			data: 'abc',
+			writes: 1,
+			cacheAvailable: false
+		}))
+	);
+});
+
+test('removed Whisper tiers fail before any public model request', async ({ page }) => {
+	const assets: string[] = [];
+	page.on('request', (request) => {
+		if (request.url().includes('/stt/')) assets.push(request.url());
+	});
+	await page.route('**/parakeet-harness', (route) =>
+		route.fulfill({
+			contentType: 'text/html',
+			body: '<!doctype html><title>Removed models</title>'
+		})
+	);
+	await page.goto('/parakeet-harness');
+	const results = await page.evaluate(async () => {
+		const results = [];
+		for (const model of ['tiny', 'small']) {
+			const worker = new Worker('/src/lib/canvas/browser-stt-worker.ts', { type: 'module' });
+			try {
+				results.push(
+					await new Promise<string>((resolve, reject) => {
+						const timeout = setTimeout(() => reject(new Error('Removed tier not rejected')), 15000);
+						worker.onmessage = ({ data }) => {
+							if (data.type === 'error') {
+								clearTimeout(timeout);
+								resolve(data.reason);
+							}
+						};
+						worker.postMessage({ type: 'load', model, backend: 'wasm' });
+					})
+				);
+			} finally {
+				worker.terminate();
+			}
+		}
+		return results;
+	});
+	expect(results).toEqual(['engine', 'engine']);
+	expect(assets).toEqual([]);
 });

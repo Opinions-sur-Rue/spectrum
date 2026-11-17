@@ -131,6 +131,24 @@ it('keeps LiveKit and microphone alive while the application WebSocket reconnect
 	expect(view.getByTestId('voice-controls').dataset.microphone).toBe('true');
 });
 
+it('groups microphone, push-to-talk and local transcription in one audio menu', async () => {
+	const { view, room } = await setup();
+	await view.rerender({
+		room: {
+			...room,
+			transcription: { mode: 'browser', available: true, ready: true },
+			settings: { ...room.settings, transcriptionEnabled: true }
+		}
+	});
+	const summary = view.getByTestId('audio-options');
+	const menu = summary.closest('details')!;
+	expect(view.queryByTestId('mic-options')).toBeNull();
+	expect(view.getAllByTestId('audio-options')).toHaveLength(1);
+	expect(menu.contains(view.getByTestId('mic-device'))).toBe(true);
+	expect(menu.contains(view.getByTestId('push-to-talk-mode'))).toBe(true);
+	expect(menu.contains(view.getByTestId('browser-stt-controls'))).toBe(true);
+});
+
 it.each([true, false])(
 	'restores only an active microphone after involuntary rejoin (%s)',
 	async (active) => {

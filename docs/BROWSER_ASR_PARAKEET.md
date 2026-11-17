@@ -16,7 +16,7 @@ same model family.
 | Mel front-end | `nemo128.onnx` 139 764 B |
 | Vocabulary | `vocab.txt` 93 939 B, 8 193 tokens including blank |
 | **Model files** | **208 330 200 B raw / 147 981 061 B gzip**, measured with setup script; runtime and VAD are additional |
-| Model + CPU runtime + VAD | 239 058 535 B raw / 156 610 419 B gzip (excluding application JS) |
+| Model + CPU-only runtime + VAD (current code) | 224 948 018 B raw / 153 629 140 B gzip (excluding application JS) |
 | French quality (your harness, 10 clips) | WER 3,52 %, 4,1× realtime, `ort=wasm` |
 | License | `cc-by-4.0` (also the base model `moondream/parakeet-redux`) — commercial use allowed, attribution required |
 | Languages | 33 including `fr` and `en` |
@@ -129,7 +129,8 @@ weights and runtime stay same-origin, matching the current
    segmenter/VAD so chunking, partial replacement and turn boundaries stay as
    they are.
 3. **Model picker** — explicit Parakeet CPU option, with raw download budget;
-   Tiny remains default pending phone acceptance. No GPU or automatic language
+   Parakeet is the visible FR/EN default, Base the automatic-language choice;
+   Tiny and Small are retired. No GPU or automatic language
    detection for Redux. Rooms must pin French or English; this is a configured
    language label, not proof of language detection. Missing weights fail without
    silent fallback. Existing microphone consent and stop rules remain intact.
@@ -140,8 +141,8 @@ weights and runtime stay same-origin, matching the current
    model consent dialog.
 6. **Verification before any rollout** — WER and real-time factor measured in the
    browser (not Node) on the existing French clips using WASM, plus
-   memory high-water per tab; Parakeet only becomes the default once it also
-   holds up on a phone.
+   memory high-water per tab. Default selection does not establish phone
+   acceptance; the model remains explicitly consented and experimental.
 
 ## Still open
 
@@ -149,8 +150,9 @@ weights and runtime stay same-origin, matching the current
   participant tab, and what that means on mid-range Android.
 - Representative French accuracy, room/voice integration and sustained memory
   measurements for this independent decoder.
-- Production release: code and asset provisioning must pass their gates before
-  enabling the new option in production. See `BROWSER_STT.md` for mount procedure.
+- Production acceptance beyond HTTP readiness: beta.20 now serves the option
+  from the verified read-only host mount; see `RESUME_V2_PARITY.md` for rollout
+  and post-deployment smoke results, and `BROWSER_STT.md` for mount procedure.
 
 ## Independent implementation validation — 2026-11-17
 
@@ -176,5 +178,6 @@ weights and runtime stay same-origin, matching the current
   MIME, WASM has `application/wasm`, gzip has `Vary: Accept-Encoding`, and
   decompressed encoder hash matches its pin. The explicit MIME map matters:
   nginx 1.27's default MJS response was `application/octet-stream`.
-- No production image, host mount or transcription setting changed by these
-  local checks.
+- Those initial local checks changed no production state. Beta.20 was deployed
+  subsequently; new rooms still start with transcription off and individuals
+  still explicitly consent before model loading or publication.

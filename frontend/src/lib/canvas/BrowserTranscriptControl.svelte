@@ -8,7 +8,8 @@
 		type BrowserTranscriptSession,
 		type BrowserTranscriptFailure,
 		type BrowserSTTModel,
-		type BrowserSTTBackend
+		type BrowserSTTBackend,
+		type STTLoadProgress
 	} from './browser-stt';
 	import type { RoomState } from './room-client';
 	let {
@@ -19,7 +20,9 @@
 		failure,
 		send,
 		// eslint-disable-next-line no-useless-assignment -- Bindable output consumed by the parent.
-		active = $bindable(false)
+		active = $bindable(false),
+		// eslint-disable-next-line no-useless-assignment -- Bindable summary for closed audio menu.
+		statusText = $bindable('')
 	}: {
 		room: RoomState;
 		track: MediaStreamTrack | null;
@@ -28,15 +31,18 @@
 		failure: BrowserTranscriptFailure | null;
 		send: (op: string, payload: unknown) => boolean;
 		active?: boolean;
+		statusText?: string;
 	} = $props();
 	let supported = $state(false);
 	let phase = $state<'off' | 'loading' | 'starting' | 'active'>('off');
 	let consentOpen = $state(false);
-	let model = $state<BrowserSTTModel>('tiny');
+	let model = $state<BrowserSTTModel>('parakeet');
 	let useGpu = $state(false);
 	let gpuAvailable = $state(false);
 	let dialog = $state<HTMLDialogElement>();
 	let error = $state('');
+	let progress = $state<STTLoadProgress | null>(null);
+	let cacheUnavailable = $state(false);
 	let request = $state<string | null>(null);
 	let handledSession = $state('');
 	let lease = $state.raw<BrowserTranscriptSession | null>(null);
@@ -48,7 +54,33 @@
 	let admissionTimer: ReturnType<typeof setTimeout> | undefined;
 	$effect(() => {
 		active = phase !== 'off';
+		statusText =
+			phase === 'loading'
+				? progress?.phase === 'download' && progress.total > 0
+					? m.browser_stt_progress_short({
+							percent: Math.floor((progress.loaded / progress.total) * 100)
+						})
+					: progress?.phase === 'cache'
+						? m.browser_stt_cache_short()
+						: m.browser_stt_initializing_short()
+				: phase === 'starting'
+					? m.browser_stt_starting()
+					: phase === 'active'
+						? m.browser_stt_active_short()
+						: '';
 	});
+	function loadingDescription() {
+		if (!progress) return m.browser_stt_loading();
+		if (progress.phase === 'cache') return m.browser_stt_cache_short();
+		if (progress.phase === 'initializing') return m.browser_stt_initializing_short();
+		if (!progress.total) return m.browser_stt_download_waiting();
+		const values = {
+			loaded: (progress.loaded / 1000000).toFixed(1),
+			total: (progress.total / 1000000).toFixed(1),
+			percent: Math.floor((progress.loaded / progress.total) * 100)
+		};
+		return progress.fileOnly ? m.browser_stt_download_file(values) : m.browser_stt_download(values);
+	}
 	onMount(() => {
 		supported = browserSTTSupported();
 	});
@@ -61,9 +93,8 @@
 		});
 	});
 	function downloadSize() {
-		if (model === 'parakeet') return '240';
-		if (model === 'small') return '515';
-		return model === 'base' ? (useGpu ? '180' : '110') : useGpu ? '110' : '75';
+		if (model === 'parakeet') return '225';
+		return useGpu ? '180' : '110';
 	}
 	$effect(() => {
 		if (consentOpen && dialog && !dialog.open) dialog.showModal();
@@ -77,6 +108,7 @@
 		lease = null;
 		request = null;
 		phase = 'off';
+		progress = null;
 		chosenTrack = null;
 		error = message;
 	}
@@ -87,11 +119,9 @@
 			error = m.browser_stt_parakeet_hint();
 			return;
 		}
-		if (model === 'small' && !useGpu) {
-			error = m.browser_stt_gpu_failed();
-			return;
-		}
 		error = '';
+		progress = null;
+		cacheUnavailable = false;
 		phase = 'loading';
 		chosenTrack = track;
 		generation = room.voice?.generation ?? 0;
@@ -99,6 +129,12 @@
 		const instance = new BrowserSTT(
 			language as 'fr' | 'en' | 'auto',
 			{
+				progress: (value) => {
+					if (engine === instance) {
+						progress = value;
+						if (value.cacheAvailable === false) cacheUnavailable = true;
+					}
+				},
 				ready: () => {
 					if (engine !== instance || !track || !ready) return;
 					phase = 'starting';
@@ -120,7 +156,13 @@
 								? m.browser_stt_slow()
 								: reason === 'gpu'
 									? m.browser_stt_gpu_failed()
-									: m.browser_stt_failed()
+									: reason === 'download'
+										? m.browser_stt_download_failed()
+										: reason === 'assets'
+											? m.browser_stt_assets_failed()
+											: reason === 'engine'
+												? m.browser_stt_engine_failed()
+												: m.browser_stt_failed()
 						);
 				}
 			},
@@ -189,24 +231,21 @@
 		aria-pressed={phase !== 'off'}
 		onclick={() => {
 			if (phase !== 'off') stop();
-			else consentOpen = true;
+			else {
+				// Pick a supported visible choice before asking consent, never at runtime.
+				if (model === 'parakeet' && room.settings.transcriptionLanguage === 'auto') model = 'base';
+				consentOpen = true;
+			}
 		}}>{phase !== 'off' ? m.browser_stt_stop() : m.browser_stt_enable()}</button
 	>
 	<span role="status"
 		>{phase === 'loading'
-			? m.browser_stt_loading()
+			? loadingDescription()
 			: phase === 'starting'
 				? m.browser_stt_starting()
 				: phase === 'active'
 					? m.browser_stt_active({
-							model:
-								model === 'parakeet'
-									? 'Parakeet Redux w2a8'
-									: model === 'small'
-										? 'Whisper small'
-										: model === 'base'
-											? 'Whisper base'
-											: 'Whisper tiny',
+							model: model === 'parakeet' ? 'Parakeet Redux w2a8' : 'Whisper base',
 							backend: useGpu && model !== 'parakeet' ? 'WebGPU' : 'CPU'
 						})
 					: !supported
@@ -215,7 +254,28 @@
 							? m.browser_stt_needs_mic()
 							: m.browser_stt_optional()}</span
 	>
+	{#if phase === 'loading'}
+		{#if progress?.phase === 'download' && progress.total > 0}
+			<progress
+				class="progress progress-primary w-full"
+				data-testid="browser-stt-progress"
+				aria-label={m.browser_stt_progress_label()}
+				aria-valuetext={loadingDescription()}
+				max="100"
+				value={Math.floor((progress.loaded / progress.total) * 100)}
+			></progress>
+		{:else}
+			<progress
+				class="progress progress-primary w-full"
+				data-testid="browser-stt-progress"
+				aria-label={m.browser_stt_progress_label()}
+				aria-valuetext={loadingDescription()}
+				max="100"
+			></progress>
+		{/if}
+	{/if}
 	{#if error}<span class="text-error" role="alert">{error}</span>{/if}
+	{#if cacheUnavailable}<p class="text-xs opacity-70">{m.browser_stt_cache_unavailable()}</p>{/if}
 </div>
 {#if consentOpen}<dialog
 		bind:this={dialog}
@@ -233,18 +293,13 @@
 				data-testid="browser-stt-model"
 				bind:value={model}
 				onchange={() => {
-					if (model === 'small') useGpu = true;
 					if (model === 'parakeet') useGpu = false;
 				}}
 			>
 				<option value="parakeet" disabled={room.settings.transcriptionLanguage === 'auto'}>
 					{m.browser_stt_model_parakeet()}
 				</option>
-				<option value="tiny">{m.browser_stt_model_tiny()}</option>
 				<option value="base">{m.browser_stt_model_base()}</option>
-				<option value="small" disabled={!gpuAvailable}>
-					{m.browser_stt_model_small()}
-				</option>
 			</select>
 		</label>
 		<p class="mb-3 text-sm opacity-70">{m.browser_stt_model_hint()}</p>
@@ -264,7 +319,7 @@
 					class="checkbox checkbox-sm"
 					data-testid="browser-stt-webgpu"
 					bind:checked={useGpu}
-					disabled={model === 'small' || model === 'parakeet'}
+					disabled={model === 'parakeet'}
 				/>
 				{m.browser_stt_webgpu()}
 			</label>

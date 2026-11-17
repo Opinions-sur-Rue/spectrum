@@ -38,7 +38,7 @@ test('real local Silero gate rejects silence, tones, noise and clicks before Whi
 			});
 		}
 		try {
-			await request({ type: 'load', model: 'tiny' }, 'ready');
+			await request({ type: 'load', model: 'base' }, 'ready');
 			const results = [];
 			let random = 7;
 			for (const kind of ['silence', 'tone', 'noise', 'clicks']) {
@@ -97,6 +97,7 @@ test('selected models transcribe the same complete public fixture for comparison
 			const results = [];
 			for (const model of models) {
 				for (const backend of backends) {
+					if (model === 'parakeet' && backend === 'webgpu') continue; // CPU-only export, no fallback.
 					const worker = new Worker('/src/lib/canvas/browser-stt-worker.ts', { type: 'module' });
 					const request = (
 						message: Record<string, unknown>,
@@ -145,7 +146,7 @@ test('selected models transcribe the same complete public fixture for comparison
 		},
 		{
 			language: process.env.SPECTRUM_TEST_LANGUAGE ?? 'fr',
-			models: (process.env.SPECTRUM_TEST_MODELS ?? 'tiny,base').split(','),
+			models: (process.env.SPECTRUM_TEST_MODELS ?? 'base,parakeet').split(','),
 			backends: (
 				process.env.SPECTRUM_TEST_BACKENDS ??
 				(process.env.SPECTRUM_TEST_WEBGPU === 'true' ? 'wasm,webgpu' : 'wasm')
@@ -193,37 +194,43 @@ test('real browser local inference transcribes own opted-in microphone or explic
 	await page.route('**/browser-stt-fixture.wav', (route) =>
 		route.fulfill({ contentType: 'audio/wav', body: wav })
 	);
-	await page.addInitScript(() => {
-		(window as unknown as { captureCalls: number }).captureCalls = 0;
-		navigator.mediaDevices.getUserMedia = async () => {
-			(window as unknown as { captureCalls: number }).captureCalls++;
-			const context = new AudioContext();
-			const clip = await context.decodeAudioData(
-				await (await fetch('/browser-stt-fixture.wav')).arrayBuffer()
-			);
-			const padded = context.createBuffer(
-				1,
-				clip.length + context.sampleRate * 2,
-				context.sampleRate
-			);
-			padded.copyToChannel(clip.getChannelData(0), 0);
-			const source = context.createBufferSource();
-			source.buffer = padded;
-			source.loop = true;
-			const destination = context.createMediaStreamDestination();
-			source.connect(destination);
-			await context.resume();
-			source.start();
-			for (const track of destination.stream.getTracks()) {
-				const stop = track.stop.bind(track);
-				track.stop = () => {
-					stop();
-					void context.close().catch(() => {});
-				};
-			}
-			return destination.stream;
-		};
-	});
+	await page.addInitScript(
+		({ loop }) => {
+			(window as unknown as { captureCalls: number }).captureCalls = 0;
+			navigator.mediaDevices.getUserMedia = async () => {
+				(window as unknown as { captureCalls: number }).captureCalls++;
+				const context = new AudioContext();
+				const clip = await context.decodeAudioData(
+					await (await fetch('/browser-stt-fixture.wav')).arrayBuffer()
+				);
+				const padded = context.createBuffer(
+					1,
+					clip.length + context.sampleRate * (loop ? 2 : 3),
+					context.sampleRate
+				);
+				padded.copyToChannel(clip.getChannelData(0), 0, loop ? 0 : context.sampleRate);
+				const source = context.createBufferSource();
+				source.buffer = padded;
+				source.loop = loop;
+				const destination = context.createMediaStreamDestination();
+				source.connect(destination);
+				await context.resume();
+				if (loop) source.start();
+				else
+					(window as unknown as { startPublicSpeech: () => void }).startPublicSpeech = () =>
+						source.start();
+				for (const track of destination.stream.getTracks()) {
+					const stop = track.stop.bind(track);
+					track.stop = () => {
+						stop();
+						void context.close().catch(() => {});
+					};
+				}
+				return destination.stream;
+			};
+		},
+		{ loop: process.env.SPECTRUM_TEST_SPEECH_ONCE !== 'true' }
+	);
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
@@ -249,29 +256,25 @@ test('real browser local inference transcribes own opted-in microphone or explic
 	expect(publications).toHaveLength(0);
 	expect(modelRequests).toHaveLength(0);
 	await page.getByTestId('browser-stt-toggle').click();
-	await expect(page.getByRole('dialog')).toContainText('75 MB');
+	await expect(page.getByRole('dialog')).toContainText(language === 'auto' ? '110 MB' : '225 MB');
 	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 	expect(modelRequests).toHaveLength(0);
 	await page.getByTestId('browser-stt-toggle').click();
 	const legacyExternalRequests = new Set(externalRequests);
-	const selectedModel = process.env.SPECTRUM_TEST_MODEL;
-	if (selectedModel === 'base' || selectedModel === 'small' || selectedModel === 'parakeet') {
+	const selectedModel =
+		process.env.SPECTRUM_TEST_MODEL ??
+		(process.env.SPECTRUM_TEST_WEBGPU === 'true' ? 'base' : undefined);
+	if (selectedModel === 'base' || selectedModel === 'parakeet') {
 		await page.getByTestId('browser-stt-model').selectOption(selectedModel);
 		await expect(page.getByRole('dialog')).toContainText(
-			selectedModel === 'parakeet' ? '240 MB' : selectedModel === 'small' ? '515 MB' : '110 MB'
+			selectedModel === 'parakeet' ? '225 MB' : '110 MB'
 		);
 	}
 	if (process.env.SPECTRUM_TEST_WEBGPU === 'true') {
-		if (selectedModel === 'small') {
-			await expect(page.getByTestId('browser-stt-webgpu')).toBeChecked();
-		} else {
-			const gpu = page.getByTestId('browser-stt-webgpu');
-			await expect(gpu).toBeVisible();
-			await gpu.check();
-			await expect(page.getByRole('dialog')).toContainText(
-				selectedModel === 'base' ? '180 MB' : '110 MB'
-			);
-		}
+		const gpu = page.getByTestId('browser-stt-webgpu');
+		await expect(gpu).toBeVisible();
+		await gpu.check();
+		await expect(page.getByRole('dialog')).toContainText('180 MB');
 	}
 	await page.getByTestId('browser-stt-confirm').click();
 	const controls = page.getByTestId('browser-stt-controls');
@@ -285,10 +288,16 @@ test('real browser local inference transcribes own opted-in microphone or explic
 			})
 	]);
 	const transcript = await openTranscript(page);
-	if (process.env.SPECTRUM_TEST_WEBGPU === 'true') {
-		expect(modelRequests.some((url) => url.endsWith('ort-wasm-simd-threaded.asyncify.wasm'))).toBe(
-			true
+	if (process.env.SPECTRUM_TEST_SPEECH_ONCE === 'true')
+		await page.evaluate(() =>
+			(window as unknown as { startPublicSpeech: () => void }).startPublicSpeech()
 		);
+	if (process.env.SPECTRUM_TEST_WEBGPU === 'true') {
+		expect(
+			modelRequests.some((url) =>
+				new URL(url).pathname.endsWith('ort-wasm-simd-threaded.asyncify.wasm')
+			)
+		).toBe(true);
 		expect(modelRequests.some((url) => url.endsWith('_fp16.onnx'))).toBe(true);
 	}
 	const outcome = await Promise.race([
@@ -312,6 +321,8 @@ test('real browser local inference transcribes own opted-in microphone or explic
 				throw new Error(`${message} (published segments: ${publications.length})`);
 			})
 	]);
+	if (process.env.SPECTRUM_TEST_REQUIRE_TRANSCRIPTION === 'true')
+		expect(outcome).toBe('transcribed');
 	expect(
 		await page.evaluate(() => (window as unknown as { captureCalls: number }).captureCalls)
 	).toBe(1);

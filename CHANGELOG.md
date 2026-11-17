@@ -4,13 +4,29 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Merge microphone device selection, push-to-talk, level meter and browser transcription into one Audio options menu. Preparation status stays visible when that menu is closed.
+- Keep only Parakeet Redux and Whisper Base in the model picker, worker and asset setup. Parakeet is the default for configured French/English, Base for automatic language detection; retain old release assets for rollback without deleting them in place.
+
+### Added
+- Show actual decoded-file download bytes and percentages, cache checks and engine initialization, with separate actionable transport/asset/engine failures. Public Parakeet/runtime/VAD files are fingerprint-verified and cached separately from all room, audio and transcript data.
+
+### Fixed
+- Do not stop a progressing cold model download after two minutes. Bound download inactivity, initialization stalls and total startup independently; preserve the separate live inference/backlog safeguards and keep voice usable on failure.
+- Use the smaller stock CPU-only WASM runtime for Parakeet (~225 MB model/runtime/VAD budget). Firefox long-utterance performance remains limited rather than silently falling back or dropping speech.
+
+## [v2.0.0-beta.20] - 2026-11-17
+
+Deployed to france as a digest-pinned frontend/backend pair, with separately verified read-only inference assets. LiveKit, v1 PeerJS and v1 TURN remain unchanged.
+
 ### Added
 - Add an opt-in Parakeet Redux w2a8 CPU transcription choice, independently implemented greedy TDT decoding, same-origin revision-pinned weights, CC-BY-4.0 attribution, SHA-256 verification and gzip asset preparation. French or English must be configured explicitly; no automatic-language or GPU fallback is claimed for this export. Tiny remains the default pending phone validation.
-- Add a read-only host-assets Compose overlay and offline verification command for separately provisioned transcription weights, VAD and pinned ORT runtimes. Production activation remains gated on release and room/voice acceptance.
+- Add a read-only host-assets Compose overlay and offline verification command for separately provisioned transcription weights, VAD and pinned ORT runtimes.
 
 ### Fixed
 - Separate transcription engine availability from the new-room default. Browser transcription can be available for admin opt-in while rooms still start with transcription off; legacy deployment flag behavior remains the fallback.
 - Serve browser transcription assets without lying: `/stt/...` now returns 404 for a missing weight instead of falling through to the SPA `index.html`. Previously every `/stt/` request — including a nonexistent model — answered with the app shell (`Content-Type: text/html`), so a browser model download would fail with an opaque inference error rather than a clear missing-file one.
+- Serve runtime modules with explicit JavaScript/WASM MIME and preserve gzip negotiation through the host's scoped HTTP/1.1 `/stt/` proxy.
 
 ## [v2.0.0-beta.19] - 2026-11-17
 

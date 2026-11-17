@@ -9,6 +9,9 @@ import {
 import * as ort from 'onnxruntime-web/webgpu';
 import { browserSpeechBounds } from './browser-stt-vad';
 import { ParakeetRuntime } from './parakeet-runtime';
+import { STTAssetLoader, STTLoadError, type STTLoadProgress } from './browser-stt-load';
+import { PARAKEET_ASSETS, STT_RUNTIMES, VAD_ASSET } from './browser-stt-public-assets';
+import { baseDownloadProgress } from './browser-stt-progress';
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 let processor: Awaited<ReturnType<typeof AutoProcessor.from_pretrained>> | null = null;
@@ -20,15 +23,14 @@ let backend: 'wasm' | 'webgpu' = 'wasm';
 let parakeet: ParakeetRuntime | null = null;
 
 scope.onmessage = async ({ data }) => {
+	let runtimeURL: string | undefined;
 	try {
 		if (data.type === 'load') {
 			backend = data.backend ?? 'wasm';
 			if (backend !== 'wasm' && backend !== 'webgpu') throw new Error('Unknown backend');
-			if (!['tiny', 'base', 'small', 'parakeet'].includes(data.model))
-				throw new Error('Unknown model');
+			if (!['base', 'parakeet'].includes(data.model)) throw new Error('Unknown model');
 			if (data.model === 'parakeet' && backend !== 'wasm')
 				throw new Error('Redux w2a8 requires WASM');
-			if (data.model === 'small' && backend !== 'webgpu') throw new Error('Small requires WebGPU');
 			if (backend === 'webgpu') {
 				// Fail before downloading weights when a real GPU is unavailable.
 				const adapter = await (
@@ -58,24 +60,51 @@ scope.onmessage = async ({ data }) => {
 			const wasm = env.backends.onnx.wasm!;
 			wasm.numThreads = 1;
 			wasm.proxy = false;
-			const runtime = backend === 'webgpu' ? 'asyncify' : 'jsep';
+			const runtime =
+				STT_RUNTIMES[
+					data.model === 'parakeet' ? 'plain' : backend === 'webgpu' ? 'asyncify' : 'jsep'
+				];
+			const progress = (value: STTLoadProgress) =>
+				scope.postMessage({ type: 'progress', progress: value });
+			const assets = new STTAssetLoader(
+				[runtime.asset, VAD_ASSET, ...(data.model === 'parakeet' ? PARAKEET_ASSETS : [])],
+				progress
+			);
+			const runtimeBytes = await assets.read('runtime');
+			runtimeURL = URL.createObjectURL(
+				new Blob([runtimeBytes.buffer as ArrayBuffer], { type: 'application/wasm' })
+			);
 			wasm.wasmPaths = {
-				mjs: `${scope.location.origin}/stt/runtime/ort-wasm-simd-threaded.${runtime}.mjs`,
-				wasm: `${scope.location.origin}/stt/runtime/ort-wasm-simd-threaded.${runtime}.wasm`
+				mjs: `${scope.location.origin}${runtime.module}`,
+				wasm: runtimeURL
 			};
 			ort.env.wasm.numThreads = 1;
 			ort.env.wasm.proxy = false;
 			ort.env.wasm.wasmPaths = wasm.wasmPaths;
 			if (data.model === 'parakeet') {
-				parakeet = await ParakeetRuntime.load();
-				vad = await ort.InferenceSession.create('/stt/vad/silero_vad.onnx', {
+				parakeet = await ParakeetRuntime.load(assets);
+				const vadData = await assets.read('vad');
+				assets.initializing('vad');
+				vad = await ort.InferenceSession.create(vadData, {
 					executionProviders: ['wasm']
 				});
 				scope.postMessage({ type: 'ready', backend });
 				return;
 			}
 			// Explicit components avoid pipeline file discovery against a remote Hub.
-			const options = { progress_callback: () => scope.postMessage({ type: 'progress' }) };
+			const options = {
+				progress_callback: (info: {
+					status: string;
+					file?: string;
+					loaded?: number;
+					total?: number;
+				}) => {
+					const value = baseDownloadProgress(info);
+					if (value) progress(value);
+				}
+			};
+			const vadData = await assets.read('vad');
+			assets.initializing('vad');
 			const loaded = await Promise.all([
 				AutoProcessor.from_pretrained(modelId, options),
 				AutoTokenizer.from_pretrained(modelId, options),
@@ -84,7 +113,7 @@ scope.onmessage = async ({ data }) => {
 					device: backend,
 					dtype: backend === 'webgpu' ? 'fp16' : 'q8'
 				}),
-				ort.InferenceSession.create('/stt/vad/silero_vad.onnx', { executionProviders: ['wasm'] })
+				ort.InferenceSession.create(vadData, { executionProviders: ['wasm'] })
 			]);
 			processor = loaded[0];
 			tokenizer = loaded[1];
@@ -192,8 +221,18 @@ scope.onmessage = async ({ data }) => {
 			scope.postMessage({ type: 'result', id: data.id, text, language: detected });
 			working = false;
 		}
-	} catch {
+	} catch (error) {
 		working = false;
-		scope.postMessage({ type: 'error', reason: backend === 'webgpu' ? 'gpu' : 'failed' }); // Never log raw audio, text or model exceptions.
+		const reason =
+			backend === 'webgpu'
+				? 'gpu'
+				: data.type === 'load'
+					? error instanceof STTLoadError
+						? error.reason
+						: 'engine'
+					: 'failed';
+		scope.postMessage({ type: 'error', reason }); // Never log raw audio, text or model exceptions.
+	} finally {
+		if (runtimeURL) URL.revokeObjectURL(runtimeURL);
 	}
 };

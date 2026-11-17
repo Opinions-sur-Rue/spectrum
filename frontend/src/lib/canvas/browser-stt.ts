@@ -1,7 +1,10 @@
 import { BrowserSTTSegmenter, type BrowserAudioChunk } from './browser-stt-segmenter';
+import type { STTLoadProgress } from './browser-stt-load';
+export type { STTLoadProgress } from './browser-stt-load';
 
-export type BrowserSTTModel = 'tiny' | 'base' | 'small' | 'parakeet';
+export type BrowserSTTModel = 'base' | 'parakeet';
 export type BrowserSTTBackend = 'wasm' | 'webgpu';
+export type BrowserSTTFailureReason = 'failed' | 'slow' | 'gpu' | 'download' | 'assets' | 'engine';
 
 export interface BrowserTranscriptSession {
 	roomId: string;
@@ -62,6 +65,8 @@ export class BrowserSTT {
 	private sequence = 0;
 	private job = 0;
 	private timer: ReturnType<typeof setTimeout> | undefined;
+	private loadDeadline: ReturnType<typeof setTimeout> | undefined;
+	private loading = false;
 	private disposed = false;
 	constructor(
 		private language: 'fr' | 'en' | 'auto',
@@ -74,9 +79,10 @@ export class BrowserSTT {
 				start: number;
 				end: number;
 			}) => void;
-			failure: (reason: 'failed' | 'slow' | 'gpu') => void;
+			failure: (reason: BrowserSTTFailureReason) => void;
+			progress?: (value: STTLoadProgress) => void;
 		},
-		private model: BrowserSTTModel = 'tiny',
+		private model: BrowserSTTModel = 'base',
 		private backend: BrowserSTTBackend = 'wasm'
 	) {}
 	load() {
@@ -95,17 +101,42 @@ export class BrowserSTT {
 			this.fail('failed');
 			return;
 		}
-		this.worker.onerror = () => this.fail('failed');
+		this.worker.onerror = () => this.fail(this.loading ? 'engine' : 'failed');
 		this.worker.onmessage = ({ data }) => {
 			if (this.disposed) return;
 			if (data.type === 'ready') {
 				clearTimeout(this.timer);
+				clearTimeout(this.loadDeadline);
+				this.loading = false;
 				if (data.backend !== this.backend) {
 					this.fail(this.backend === 'webgpu' ? 'gpu' : 'failed');
 					return;
 				}
 				this.callbacks.ready();
-			} else if (data.type === 'error') this.fail(data.reason === 'gpu' ? 'gpu' : 'failed');
+			} else if (data.type === 'progress' && this.loading) {
+				const progress = data.progress as STTLoadProgress | undefined;
+				if (
+					!progress ||
+					!['download', 'initializing', 'cache'].includes(progress.phase) ||
+					!Number.isFinite(progress.loaded) ||
+					!Number.isFinite(progress.total) ||
+					progress.loaded < 0 ||
+					progress.total < progress.loaded
+				)
+					return;
+				clearTimeout(this.timer);
+				const downloading = progress.phase === 'download';
+				this.timer = setTimeout(
+					() => this.fail(downloading ? 'download' : 'engine'),
+					downloading ? 90000 : 180000
+				);
+				this.callbacks.progress?.(progress);
+			} else if (data.type === 'error')
+				this.fail(
+					['failed', 'slow', 'gpu', 'download', 'assets', 'engine'].includes(data.reason)
+						? (data.reason as BrowserSTTFailureReason)
+						: 'failed'
+				);
 			else if (data.type === 'result' && data.id === this.job && this.current) {
 				clearTimeout(this.timer);
 				const { start, end } = this.current;
@@ -125,7 +156,11 @@ export class BrowserSTT {
 				}
 			}
 		};
-		this.timer = setTimeout(() => this.fail('failed'), 120000);
+		this.loading = true;
+		// A progressing cold model download may legitimately take many minutes.
+		// Bound inactivity separately from initialization and the total startup.
+		this.timer = setTimeout(() => this.fail('download'), 90000);
+		this.loadDeadline = setTimeout(() => this.fail('download'), 30 * 60000);
 		this.worker.postMessage({ type: 'load', model: this.model, backend: this.backend });
 	}
 	async captureTrack(track: MediaStreamTrack) {
@@ -168,7 +203,7 @@ export class BrowserSTT {
 			[chunk.audio.buffer]
 		);
 	}
-	private fail(reason: 'failed' | 'slow' | 'gpu') {
+	private fail(reason: BrowserSTTFailureReason) {
 		if (this.disposed) return;
 		this.stop();
 		this.callbacks.failure(reason);
@@ -176,6 +211,8 @@ export class BrowserSTT {
 	stop() {
 		this.disposed = true;
 		clearTimeout(this.timer);
+		clearTimeout(this.loadDeadline);
+		this.loading = false;
 		this.worker?.terminate();
 		this.worker = null;
 		this.source?.disconnect();

@@ -1,6 +1,10 @@
 // Must match package-lock.json's pinned onnxruntime-web build. Updating ORT
 // requires explicitly reviewing these fingerprints and browser smoke results.
 export const sharedFiles = {
+	'runtime/ort-wasm-simd-threaded.mjs':
+		'c57ca56328877353a575e51bbca6f18450027d6c9bf2307a2cb2c41363b4de9f',
+	'runtime/ort-wasm-simd-threaded.wasm':
+		'06ba057753da3847e4c24f02d91ab133455b0817c69a44993a9a53a2146df9e3',
 	'vad/silero_vad.onnx': '2623a2953f6ff3d2c1e61740c6cdb7168133479b267dfef114a4a3cc5bdd788f',
 	'vad/LICENSE': '2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b',
 	'runtime/ort-wasm-simd-threaded.jsep.mjs':

@@ -33,7 +33,7 @@ export async function verifyParakeetAssets(root) {
 			modelRaw += data.length;
 			modelGzip += compressed.length;
 		}
-		if (!file.includes('asyncify')) {
+		if (!file.includes('asyncify') && !file.includes('jsep')) {
 			cpuRaw += data.length;
 			cpuGzip += compressed.length;
 		}

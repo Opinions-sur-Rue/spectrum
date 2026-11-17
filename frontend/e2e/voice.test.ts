@@ -84,9 +84,9 @@ test('push-to-talk holds only while pressed, never hijacks typing, and cancels l
 	await page.getByRole('button', { name: 'Join audio', exact: true }).click();
 	const controls = page.getByTestId('voice-controls');
 	await expect(controls).toHaveAttribute('data-status', 'connected', { timeout: 30000 });
-	await page.getByTestId('mic-options').click();
+	await page.getByTestId('audio-options').click();
 	await page.getByTestId('push-to-talk-mode').check();
-	await page.getByTestId('mic-options').click();
+	await page.getByTestId('audio-options').click();
 	const hold = page.getByTestId('push-to-talk');
 	await expect(hold).toBeEnabled();
 	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(0);
@@ -153,9 +153,9 @@ test('push-to-talk holds only while pressed, never hijacks typing, and cancels l
 		)
 		.toBe(true);
 	await expect(controls).toHaveAttribute('data-microphone', 'false');
-	await page.getByTestId('mic-options').click();
+	await page.getByTestId('audio-options').click();
 	await page.getByTestId('push-to-talk-mode').uncheck();
-	await page.getByTestId('mic-options').click();
+	await page.getByTestId('audio-options').click();
 	await expect(page.getByRole('button', { name: 'Enable microphone', exact: true })).toBeVisible();
 });
 
@@ -171,9 +171,9 @@ test('push-to-talk remains usable in a small French mobile viewport', async ({ p
 	await page.getByTestId('audio-toggle').click();
 	const controls = page.getByTestId('voice-controls');
 	await expect(controls).toHaveAttribute('data-status', 'connected', { timeout: 30000 });
-	await page.getByTestId('mic-options').click();
+	await page.getByTestId('audio-options').click();
 	await page.getByTestId('push-to-talk-mode').check();
-	await page.getByTestId('mic-options').click();
+	await page.getByTestId('audio-options').click();
 	const hold = page.getByTestId('push-to-talk');
 	await expect(hold).toBeEnabled();
 	const box = (await hold.boundingBox())!;
@@ -493,9 +493,9 @@ test('admin mute targets one microphone; only its owner resumes, and hold mode r
 				})
 			).status()
 		).toBe(403);
-		await actor.getByTestId('mic-options').click();
+		await actor.getByTestId('audio-options').click();
 		await actor.getByTestId('push-to-talk-mode').check();
-		await actor.getByTestId('mic-options').click();
+		await actor.getByTestId('audio-options').click();
 		const hold = actor.getByTestId('push-to-talk');
 		await hold.focus();
 		await actor.keyboard.down('Space');

@@ -1,5 +1,67 @@
 # Resume: finish v1 → v2 parity
 
+## beta.20 rollout — 2026-11-17
+
+- Release `v2.0.0-beta.20`, source `fd28304e86484480c19c6866182c321aa74bcdb6`.
+  CI run **44081119337** passed backend race tests/lint, frontend unit/check/lint,
+  v1/v2 UI and voice, both image publications and complete-pair manifest.
+- Frontend `sha256:7e46525aef241e389058f9985f86f318fee7d5a5cabc9420194d76d7019b7086`;
+  backend `sha256:1003aa9f0114267a65c819bf48901279eff62c843cb18531d32522e7a0e209a3`.
+- Host assets prepared at `/opt/spectrum/stt/releases/beta20-fd28304`, including
+  Parakeet, shared VAD/ORT and existing Whisper choices. All 54 public files
+  verified. The initial rsync upload saturated the local link and was stopped;
+  remaining binaries were fetched directly on france from pinned upstream
+  revisions, with raw fingerprints and NPM archive integrity verified before use.
+- An isolated container running the exact frontend image and read-only mount
+  passed v1/v2 routes, missing ONNX/MJS 404s, JS/WASM MIME, gzip/Vary and full
+  decompressed encoder hash checks, then was stopped.
+- Production configuration separates `SPECTRUM_TRANSCRIPTION_AVAILABLE=true`
+  and `SPECTRUM_TRANSCRIPTION_MODE=browser` from the unchanged new-room default
+  `SPECTRUM_TRANSCRIPTION_ENABLED=false`. Admin room opt-in and individual
+  microphone/transcription consent remain required.
+- First strict activity gate aborted before any restart when activity appeared.
+  User subsequently **explicitly approved interrupting the one remaining backend
+  connection and losing its ephemeral room state**. The reviewed runner's
+  exception is bounded to at most one backend connection, with zero SFU rooms
+  and zero audio participants throughout the 100-second observation. Default
+  remains strict zero; additional connections or any audio abort the operation.
+- Pair deployed at **12:55 UTC**, after that bounded, explicitly approved
+  100-second activity gate. Snapshot:
+  `/opt/spectrum/deploy-v2.0.0-beta.20-20261117T125521Z` (root-only). Frontend
+  started `12:55:23Z`, backend `12:55:22Z`; LiveKit, PeerJS and TURN retain
+  exactly their previous image references and start times.
+- `/opt/spectrum/compose.stt-assets.yaml` is persisted and selected by the
+  reviewed deployment runner whenever `SPECTRUM_STT_ASSET_DIR` is present in
+  `beta.env`. Automatic rollback restores the previous environment and chooses
+  the previous compose configuration, without accidentally retaining the new
+  availability flags or mount. The original runner is retained in the root-only
+  `/opt/spectrum/staging/beta20/deploy-reviewed-pair.before.py`.
+- Post-deploy public HTTP checks pass: `/` and `/v2/` 200, API status `up`,
+  missing ONNX/MJS 404, explicit JavaScript/WASM MIME and pinned vocabulary hash.
+  Host nginx's generic frontend proxy used HTTP/1.0, preventing upstream
+  `gzip_static` negotiation. Added a **scoped `/stt/` HTTP/1.1 proxy** and reloaded
+  nginx gracefully after `nginx -t`; public gzip/Vary now passes too. Restore
+  material is `nginx-spectrum.before-assets-proxy` in the same deployment
+  snapshot. A full rollback must restore that host config as well as the pair
+  and previous asset environment. The deployed encoder gzip representation is
+  136,341,155 bytes; server/client zlib versions can emit different compressed
+  bytes, so host compressed fingerprints were re-attested against unchanged,
+  pinned raw model files.
+- Direct UDP and forced TURN/TLS voice smokes passed, including v1/PeerJS,
+  moderation isolation, token revocation and microphone recovery. The initial
+  TURN/TLS attempt failed a five-second role-transition assertion; retest with a
+  20-second assertion budget passed, with observed moderation round trips of
+  1.8 and 2.3 seconds. The original intermittent failure was not reproduced;
+  this retest does not prove its precise cause.
+- Public Parakeet smoke confirmed engine availability, room default off and no
+  download before consent, but did **not** reach ready within 120 seconds.
+  Independent public range transfer measured about 179 kB/s, so the global
+  two-minute model startup timer is not appropriate for cold multi-hundred-MB
+  downloads on this link. User also reported the generic startup failure in
+  Firefox. No successful production transcription is claimed yet.
+- Follow-up requested: merge microphone/audio menus; visible model download and
+  initialization progress; actionable startup diagnostics and Firefox checks.
+
 ## beta.19 production acceptance — 2026-11-17
 
 Deployed as a digest-pinned pair (frontend `sha256:5fb10a70…`, backend
