@@ -1,0 +1,11 @@
+# Production overlay: public inference assets are provisioned and verified
+# separately from the image. No audio, credentials or room data belongs here.
+services:
+  frontend:
+    volumes:
+      - type: bind
+        source: ${SPECTRUM_STT_ASSET_DIR:?Set SPECTRUM_STT_ASSET_DIR to a verified asset directory}
+        target: /usr/share/nginx/html/stt
+        read_only: true
+        bind:
+          create_host_path: false

@@ -4,9 +4,11 @@
 > against the download budget, and whether a self-compiled runtime is required)
 > are answered with measurements for `parakeet-tdt-0.6b-v3-redux` w2a8 in
 > [`BROWSER_ASR_PARAKEET.md`](BROWSER_ASR_PARAKEET.md): ≈ 208 MB raw /
-> ≈ 148 MB transferred, and Spectrum's stock `onnxruntime-web` WASM build already
-> executes the MatMulNBits encoder. This file stays as the research record; no
-> production integration is approved yet.
+> ≈ 148 MB gzip for weights only, and Spectrum's stock `onnxruntime-web` WASM build already
+> executes the MatMulNBits encoder. This file stays as the research record;
+> production integration was approved subsequently: independent Spectrum decoder,
+> stock WASM runtime (execution verified) and read-only host assets (option A).
+> Deployment remains gated on validation; see `BROWSER_STT.md`.
 
 ## User intent and scope
 

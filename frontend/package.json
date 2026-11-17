@@ -25,6 +25,7 @@
 		"test:e2e:voice": "playwright test --config playwright.voice.config.ts",
 		"test:e2e:transcription": "playwright test --config playwright.transcription.config.ts",
 		"test:e2e:browser-stt": "playwright test --config playwright.browser-stt.config.ts",
+		"test:e2e:parakeet": "playwright test --config playwright.parakeet.config.ts",
 		"cap:sync": "npm run build && npx cap sync android",
 		"cap:open": "npx cap open android"
 	},

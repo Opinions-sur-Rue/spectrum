@@ -10,6 +10,97 @@ ASR or hidden server fallback. Unsupported devices can still use voice.
 
 ## Setup and rollback
 
+### Parakeet Redux w2a8: read-only host assets (option A)
+
+Parakeet is an additional explicit CPU option, not a change to room defaults.
+Transcription remains admin-enabled and individually consented. Set the room
+language to French or English; Redux has no automatic language detector. Tiny
+remains the default model while phone performance is unverified. WebGPU remains
+a Whisper-only option: the pinned Redux export is documented as CPU-only.
+
+Prepare a **new** directory on a trusted build machine with the release's locked
+dependencies. Do not overwrite a directory mounted by a running frontend:
+
+```sh
+cd frontend
+npm ci
+# Keep the unchanged default Tiny choice usable too.
+npm run setup:browser-stt -- --model=tiny --root=/tmp/opencode/stt-beta20
+npm run setup:browser-stt -- --model=parakeet --root=/tmp/opencode/stt-beta20
+node scripts/verify-parakeet-assets.mjs --root=/tmp/opencode/stt-beta20
+```
+
+Setup pins the model revision and four SHA-256 fingerprints, verifies VAD and
+the exact ORT binaries, writes precompressed `.gz` siblings, attribution and
+`SHA256SUMS.parakeet`. All browsers fetch the same-origin uncompressed URL;
+nginx negotiates `gzip_static` transparently. Missing assets must return 404,
+including runtime `.mjs` (the `/stt/` location has `^~` priority).
+The Parakeet verifier covers Parakeet and shared assets, not Whisper's config
+files. Whisper setup separately checks its pinned ONNX files. Provision Base
+and Small too if those optional tiers should work; absent tiers must fail
+explicitly, never silently substitute a model.
+
+Copy the prepared directory to a **new** release directory under
+`/opt/spectrum/stt/` on france. Copy the verification scripts from this same
+reviewed revision too; do not trust a manifest supplied separately from code.
+Run the verifier there, and `sha256sum -c SHA256SUMS.parakeet` from the asset
+directory. Make files world-readable and directories traversable, but writable
+only by the deploy operator/root. Only public model files belong here, no
+secrets or microphone data.
+
+Set `SPECTRUM_STT_ASSET_DIR` to that verified absolute release path in the
+root-only deployment environment. Apply `docker-compose.stt-assets.yaml` after
+the production compose file; it adds a read-only frontend bind mount at
+`/usr/share/nginx/html/stt` and refuses an absent host directory. The overlay
+must be included in **every subsequent deploy and rollback** command. Update
+the reviewed deployment runner accordingly; an ad-hoc `docker compose up` with
+the overlay omitted would remove the mount. This is a pending rollout gate,
+not an operation already applied to beta.19.
+
+Before recreating anything: green release CI, approved digest-pinned frontend
+and backend, retained previous environment/compose/asset path, and observed
+inactivity gate. Preserve LiveKit/PeerJS/TURN; retain v1 `/` and v2 `/v2`.
+Mounting assets requires frontend recreation and must use that same gate.
+
+After rollout, verify a known weight's content hash over HTTPS, content type,
+gzip negotiation (`Content-Encoding: gzip`, `Vary: Accept-Encoding`) and a missing
+`.onnx` **and** `.mjs` returning 404 rather than HTML/200. Test actual worker
+recognition and microphone lifecycle, not HTTP status alone. Roll back to the
+previous pinned pair **and its previous asset path/overlay** through the reviewed
+runner if acceptance fails. Keep old asset directories until old tabs/rollback
+no longer need them.
+
+Parakeet weights: 208,330,200 bytes raw / 147,981,061 bytes gzip. Including VAD
+and the pinned CPU runtime: 239,058,535 bytes raw / 156,610,419 bytes gzip
+(plus application JavaScript). The consent budget is conservative
+raw size, not a promise of gzip negotiation. CC-BY-4.0 attribution ships beside
+the model and appears in the consent dialog.
+
+Inference-only browser test (no backend/SFU; public fixture ≤12 seconds):
+
+```sh
+npm run setup:browser-stt -- --model=parakeet
+SPECTRUM_TEST_SPEECH=/path/to/public.wav SPECTRUM_TEST_LANGUAGE=en \
+  SPECTRUM_TEST_EXPECT=country npm run test:e2e:parakeet
+```
+
+2026-11-17 initial public JFK fixture: identical full text on Chromium, Firefox
+and WebKit. Chromium/WebKit ~6 seconds for 11 seconds of audio; Firefox ~60
+seconds, **not realtime-capable** in this environment. This test invokes the
+worker directly; the production controller's 20-second capacity timeout would
+stop Firefox transcription while leaving voice active. Silence rejection and
+automatic-language rejection pass. This is not yet phone, sustained-room,
+representative French WER or peak-memory acceptance.
+
+Local room/SFU follow-up passes on Chromium: French captions published, history
+visible to a new spectator, independent stop preserving the microphone, and no
+late publication. Firefox's capacity-stop/voice-preservation path also passes;
+it is explicitly not counted as a successful realtime captioning result. The
+existing room smoke needed Audio options reopened before clicking Stop and a
+hidden capacity-alert check after Discussion closed that popover.
+
+### Existing Whisper tiers
+
 From `frontend/`:
 
 ```sh

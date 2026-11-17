@@ -14,15 +14,15 @@ same model family.
 | Encoder, zstd | 134 781 584 B |
 | Decoder/joiner | `int8/decoder_joint-model.int8.onnx` 18 203 490 B (zstd 12 731 860 B) |
 | Mel front-end | `nemo128.onnx` 139 764 B |
-| Vocabulary | `vocab.txt` 93 939 B, 8 198 logits |
-| **Total per participant** | **≈ 208 Mo brut** (the repo's zstd copies total ≈ 148 Mo; gzip transfer size still to be measured — see "Production blocker") |
+| Vocabulary | `vocab.txt` 93 939 B, 8 193 tokens including blank |
+| **Model files** | **208 330 200 B raw / 147 981 061 B gzip**, measured with setup script; runtime and VAD are additional |
+| Model + CPU runtime + VAD | 239 058 535 B raw / 156 610 419 B gzip (excluding application JS) |
 | French quality (your harness, 10 clips) | WER 3,52 %, 4,1× realtime, `ort=wasm` |
 | License | `cc-by-4.0` (also the base model `moondream/parakeet-redux`) — commercial use allowed, attribution required |
 | Languages | 33 including `fr` and `en` |
 
-The size is inside the ≤ 350 MB budget that earlier research could only reach
-with a 4-bit Parakeet build, and the French accuracy is far above Whisper
-`tiny`/`base`, which is what Spectrum's browser path uses today.
+The size is inside the ≤ 350 MB budget. The local French sample is encouraging,
+but is not a representative quality benchmark or a paired Whisper comparison.
 
 ## Runtime feasibility (the open question, now answered)
 
@@ -42,18 +42,16 @@ Two consequences worth stating plainly:
 - **The self-compiled MatMulNBits WASM runtime is not needed.** The stock WASM
   build in Spectrum already registers *and executes* the `MatMulNBits` encoder.
   That removes an entire build-and-verify pipeline from the plan. The measurement
-  was single-threaded (the probe lacked cross-origin isolation), so real
-  multi-threaded numbers will be better, not worse.
-- **WebGPU stays unverified here**: the probe environment reported
-  `No available adapters`, so the GPU path must be measured on a machine with a
-  real adapter before we quote GPU numbers. Parakeet Web's upstream notes say the
-  GPU EP runs MatMulNBits natively, which matches the op being standard.
+  was single-threaded; the implementation deliberately stays single-threaded
+  without changing cross-origin isolation for the rest of Spectrum.
+- **This export is WASM-only in Spectrum.** The pinned model card explicitly
+  labels w2a8 CPU-only. Earlier suggestions that generic MatMulNBits WebGPU
+  support proved this export GPU-compatible were unsupported. Whisper retains
+  its separate GPU option.
 
 ## Graph contract for the Spectrum implementation
 
-Read from the sessions themselves rather than hardcoded — the decoder declares
-its own extra outputs, and that declaration is what distinguishes the optimized
-build from a stock one:
+The implementation targets the pinned graph contract, not arbitrary TDT models:
 
 - Mel front-end: `waveforms [1, samples] float32` + `waveforms_lens [1] int64`
   → `features [1, 128, T] float32` + `features_lens [1] int64`.
@@ -67,12 +65,17 @@ build from a stock one:
   `duration_logits`.
 - Dtypes matter: passing int64 for `targets`/`target_length` is rejected, so the
   decode loop must build int32 tensors.
-- `vocab.txt` is 8 198 lines; blank/duration/until-token indices come from the
-  TDT config (`config.json`: `nemo-conformer-tdt`, 128 features, subsampling 8).
+- `vocab.txt` has 8 193 entries, blank ID 8192. The joint's 8 198 logits are
+  8 193 token scores followed by five duration scores (0–4 encoder frames).
+  The minimal `config.json` does **not** encode these IDs or durations.
+- Each greedy step receives exactly one gathered encoder frame `[1,1024,1]`.
+  Nonblank updates prediction state and previous token; blank preserves both.
+  Zero-duration nonblank symbols may share a frame; zero-duration blank must
+  advance. Pathological zero-duration loops fail explicitly.
 
 ## Production blocker found while measuring
 
-Browser transcription assets are **not served today**, in either tier:
+The beta.19 image does **not** serve browser transcription assets:
 
 - `frontend/.dockerignore` and `.gitignore` both exclude `static/stt/`, which is
   where `npm run setup:browser-stt` puts the Whisper weights, the Silero VAD and
@@ -89,13 +92,12 @@ Browser transcription assets are **not served today**, in either tier:
   `docs/BROWSER_STT.md` already warns "Do not rewrite missing `/stt/` files to
   index.html", which is precisely what the shipped config does.
 
-So Parakeet integration needs the serving story fixed first, and that is a
-deployment decision, not a code detail: either bake the weights into the image
-(frontend image ≈ 300 MB for Parakeet, slow CI pushes and restarts) or mount a
-read-only host directory and add an explicit
+User approved option A: a separately provisioned read-only asset mount. The
+image remains small. The next image uses an explicit high-priority location
+(including runtime `.mjs`, which must not fall into the generic asset regex):
 
 ```
-location /stt/ { try_files $uri =404; }
+location ^~ /stt/ { try_files $uri =404; gzip_static on; }
 ```
 
 so a missing asset fails loudly instead of masquerading as the app. Compression has to follow what the deployed nginx can actually do, and that was
@@ -103,11 +105,11 @@ measured here: the frontend image's `nginx -V` lists
 `--with-http_gzip_static_module` and `--with-http_slice_module`, **no zstd and no
 brotli**. So the weight pipeline should ship `.onnx.gz` siblings and rely on
 `gzip_static on` (already added to the `/stt/` block), not on the `.zst` files the
-Hugging Face repo publishes. ONNX weights compress poorly (already quantized
-tables), so the realistic saving is modest; the 148 MB figure above is the repo's
-own zstd size and should not be promised to users until measured with gzip.
+Hugging Face repo publishes. Gzip has now been measured: 147 981 061 bytes for
+the four model files. Consent uses a conservative raw budget including runtime
+and VAD, rather than promising a particular browser's negotiated compression.
 
-## Integration plan for Spectrum
+## Implementation and rollout
 
 Spectrum is GPLv3 and the reference Parakeet Web implementation is AGPLv3, so the
 decoder loop is written fresh against the contract above rather than ported. The
@@ -126,17 +128,18 @@ weights and runtime stay same-origin, matching the current
    skips/timestamps, states carried between steps), reusing the existing
    segmenter/VAD so chunking, partial replacement and turn boundaries stay as
    they are.
-3. **Model picker** — offer Parakeet as the recommended French/English tier with
-   its real download size shown before consent, keep Whisper `tiny`/`base` as the
-   smaller/no-WebGPU fallback, and refuse to start a tier whose weights are not
-   present on the server rather than falling back silently.
-4. **Timing budget** — TDT emits per-frame durations, so word timing becomes
-   available for the transcript panel without a second model.
+3. **Model picker** — explicit Parakeet CPU option, with raw download budget;
+   Tiny remains default pending phone acceptance. No GPU or automatic language
+   detection for Redux. Rooms must pin French or English; this is a configured
+   language label, not proof of language detection. Missing weights fail without
+   silent fallback. Existing microphone consent and stop rules remain intact.
+4. **Timing** — TDT durations drive frame advancement only. The existing
+   segment boundaries remain; word timestamps are not implemented.
 5. **Attribution** — CC-BY-4.0 requires credit for the model; add it to
-   `frontend/public/stt/` alongside the existing third-party notices and name the
-   upstream repo in the About/help text.
+   versioned asset directory alongside the weights and name upstream in the
+   model consent dialog.
 6. **Verification before any rollout** — WER and real-time factor measured in the
-   browser (not Node) on the existing French clips, on both WASM and WebGPU, plus
+   browser (not Node) on the existing French clips using WASM, plus
    memory high-water per tab; Parakeet only becomes the default once it also
    holds up on a phone.
 
@@ -144,7 +147,34 @@ weights and runtime stay same-origin, matching the current
 
 - Real-device memory/CPU headroom: 190 Mo of weights plus activations per
   participant tab, and what that means on mid-range Android.
-- WebGPU measurements (no adapter available in this environment).
-- Whether to keep any Whisper tier at all once Parakeet works on both backends.
-- Bandwidth: 148 Mo per first-time participant on our own host needs a decision
-  on serving (see the deployment note about self-hosted weights).
+- Representative French accuracy, room/voice integration and sustained memory
+  measurements for this independent decoder.
+- Production release: code and asset provisioning must pass their gates before
+  enabling the new option in production. See `BROWSER_STT.md` for mount procedure.
+
+## Independent implementation validation — 2026-11-17
+
+- Public JFK (11 seconds), real Spectrum worker: identical full English text on
+  Chromium (5.9 s), WebKit (6.1 s) and Firefox (60.2 s). All three reject silence,
+  reject automatic language, and complete without external requests.
+- Public Google FLEURS `fr_fr/validation` row 1 (6 seconds): Chromium 3.4 s,
+  WebKit 3.9 s, Firefox 31.7 s. Same French output on all three, with an actual
+  recognition error (`ni ascète` for `ni à celles`). These smoke assertions
+  establish execution, not a representative WER or perfect French recognition.
+- Firefox worker correctness is **not** realtime acceptance: the production
+  controller stops inference after 20 seconds and keeps voice active.
+- Real local room/SFU integration passes: Chromium publishes French text,
+  spectator sees retained history, stopping ASR leaves microphone live and no
+  late transcript is published. Firefox hits the explicit capacity stop with
+  microphone still live (safety pass, not successful transcription).
+- Lint, production build, TypeScript (zero diagnostics) and 226 frontend unit
+  tests pass. One full-unit attempt hit the existing root-page test's asynchronous
+  Node/jsdom WebSocket Event-realm exception; a full rerun passed without ignored
+  errors or changes to that test.
+- Model/VAD/runtime SHA-256 verifier passes and rejects a corrupt asset.
+- Actual nginx container: absent ONNX and MJS return 404, MJS has JavaScript
+  MIME, WASM has `application/wasm`, gzip has `Vary: Accept-Encoding`, and
+  decompressed encoder hash matches its pin. The explicit MIME map matters:
+  nginx 1.27's default MJS response was `application/octet-stream`.
+- No production image, host mount or transcription setting changed by these
+  local checks.

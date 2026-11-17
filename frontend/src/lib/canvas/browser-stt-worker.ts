@@ -8,6 +8,7 @@ import {
 } from '@huggingface/transformers';
 import * as ort from 'onnxruntime-web/webgpu';
 import { browserSpeechBounds } from './browser-stt-vad';
+import { ParakeetRuntime } from './parakeet-runtime';
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 let processor: Awaited<ReturnType<typeof AutoProcessor.from_pretrained>> | null = null;
@@ -16,13 +17,17 @@ let model: WhisperForConditionalGeneration | null = null;
 let working = false;
 let vad: ort.InferenceSession | null = null;
 let backend: 'wasm' | 'webgpu' = 'wasm';
+let parakeet: ParakeetRuntime | null = null;
 
 scope.onmessage = async ({ data }) => {
 	try {
 		if (data.type === 'load') {
 			backend = data.backend ?? 'wasm';
 			if (backend !== 'wasm' && backend !== 'webgpu') throw new Error('Unknown backend');
-			if (!['tiny', 'base', 'small'].includes(data.model)) throw new Error('Unknown model');
+			if (!['tiny', 'base', 'small', 'parakeet'].includes(data.model))
+				throw new Error('Unknown model');
+			if (data.model === 'parakeet' && backend !== 'wasm')
+				throw new Error('Redux w2a8 requires WASM');
 			if (data.model === 'small' && backend !== 'webgpu') throw new Error('Small requires WebGPU');
 			if (backend === 'webgpu') {
 				// Fail before downloading weights when a real GPU is unavailable.
@@ -61,6 +66,14 @@ scope.onmessage = async ({ data }) => {
 			ort.env.wasm.numThreads = 1;
 			ort.env.wasm.proxy = false;
 			ort.env.wasm.wasmPaths = wasm.wasmPaths;
+			if (data.model === 'parakeet') {
+				parakeet = await ParakeetRuntime.load();
+				vad = await ort.InferenceSession.create('/stt/vad/silero_vad.onnx', {
+					executionProviders: ['wasm']
+				});
+				scope.postMessage({ type: 'ready', backend });
+				return;
+			}
 			// Explicit components avoid pipeline file discovery against a remote Hub.
 			const options = { progress_callback: () => scope.postMessage({ type: 'progress' }) };
 			const loaded = await Promise.all([
@@ -78,27 +91,48 @@ scope.onmessage = async ({ data }) => {
 			model = loaded[2] as WhisperForConditionalGeneration;
 			vad = loaded[3];
 			scope.postMessage({ type: 'ready', backend });
-		} else if (data.type === 'recognize' && processor && tokenizer && model && vad && !working) {
+		} else if (
+			data.type === 'recognize' &&
+			(parakeet || (processor && tokenizer && model)) &&
+			vad &&
+			!working
+		) {
 			working = true;
 			const audio = new Float32Array(data.audio);
 			if (audio.length > 16000 * 12) throw new Error('Audio limit exceeded');
 			const session = vad;
 			const bounds = await browserSpeechBounds(audio, async (input, state) => {
-				const result = await session.run({
+				const feeds = {
 					input: new ort.Tensor('float32', input, [1, 576]),
 					state: new ort.Tensor('float32', state, [2, 1, 128]),
 					sr: new ort.Tensor('int64', BigInt64Array.from([16000n]), [])
-				});
-				return {
-					probability: Number(result.output.data[0]),
-					state: result.stateN.data as Float32Array
 				};
+				let result: Record<string, ort.Tensor> = {};
+				try {
+					result = await session.run(feeds);
+					return {
+						probability: Number(result.output.data[0]),
+						state: (result.stateN.data as Float32Array).slice()
+					};
+				} finally {
+					for (const tensor of [...Object.values(result), ...Object.values(feeds)])
+						tensor.dispose();
+				}
 			});
 			if (!bounds) {
 				scope.postMessage({ type: 'result', id: data.id, text: '', language: '', noSpeech: true });
 				working = false;
 				return;
 			}
+			if (parakeet) {
+				if (data.language !== 'fr' && data.language !== 'en')
+					throw new Error('Parakeet requires a pinned room language');
+				const text = await parakeet.recognize(audio.subarray(bounds.start, bounds.end));
+				scope.postMessage({ type: 'result', id: data.id, text, language: data.language });
+				working = false;
+				return;
+			}
+			if (!processor || !tokenizer || !model) throw new Error('Model unavailable');
 			const features = await processor(audio.subarray(bounds.start, bounds.end));
 			let language = data.language;
 			if (language === 'auto') {

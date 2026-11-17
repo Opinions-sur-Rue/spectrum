@@ -3,11 +3,18 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { gzipSync } from 'node:zlib';
+import { parakeetRevision, parakeetRepository, parakeetFiles } from './parakeet-assets.mjs';
+import { sharedFiles } from './browser-stt-shared-assets.mjs';
+import { verifyParakeetAssets } from './verify-parakeet-assets.mjs';
 
-const root = fileURLToPath(new URL('../static/stt/', import.meta.url));
+const root = path.resolve(
+	process.argv.find((arg) => arg.startsWith('--root='))?.slice(7) ??
+		fileURLToPath(new URL('../static/stt/', import.meta.url))
+);
 const choice = process.argv.find((arg) => arg.startsWith('--model='))?.split('=')[1] ?? 'tiny';
-if (!['tiny', 'base', 'small', 'all'].includes(choice))
-	throw new Error('Use --model=tiny|base|small|all');
+if (!['tiny', 'base', 'small', 'parakeet', 'all'].includes(choice))
+	throw new Error('Use --model=tiny|base|small|parakeet|all');
 const models = {
 	tiny: {
 		revision: '5332fcc35e32a33b86612b9a57a89be7906102b1',
@@ -57,6 +64,41 @@ async function download(url, destination, checksum) {
 		await writeFile(destination, data);
 	}
 }
+if (choice === 'parakeet' || choice === 'all') {
+	const directory = path.join(root, 'parakeet', parakeetRevision);
+	let rawBytes = 0;
+	let gzipBytes = 0;
+	for (const [file, checksum] of Object.entries(parakeetFiles)) {
+		const destination = path.join(directory, file);
+		await download(
+			`https://huggingface.co/${parakeetRepository}/resolve/${parakeetRevision}/${file}`,
+			destination,
+			checksum
+		);
+		const data = await readFile(destination);
+		const compressed = gzipSync(data, { level: 9 });
+		await writeFile(`${destination}.gz`, compressed);
+		rawBytes += data.length;
+		gzipBytes += compressed.length;
+	}
+	await writeFile(
+		path.join(directory, 'ATTRIBUTION.txt'),
+		`Parakeet Redux by moondream, derived from NVIDIA Parakeet TDT 0.6B v3.\n` +
+			`ONNX conversion/quantization by Olicorne. License: CC-BY-4.0.\n` +
+			`https://creativecommons.org/licenses/by/4.0/\n` +
+			`https://huggingface.co/${parakeetRepository}/tree/${parakeetRevision}\n` +
+			`Spectrum uses the published model files unchanged.\n`
+	);
+	await writeFile(
+		path.join(directory, 'manifest.json'),
+		JSON.stringify(
+			{ revision: parakeetRevision, files: parakeetFiles, rawBytes, gzipBytes },
+			null,
+			2
+		)
+	);
+	console.info(`Parakeet weights verified: ${rawBytes} raw bytes / ${gzipBytes} gzip bytes`);
+}
 for (const [name, model] of Object.entries(models)) {
 	if (choice !== 'all' && choice !== name) continue;
 	const files = {
@@ -85,7 +127,7 @@ await download(
 	path.join(root, 'vad/silero_vad.onnx'),
 	'2623a2953f6ff3d2c1e61740c6cdb7168133479b267dfef114a4a3cc5bdd788f'
 );
-await download(`${vadRoot}/LICENSE`, path.join(root, 'vad/LICENSE'), null);
+await download(`${vadRoot}/LICENSE`, path.join(root, 'vad/LICENSE'), sharedFiles['vad/LICENSE']);
 await mkdir(path.join(root, 'runtime'), { recursive: true });
 for (const file of [
 	'ort-wasm-simd-threaded.jsep.mjs',
@@ -97,6 +139,17 @@ for (const file of [
 		fileURLToPath(new URL(`../node_modules/onnxruntime-web/dist/${file}`, import.meta.url)),
 		path.join(root, 'runtime', file)
 	);
+}
+if (choice === 'parakeet' || choice === 'all') {
+	for (const [file, hash] of Object.entries(sharedFiles)) {
+		const data = await readFile(path.join(root, file));
+		if (createHash('sha256').update(data).digest('hex') !== hash)
+			throw new Error(`Shared asset checksum mismatch: ${file}`);
+		await writeFile(path.join(root, `${file}.gz`), gzipSync(data, { level: 9 }));
+	}
+	const { sums, ...sizes } = await verifyParakeetAssets(root);
+	await writeFile(path.join(root, 'SHA256SUMS.parakeet'), sums);
+	console.info('Parakeet + CPU runtime + VAD verified sizes:', sizes);
 }
 console.info(
 	`Browser STT assets ready (${choice}; Tiny ~75 MB CPU or ~110 MB GPU, Base ~110 MB CPU or ~180 MB GPU, Small GPU ~515 MB, including VAD/runtime). Same-origin inference assets only.`

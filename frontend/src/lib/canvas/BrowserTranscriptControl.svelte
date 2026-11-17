@@ -61,6 +61,7 @@
 		});
 	});
 	function downloadSize() {
+		if (model === 'parakeet') return '240';
 		if (model === 'small') return '515';
 		return model === 'base' ? (useGpu ? '180' : '110') : useGpu ? '110' : '75';
 	}
@@ -82,6 +83,10 @@
 	function begin() {
 		consentOpen = false;
 		if (!track || !supported || !ready) return;
+		if (model === 'parakeet' && (room.settings.transcriptionLanguage ?? 'fr') === 'auto') {
+			error = m.browser_stt_parakeet_hint();
+			return;
+		}
 		if (model === 'small' && !useGpu) {
 			error = m.browser_stt_gpu_failed();
 			return;
@@ -120,7 +125,7 @@
 				}
 			},
 			model,
-			(useGpu ? 'webgpu' : 'wasm') as BrowserSTTBackend
+			(useGpu && model !== 'parakeet' ? 'webgpu' : 'wasm') as BrowserSTTBackend
 		);
 		engine = instance;
 		instance.load();
@@ -195,12 +200,14 @@
 				: phase === 'active'
 					? m.browser_stt_active({
 							model:
-								model === 'small'
-									? 'Whisper small'
-									: model === 'base'
-										? 'Whisper base'
-										: 'Whisper tiny',
-							backend: useGpu ? 'WebGPU' : 'CPU'
+								model === 'parakeet'
+									? 'Parakeet Redux w2a8'
+									: model === 'small'
+										? 'Whisper small'
+										: model === 'base'
+											? 'Whisper base'
+											: 'Whisper tiny',
+							backend: useGpu && model !== 'parakeet' ? 'WebGPU' : 'CPU'
 						})
 					: !supported
 						? m.browser_stt_unsupported()
@@ -227,8 +234,12 @@
 				bind:value={model}
 				onchange={() => {
 					if (model === 'small') useGpu = true;
+					if (model === 'parakeet') useGpu = false;
 				}}
 			>
+				<option value="parakeet" disabled={room.settings.transcriptionLanguage === 'auto'}>
+					{m.browser_stt_model_parakeet()}
+				</option>
 				<option value="tiny">{m.browser_stt_model_tiny()}</option>
 				<option value="base">{m.browser_stt_model_base()}</option>
 				<option value="small" disabled={!gpuAvailable}>
@@ -237,6 +248,15 @@
 			</select>
 		</label>
 		<p class="mb-3 text-sm opacity-70">{m.browser_stt_model_hint()}</p>
+		{#if model === 'parakeet'}
+			<p class="mb-3 text-sm opacity-70">{m.browser_stt_parakeet_hint()}</p>
+			<p class="mb-3 text-xs opacity-70">
+				Parakeet Redux: moondream / NVIDIA; ONNX: Olicorne.
+				<a class="link" href="https://huggingface.co/Olicorne/parakeet-tdt-0.6b-v3-redux-onnx"
+					>CC-BY-4.0</a
+				>
+			</p>
+		{/if}
 		{#if gpuAvailable}
 			<label class="mb-2 flex items-center gap-2 text-sm">
 				<input
@@ -244,7 +264,7 @@
 					class="checkbox checkbox-sm"
 					data-testid="browser-stt-webgpu"
 					bind:checked={useGpu}
-					disabled={model === 'small'}
+					disabled={model === 'small' || model === 'parakeet'}
 				/>
 				{m.browser_stt_webgpu()}
 			</label>

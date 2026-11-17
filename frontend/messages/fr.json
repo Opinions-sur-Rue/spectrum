@@ -95,6 +95,8 @@
 	"browser_stt_optional": "Facultatif : transcrire uniquement votre propre micro sur cet appareil.",
 	"browser_stt_model": "Modèle sur cet appareil",
 	"browser_stt_model_tiny": "Tiny — léger (~75 Mo CPU, ~110 Mo GPU)",
+	"browser_stt_model_parakeet": "Parakeet Redux w2a8 — CPU (~240 Mo avec le moteur)",
+	"browser_stt_parakeet_hint": "Parakeet fonctionne localement sur CPU. Choisissez français ou anglais dans les options du spectre ; la détection automatique de langue n’est pas disponible. Les performances sur téléphone restent à valider.",
 	"browser_stt_model_base": "Base — essai de précision (~110 Mo CPU, ~180 Mo GPU)",
 	"browser_stt_model_small": "Small — précision (GPU requis, ~515 Mo)",
 	"browser_stt_model_hint": "Small donne les meilleurs résultats sur nos essais bruités, mais exige le GPU et beaucoup plus de mémoire. Les trois modèles utilisent un détecteur de parole local pour réduire les faux sous-titres sur les bruits. La précision n’est pas garantie. Changer de modèle nécessite un nouvel accord.",

@@ -255,10 +255,10 @@ test('real browser local inference transcribes own opted-in microphone or explic
 	await page.getByTestId('browser-stt-toggle').click();
 	const legacyExternalRequests = new Set(externalRequests);
 	const selectedModel = process.env.SPECTRUM_TEST_MODEL;
-	if (selectedModel === 'base' || selectedModel === 'small') {
+	if (selectedModel === 'base' || selectedModel === 'small' || selectedModel === 'parakeet') {
 		await page.getByTestId('browser-stt-model').selectOption(selectedModel);
 		await expect(page.getByRole('dialog')).toContainText(
-			selectedModel === 'small' ? '515 MB' : '110 MB'
+			selectedModel === 'parakeet' ? '240 MB' : selectedModel === 'small' ? '515 MB' : '110 MB'
 		);
 	}
 	if (process.env.SPECTRUM_TEST_WEBGPU === 'true') {
@@ -301,10 +301,12 @@ test('real browser local inference transcribes own opted-in microphone or explic
 			.toBeVisible({ timeout: 60000 })
 			.then(() => 'transcribed'),
 		controls
-			.getByRole('alert')
-			.waitFor({ state: 'visible', timeout: 60000 })
+			.getByRole('alert', { includeHidden: true })
+			.waitFor({ state: 'attached', timeout: 60000 })
 			.then(async () => {
-				const message = await controls.innerText();
+				// Opening Discussion closes Audio options; capacity errors still
+				// exist in its hidden subtree and must not be missed by this probe.
+				const message = (await controls.textContent()) ?? '';
 				if (browserName === 'firefox' && message.includes('could not keep up'))
 					return 'capacity-stop';
 				throw new Error(`${message} (published segments: ${publications.length})`);
@@ -340,10 +342,14 @@ test('real browser local inference transcribes own opted-in microphone or explic
 	// Stop before opening another browser: slower devices may exhaust their
 	// bounded queue while that browser starts. History must survive either stop.
 	if ((await controls.getAttribute('data-state')) !== 'off') {
+		if (!(await page.getByTestId('browser-stt-toggle').isVisible()))
+			await page.getByTestId('audio-options').click();
 		await page.getByTestId('browser-stt-toggle').click();
 	} else {
 		expect(browserName).toBe('firefox');
-		await expect(controls.getByRole('alert')).toContainText('could not keep up');
+		await expect(controls.getByRole('alert', { includeHidden: true })).toContainText(
+			'could not keep up'
+		);
 		test.info().annotations.push({
 			type: 'capacity-after-inference',
 			description: 'Inference succeeded, then Firefox stopped for capacity.'

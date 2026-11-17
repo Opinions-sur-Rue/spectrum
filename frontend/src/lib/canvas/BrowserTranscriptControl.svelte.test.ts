@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { m } from '$lib/paraglide/messages.js';
 import BrowserTranscriptControl from './BrowserTranscriptControl.svelte';
 import type { RoomState } from './room-client';
 
@@ -139,4 +140,66 @@ it('retires a late admission after cancellation without starting capture', async
 	await waitFor(() => expect(send).toHaveBeenCalledWith('transcript.stop', session));
 	expect(fixture.captureTrack).not.toHaveBeenCalled();
 	expect(view.getByTestId('browser-stt-controls').getAttribute('data-state')).toBe('off');
+});
+
+it('loads Parakeet only after consent and forces CPU even with hardware GPU available', async () => {
+	HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+		this.open = true;
+	});
+	fixture.gpuAvailable = true;
+	const view = render(BrowserTranscriptControl, {
+		room: {
+			roomId: 'room',
+			role: 'admin',
+			voice: { generation: 4 },
+			settings: { transcriptionEnabled: true, transcriptionLanguage: 'fr' }
+		} as unknown as RoomState,
+		track: {} as MediaStreamTrack,
+		ready: true,
+		session: null,
+		failure: null,
+		send: vi.fn(() => true)
+	});
+	const toggle = view.getByTestId('browser-stt-toggle');
+	await waitFor(() => expect(toggle.hasAttribute('disabled')).toBe(false));
+	await fireEvent.click(toggle);
+	const gpu = await waitFor(() => view.getByTestId('browser-stt-webgpu'));
+	await fireEvent.click(gpu);
+	await fireEvent.change(view.getByTestId('browser-stt-model'), { target: { value: 'parakeet' } });
+	expect((gpu as HTMLInputElement).checked).toBe(false);
+	expect((gpu as HTMLInputElement).disabled).toBe(true);
+	expect(view.getByRole('dialog').textContent).toContain('240');
+	expect(view.getByRole('dialog').textContent).toContain('CC-BY-4.0');
+	expect(fixture.load).not.toHaveBeenCalled();
+	await fireEvent.click(view.getByTestId('browser-stt-confirm'));
+	expect(fixture.selected).toHaveBeenCalledWith('parakeet', 'wasm');
+	expect(fixture.load).toHaveBeenCalledOnce();
+});
+
+it('disables Parakeet for auto language and rejects a forged selection before loading', async () => {
+	HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+		this.open = true;
+	});
+	const view = render(BrowserTranscriptControl, {
+		room: {
+			roomId: 'room',
+			role: 'admin',
+			voice: { generation: 4 },
+			settings: { transcriptionEnabled: true, transcriptionLanguage: 'auto' }
+		} as unknown as RoomState,
+		track: {} as MediaStreamTrack,
+		ready: true,
+		session: null,
+		failure: null,
+		send: vi.fn(() => true)
+	});
+	const toggle = view.getByTestId('browser-stt-toggle');
+	await waitFor(() => expect(toggle.hasAttribute('disabled')).toBe(false));
+	await fireEvent.click(toggle);
+	const select = view.getByTestId('browser-stt-model');
+	expect(select.querySelector<HTMLOptionElement>('option[value="parakeet"]')?.disabled).toBe(true);
+	await fireEvent.change(select, { target: { value: 'parakeet' } });
+	await fireEvent.click(view.getByTestId('browser-stt-confirm'));
+	expect(fixture.load).not.toHaveBeenCalled();
+	expect(view.getByRole('alert').textContent).toBe(m.browser_stt_parakeet_hint());
 });

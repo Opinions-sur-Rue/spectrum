@@ -95,6 +95,8 @@
 	"browser_stt_optional": "Optional: transcribe only your own microphone on this device.",
 	"browser_stt_model": "Model on this device",
 	"browser_stt_model_tiny": "Tiny — lightweight (~75 MB CPU, ~110 MB GPU)",
+	"browser_stt_model_parakeet": "Parakeet Redux w2a8 — CPU (~240 MB including runtime)",
+	"browser_stt_parakeet_hint": "Parakeet runs locally on CPU. Choose French or English in room settings; automatic language detection is not supported. Phone performance is still being validated.",
 	"browser_stt_model_base": "Base — accuracy trial (~110 MB CPU, ~180 MB GPU)",
 	"browser_stt_model_small": "Small — accuracy (GPU required, ~515 MB)",
 	"browser_stt_model_hint": "Small performed best on our noisy samples but requires the GPU and much more memory. All three use a local speech detector to reduce false captions on noise. Accuracy is not guaranteed. Changing models requires renewed consent.",

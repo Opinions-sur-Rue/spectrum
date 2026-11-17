@@ -1,6 +1,6 @@
 import { BrowserSTTSegmenter, type BrowserAudioChunk } from './browser-stt-segmenter';
 
-export type BrowserSTTModel = 'tiny' | 'base' | 'small';
+export type BrowserSTTModel = 'tiny' | 'base' | 'small' | 'parakeet';
 export type BrowserSTTBackend = 'wasm' | 'webgpu';
 
 export interface BrowserTranscriptSession {
