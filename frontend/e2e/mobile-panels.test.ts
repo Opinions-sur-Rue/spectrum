@@ -42,6 +42,11 @@ async function setup(page: Page) {
 							generation: event.payload.voice?.generation ?? 0
 						};
 						event.payload.transcription = { available: true, ready: false, mode: 'browser' };
+						// Opt the room in so the fixture really exercises the densest tab strip.
+						event.payload.settings = {
+							...event.payload.settings,
+							transcriptionEnabled: true
+						};
 						for (let i = 0; i < 35; i++)
 							event.payload.members.push({
 								id: `fixture-${i}`,

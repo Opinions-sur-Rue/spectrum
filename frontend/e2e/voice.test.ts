@@ -106,7 +106,7 @@ test('push-to-talk holds only while pressed, never hijacks typing, and cancels l
 		.toBe(true);
 	await page.getByTestId('discussion-toggle').click();
 	await page.getByTestId('discussion-tab-chat').click();
-	const input = page.getByTestId('discussion-panel').locator('textarea');
+	const input = page.getByLabel('Chat message', { exact: true });
 	await input.fill('Typing');
 	await input.press('End');
 	await input.press('Space');

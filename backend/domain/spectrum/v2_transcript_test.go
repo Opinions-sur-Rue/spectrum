@@ -35,6 +35,7 @@ func readTranscriptSnapshot(t *testing.T, client *Client, envelope *valueobjects
 
 func TestTranscriptIsVisibleToSpectatorsAndOnlyAcceptsStageSpeakers(t *testing.T) {
 	hub, admin, guest, room := stageFixture(t)
+	room.settings.TranscriptionEnabled = true
 	memberID := room.memberIDs[guest.userID]
 
 	// Spectators have no microphone, so they cannot be a speaker.
@@ -85,6 +86,7 @@ func TestTranscriptCannotOverwriteAnotherSpeakerOrRegressFinal(t *testing.T) {
 
 func TestTranscriptPartialsReplaceAndSnapshotsPageBySequence(t *testing.T) {
 	hub, admin, guest, room := stageFixture(t)
+	room.settings.TranscriptionEnabled = true
 	memberID := room.memberIDs[guest.userID]
 	if err := handleRoomPromote(admin, stageEnvelope(t, "room.promote", memberID)); err != nil {
 		t.Fatal(err)

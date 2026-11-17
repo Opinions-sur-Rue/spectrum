@@ -2,7 +2,13 @@ import { chromium, expect, firefox, type Page } from '@playwright/test';
 import { isolateExternalStyles, newRoomContext, test } from './network-assets';
 import { readFile } from 'node:fs/promises';
 import { englishLocale } from './locale-state';
-import { openActivity, openChat, openTranscript } from './discussion';
+import {
+	openActivity,
+	openChat,
+	openDiscussion,
+	openDiscussionTab,
+	openTranscript
+} from './discussion';
 import type { SpectrumState } from '../src/lib/canvas/room-client';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -770,6 +776,7 @@ test('accessibility: Discussion traps focus after responsive transition and scro
 	await page.getByTestId('edit-claim').focus();
 	await page.setViewportSize({ width: 640, height: 450 });
 	await expect(page.getByTestId('discussion-tab-chat')).toBeFocused();
+	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press('ArrowRight');
 	await expect(page.getByTestId('discussion-tab-activity')).toBeFocused();
 	await page.keyboard.press('Tab');
@@ -1889,6 +1896,46 @@ async function moveActivityPellet(page: Page, x: number, y: number) {
 	await page.mouse.up();
 }
 
+test('personal notes stay on this device and survive reload and room switch', async ({
+	page,
+	browser
+}) => {
+	const sent: string[] = [];
+	page.on('websocket', (socket) => {
+		if (socket.url().includes('/spectrum/ws'))
+			socket.on('framesent', ({ payload }) => sent.push(String(payload)));
+	});
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await openDiscussionTab(page, 'notes');
+	const input = page.getByTestId('personal-notes-input');
+	await input.fill('Private reminder: ask about parking');
+	await expect(page.getByTestId('personal-notes-status')).toHaveText('Saved on this device');
+	const roomId = new URL(page.url()).searchParams.get('room');
+	expect(sent.join('\n')).not.toContain('Private reminder');
+	await expect(page.locator('[data-note-id]')).toHaveCount(0);
+	await page.reload();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await openDiscussionTab(page, 'notes');
+	await expect(page.getByTestId('personal-notes-input')).toHaveValue(
+		'Private reminder: ask about parking'
+	);
+	// A second Spectrum starts empty and cannot read the first room's notes.
+	const otherContext = await newRoomContext(browser, { storageState: englishLocale });
+	try {
+		const other = await otherContext.newPage();
+		await other.goto('/v2');
+		await other.getByTestId('create-room').click();
+		await expect(other.getByTestId('own-role')).toHaveText('admin');
+		await openDiscussionTab(other, 'notes');
+		await expect(other.getByTestId('personal-notes-input')).toHaveValue('');
+		expect(new URL(other.url()).searchParams.get('room')).not.toBe(roomId);
+	} finally {
+		await otherContext.close();
+	}
+});
+
 test('discussion dock preserves drafts, supports keyboard tabs and restores focus', async ({
 	page
 }) => {
@@ -1903,13 +1950,18 @@ test('discussion dock preserves drafts, supports keyboard tabs and restores focu
 	await input.fill('Keep this unsent draft');
 	await page.getByTestId('discussion-tab-chat').focus();
 	await page.keyboard.press('ArrowRight');
+	await expect(page.getByTestId('discussion-tab-notes')).toBeFocused();
+	await expect(page.getByTestId('discussion-tab-notes')).toHaveAttribute('aria-selected', 'true');
+	await page.keyboard.press('ArrowRight');
 	await expect(page.getByTestId('discussion-tab-activity')).toBeFocused();
 	await expect(page.getByTestId('discussion-tab-activity')).toHaveAttribute(
 		'aria-selected',
 		'true'
 	);
+	// Transcription is opt-in, so the visible tab list can vary by deployment;
+	// End must reach the last available tab and Home the first.
 	await page.keyboard.press('End');
-	await expect(page.getByTestId('discussion-tab-transcript')).toBeFocused();
+	await expect(page.getByTestId('discussion-panel').getByRole('tab').last()).toBeFocused();
 	await page.keyboard.press('Home');
 	await expect(input).toHaveValue('Keep this unsent draft');
 	await page.keyboard.press('Escape');
@@ -2357,9 +2409,11 @@ test('chat stays ephemeral, read-only for spectators until allowed, and safe as 
 
 test('transcript replaces partials, ignores stale text and isolates rooms', async ({ page }) => {
 	let deliver: ((message: string) => void) | undefined;
+	let toServer: ((message: string) => void) | undefined;
 	await page.routeWebSocket('**/spectrum/ws', (socket) => {
 		const server = socket.connectToServer();
 		deliver = (message) => socket.send(message);
+		toServer = (message) => server.send(message);
 		socket.onMessage((raw) => server.send(raw));
 		server.onMessage((raw) => socket.send(raw));
 	});
@@ -2367,6 +2421,14 @@ test('transcript replaces partials, ignores stale text and isolates rooms', asyn
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
 	const roomId = new URL(page.url()).searchParams.get('room');
+	// The tab follows the room's own setting, whatever the deployment default is.
+	await openDiscussion(page);
+	toServer!(
+		JSON.stringify({ v: 2, op: 'room.settings', payload: { transcriptionEnabled: false } })
+	);
+	await expect(page.getByTestId('discussion-tab-transcript')).toHaveCount(0);
+	toServer!(JSON.stringify({ v: 2, op: 'room.settings', payload: { transcriptionEnabled: true } }));
+	await expect(page.getByTestId('discussion-tab-transcript')).toBeVisible();
 	const log = await openTranscript(page);
 	const segment = {
 		roomId,

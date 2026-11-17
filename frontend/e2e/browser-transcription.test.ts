@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { englishLocale } from './locale-state';
-import { openTranscript } from './discussion';
+import { enableTranscription, openTranscript } from './discussion';
 
 test('real local Silero gate rejects silence, tones, noise and clicks before Whisper decoding', async ({
 	page
@@ -227,6 +227,7 @@ test('real browser local inference transcribes own opted-in microphone or explic
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await enableTranscription(page);
 	await expect(page.getByTestId('browser-stt-toggle')).toBeDisabled();
 	expect(modelRequests).toHaveLength(0);
 	const language = process.env.SPECTRUM_TEST_LANGUAGE ?? 'fr';

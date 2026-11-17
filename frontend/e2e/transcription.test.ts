@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { englishLocale } from './locale-state';
-import { openTranscript } from './discussion';
+import { enableTranscription, openTranscript } from './discussion';
 
 test('real CPU ASR transcribes a solo speaker, then shares history with spectators', async ({
 	page,
@@ -65,6 +65,7 @@ test('real CPU ASR transcribes a solo speaker, then shares history with spectato
 	await expect(language).toHaveValue('fr');
 	await language.selectOption(process.env.SPECTRUM_TEST_LANGUAGE ?? 'en');
 	await page.getByLabel('Room options', { exact: true }).click();
+	await enableTranscription(page);
 	await openTranscript(page);
 	await expect(page.getByRole('region', { name: 'Room transcript' })).toContainText(
 		'Local transcription ready',

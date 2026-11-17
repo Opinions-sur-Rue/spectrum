@@ -20,8 +20,8 @@ func TestDefaultRoomSettings(t *testing.T) {
 	if settings.NotesVisibleToSpectators {
 		t.Fatal("notes must be hidden from spectators by default")
 	}
-	if !settings.TranscriptionEnabled {
-		t.Fatal("transcription must be enabled by default")
+	if settings.TranscriptionEnabled {
+		t.Fatal("transcription must be disabled until an room admin opts in")
 	}
 	if settings.TranscriptionLanguage != "fr" {
 		t.Fatal("transcription language must default to French")
@@ -32,7 +32,7 @@ func TestLoadRoomSettingsEnvOverrides(t *testing.T) {
 	t.Setenv("SPECTRUM_PARTICIPANT_SLOTS", "6")
 	t.Setenv("SPECTRUM_SPECTATOR_LIMIT", "12")
 	t.Setenv("SPECTRUM_SPECTATOR_CHAT", "true")
-	t.Setenv("SPECTRUM_TRANSCRIPTION_ENABLED", "false")
+	t.Setenv("SPECTRUM_TRANSCRIPTION_ENABLED", "true")
 
 	settings := LoadRoomSettings()
 
@@ -45,8 +45,8 @@ func TestLoadRoomSettingsEnvOverrides(t *testing.T) {
 	if !settings.SpectatorChatEnabled {
 		t.Fatal("SpectatorChatEnabled should be true")
 	}
-	if settings.TranscriptionEnabled {
-		t.Fatal("TranscriptionEnabled should be false")
+	if !settings.TranscriptionEnabled {
+		t.Fatal("TranscriptionEnabled should be true")
 	}
 }
 

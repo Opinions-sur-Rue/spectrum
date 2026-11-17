@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import type { IconName } from '$lib/components/icons';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import ChatPanel from './ChatPanel.svelte';
 	import ActivityPanel from './ActivityPanel.svelte';
 	import TranscriptPanel from './TranscriptPanel.svelte';
+	import PersonalNotes from './PersonalNotes.svelte';
 	import type { ActivityEntry } from './activity-state';
 	import type { RoomState } from './room-client';
 	import type { ChatState, ChatError } from './chat-state';
@@ -35,12 +37,28 @@
 		unread?: number;
 		onClose: () => void;
 	} = $props();
-	const tabs = [
+	type Tab = {
+		id: 'chat' | 'notes' | 'activity' | 'transcript';
+		label: () => string;
+		icon: IconName;
+	};
+	const transcriptTab: Tab = {
+		id: 'transcript',
+		label: () => m.ux_tab_transcript(),
+		icon: 'review'
+	};
+	const tabs = $derived<Tab[]>([
 		{ id: 'chat', label: () => m.chat(), icon: 'chat' },
+		{ id: 'notes', label: () => m.ux_tab_personal_notes(), icon: 'journal' },
 		{ id: 'activity', label: () => m.ux_tab_activity(), icon: 'history' },
-		{ id: 'transcript', label: () => m.ux_tab_transcript(), icon: 'review' }
-	] as const;
-	let tab = $state<(typeof tabs)[number]['id']>('chat');
+		// Transcription is opt-in per room: its tab must not advertise an empty
+		// panel while the pipeline is off.
+		...(room.settings.transcriptionEnabled ? [transcriptTab] : [])
+	]);
+	let tab = $state<Tab['id']>('chat');
+	$effect(() => {
+		if (!tabs.some((item) => item.id === tab)) tab = 'chat';
+	});
 	let panel = $state<HTMLElement>();
 	let compact = $state(false);
 	onMount(() => {
@@ -192,6 +210,16 @@
 		<ChatPanel {room} {ready} {chat} error={chatError} {send} active={open && tab === 'chat'} />
 	</div>
 	<div
+		id="discussion-body-notes"
+		role="tabpanel"
+		tabindex="0"
+		aria-labelledby="discussion-tab-notes"
+		class="discussion-body"
+		hidden={tab !== 'notes'}
+	>
+		<PersonalNotes roomId={room.roomId} />
+	</div>
+	<div
 		id="discussion-body-activity"
 		role="tabpanel"
 		tabindex="0"
@@ -201,26 +229,28 @@
 	>
 		<ActivityPanel entries={activity} active={open && tab === 'activity'} />
 	</div>
-	<div
-		id="discussion-body-transcript"
-		role="tabpanel"
-		tabindex="0"
-		aria-labelledby="discussion-tab-transcript"
-		class="discussion-body"
-		hidden={tab !== 'transcript'}
-	>
-		<TranscriptPanel
-			{transcript}
-			enabled={room.settings.transcriptionEnabled ?? false}
-			workerReady={room.transcription?.ready ?? false}
-			browserMode={room.transcription?.mode === 'browser'}
-			localSpeakers={room.transcription?.speakers?.length ?? 0}
-			stageMembers={room.members.filter((member) => member.role !== 'spectator').length}
-			language={room.settings.transcriptionLanguage ?? 'fr'}
-			{send}
-			active={open && tab === 'transcript'}
-		/>
-	</div>
+	{#if room.settings.transcriptionEnabled}
+		<div
+			id="discussion-body-transcript"
+			role="tabpanel"
+			tabindex="0"
+			aria-labelledby="discussion-tab-transcript"
+			class="discussion-body"
+			hidden={tab !== 'transcript'}
+		>
+			<TranscriptPanel
+				{transcript}
+				enabled={room.settings.transcriptionEnabled ?? false}
+				workerReady={room.transcription?.ready ?? false}
+				browserMode={room.transcription?.mode === 'browser'}
+				localSpeakers={room.transcription?.speakers?.length ?? 0}
+				stageMembers={room.members.filter((member) => member.role !== 'spectator').length}
+				language={room.settings.transcriptionLanguage ?? 'fr'}
+				{send}
+				active={open && tab === 'transcript'}
+			/>
+		</div>
+	{/if}
 </aside>
 
 <style>

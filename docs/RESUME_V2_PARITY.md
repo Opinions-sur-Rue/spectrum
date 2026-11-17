@@ -1,5 +1,35 @@
 # Resume: finish v1 → v2 parity
 
+## Private notes and opt-in transcription tab — validated locally, not deployed
+
+- Discussion gains a **Notes** tab holding the member's own scratchpad. It is
+  written only to `localStorage` under `spectrum-personal-notes:<roomId>` and is
+  never sent over the application WebSocket, so it is private by construction
+  from admins and from the room record. Autosave is debounced, reports
+  "Saved on this device", states explicitly when storage is unavailable instead
+  of pretending success, flushes pending text before a room switch, and offers an
+  explicit delete action.
+- Transcription becomes opt-in: room defaults now ship `transcriptionEnabled`
+  false, so the Transcript tab (and its empty panel) disappears until an admin
+  turns transcription on in Room options. `SPECTRUM_TRANSCRIPTION_ENABLED` still
+  overrides the deployment default.
+- Consequence to confirm at rollout: restarting the beta backend resets existing
+  rooms to the new default, so a room that had transcription on comes back with
+  the tab hidden until the admin re-enables it. Mic publishing is unaffected:
+  with the room setting off, on-stage members publish without the transcript
+  consent step.
+- e2e fixtures that assert the tab order now tolerate a room with and without
+  the transcript tab instead of assuming the deployment default, and the dense
+  mobile-panel fixture opts in explicitly to keep testing the widest tab strip.
+- Validation: fresh backend race suite plus lint (0 issues), frontend
+  check/lint/build and **207 unit tests**, **122/122** Chromium+Firefox and
+  **61/61** WebKit UI scenarios, and **18/18** real-SFU voice scenarios. One
+  push-to-talk scenario needed its chat input selector narrowed because the
+  private-notes textarea is now a second textarea inside the Discussion panel;
+  the assertion it makes is unchanged.
+- Not deployed. Production remains beta.17, so transcription is still on by
+  default there until this ships.
+
 ## Shared speaking time — validated locally, not deployed
 
 - Track per-member speaking totals in the Room, keyed by the room-scoped public

@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 /** Open the persistent discussion dock if it is closed. */
 export async function openDiscussion(page: Page) {
@@ -7,7 +7,10 @@ export async function openDiscussion(page: Page) {
 }
 
 /** Open the discussion dock and select one of its tabs. */
-export async function openDiscussionTab(page: Page, tab: 'chat' | 'activity' | 'transcript') {
+export async function openDiscussionTab(
+	page: Page,
+	tab: 'chat' | 'notes' | 'activity' | 'transcript'
+) {
 	await openDiscussion(page);
 	await page.getByTestId(`discussion-tab-${tab}`).click();
 }
@@ -25,4 +28,15 @@ export async function openActivity(page: Page) {
 export async function openTranscript(page: Page) {
 	await openDiscussionTab(page, 'transcript');
 	return page.getByRole('log', { name: 'Transcript segments' });
+}
+
+/** Transcription is opt-in per room, so scenarios that need it turn it on first. */
+export async function enableTranscription(page: Page) {
+	await page.getByLabel('Room options', { exact: true }).click();
+	const option = page.getByRole('checkbox', { name: 'Local transcription' });
+	if (!(await option.isChecked())) await option.check();
+	await expect(option).toBeChecked();
+	await page.getByLabel('Room options', { exact: true }).click();
+	await openDiscussion(page);
+	await expect(page.getByTestId('discussion-tab-transcript')).toBeVisible();
 }
