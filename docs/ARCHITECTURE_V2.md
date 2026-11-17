@@ -372,7 +372,7 @@ these gaps before making the facilitator the primary implementation priority.
 | Event journal | Implemented: claims, observed joins/departures, settled opinions, role/nickname changes, visibility/layout changes and reconnection; local to each tab, as in v1 |
 | Voice | LiveKit instead of PeerJS; local Firefox needs the documented WebRTC workaround |
 | Leave room / stop session UI | Implemented with confirmation. Leaving reassigns admin to a remaining stage member; with no stage/admin left, room closes for spectators too. Stop erases the room for everyone |
-| Kick participant / appoint another admin UI | Implemented: admin can remove participants/spectators and transfer administration to a participant. Former admin remains a participant. Self-kick/admin-kick are rejected |
+| Kick participant / appoint another admin UI | Implemented: admin can remove participants/spectators and appoint additional admins. Appointment is additive (the caller stays admin) and giving up the role is voluntary, self-only and refused for the last admin. Self-kick/admin-kick are rejected |
 | Raised hands and emoji reactions | Implemented for all roles: ordered hand queue, own/admin lowering, six allowlisted reactions with server cooldown. Hands survive reconnect; reaction overlays expire after four seconds |
 | Per-participant volume and speaking indicators | Implemented via LiveKit. Local 0–100% volume per remote stage member survives audio reconnect; active speakers appear in People and on visible pellets |
 | Live-platform controls, live participants/votes, streamer presentation | Implemented with offline backend tests and protocol-fixture browser coverage, not real-platform validation. TikTok requires an explicitly configured compatible signer; no implicit hosted EulerStream. Presentation follows spectator visibility without changing role |
@@ -464,11 +464,13 @@ export, or extra server event stream is introduced.
 
 #### Session and social controls
 
-- `room.leave`, `room.stop`, `room.kick`, `room.transfer` validate membership and
-  authority server-side. All targets use public room-scoped member IDs, not
-  signin IDs or pellet colors. Transfer requires an existing participant and
-  relinquishes the requester's admin role; it never promotes a spectator or
-  grants additional microphone permission.
+- `room.leave`, `room.stop`, `room.kick`, `room.appoint` and `room.abdicate`
+  validate membership and authority server-side. All targets use public
+  room-scoped member IDs, not signin IDs or pellet colors. Appointment requires
+  an existing participant and is additive: the caller stays admin, a member is
+  never appointed twice, and no microphone permission is granted implicitly.
+  Abdication is voluntary and self-only, and is refused for the last admin, so
+  administration cannot disappear by accident.
 - Leave/kick/expiration remove only the selected SFU participants. Promotion and
   demotion update only target permissions, retaining listening connections; a
   promotion never starts capture automatically. Stop/final-member closure still

@@ -12,6 +12,7 @@ All notable changes to **Spectrum** are documented in this file.
 - Cancel pending microphone permission/publication and delayed device restarts when a hold is released. Keep the default continuous microphone mode unchanged.
 
 ### Changed
+- Administration is now additive: "Transfer administration" becomes "Make {name} admin", which adds a co-admin without taking anything from the caller, plus a voluntary "Give up my admin rights" action that is refused for the last admin.
 - Transcription is now opt-in per room: `transcriptionEnabled` defaults to false, so the Discussion Transcript tab stays hidden until an admin turns it on. `SPECTRUM_TRANSCRIPTION_ENABLED` still overrides the deployment default.
 
 ### Fixed in v2.0.0-beta.17

@@ -12,6 +12,8 @@ export function roomErrorLabel(message: string): string {
 			return m.ux_error_leave_room_first();
 		case 'already in a room':
 			return m.ux_error_already_in_room();
+		case 'room needs another admin first':
+			return m.ux_error_last_admin();
 		default:
 			// Unmapped protocol messages are lower-case codes, not user copy.
 			return /^[a-z][a-z0-9 _-]*$/.test(message) ? m.ux_error_generic() : message;

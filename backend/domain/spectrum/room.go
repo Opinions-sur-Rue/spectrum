@@ -400,6 +400,22 @@ func (r *Room) SetAdmin(user *User) error {
 	return nil
 }
 
+// AppointAdmin grants administration to one on-stage participant without taking
+// it from anybody: co-admins are additive.
+func (r *Room) AppointAdmin(userID string) error {
+	if r.closed {
+		return errors.New("room closed")
+	}
+	color, present := r.ColorOf(userID)
+	if !present {
+		return errors.New("user not on stage")
+	}
+	if slices.Contains(r.admins, userID) {
+		return errors.New("already an admin")
+	}
+	return r.SetAdmin(r.participants[color])
+}
+
 func (r *Room) IsAdmin(userID string) bool {
 	if r.closed {
 		return false

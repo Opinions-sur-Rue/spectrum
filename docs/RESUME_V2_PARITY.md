@@ -1,5 +1,33 @@
 # Resume: finish v1 → v2 parity
 
+## Additive co-admins and voluntary step-down — validated locally, not deployed
+
+- Replace the v2 `room.transfer` op (which handed authority over and silently
+  stripped the caller) with two ops:
+  - `room.appoint` — admin-only, target must be a current on-stage participant,
+    and is additive: the caller keeps administration. Repeat appointments and
+    spectator/outside/self selectors are refused, and nothing about microphone
+    rights changes.
+  - `room.abdicate` — self-only voluntary step-down; the caller stays on stage as
+    a participant. Refused with a distinct error while they are the last admin,
+    so a room can never lose its moderation authority by accident.
+- Participants panel: a crown "Make {name} admin" action per participant, and a
+  "Give up my admin rights" action that only appears once another admin exists.
+  Both go through the existing destructive-confirmation dialog, and a pending
+  appointment is cancelled if the target leaves the stage or the caller loses
+  authority. The last-admin error has its own actionable copy.
+- Protocol change note: `room.transfer` is gone from the v2 handler table, so
+  this batch must deploy frontend and backend together. v1 keeps its own
+  administration path untouched. Rooms are in-memory, so a backend restart
+  already resets them.
+- Validation: fresh `go test -race ./...` plus lint (0 issues), frontend
+  check/lint/build and **207 unit tests**, **122/122** Chromium+Firefox,
+  **61/61** WebKit and **18/18** real-SFU voice scenarios. The three rewritten
+  sessions scenarios cover additive appointment, the refused last-admin
+  step-down, a co-admin keeping real authority, and the claim draft surviving
+  appointment but not an actual authority change.
+- Not deployed. Production remains beta.17.
+
 ## Private notes and opt-in transcription tab — validated locally, not deployed
 
 - Discussion gains a **Notes** tab holding the member's own scratchpad. It is

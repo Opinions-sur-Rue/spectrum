@@ -1,12 +1,17 @@
 package spectrum
 
-import "Opinions-sur-Rue/spectrum/domain/valueobjects"
+import (
+	"errors"
+
+	"Opinions-sur-Rue/spectrum/domain/valueobjects"
+)
 
 func init() {
 	v2Handlers["room.leave"] = handleRoomLeave
 	v2Handlers["room.stop"] = handleRoomStop
 	v2Handlers["room.kick"] = handleRoomKick
-	v2Handlers["room.transfer"] = handleRoomTransfer
+	v2Handlers["room.appoint"] = handleRoomAppoint
+	v2Handlers["room.abdicate"] = handleRoomAbdicate
 }
 
 func handleRoomLeave(c *Client, envelope *valueobjects.Envelope) error {
@@ -37,7 +42,13 @@ type memberTarget struct {
 	MemberID string `json:"memberId"`
 }
 
-func handleRoomTransfer(c *Client, envelope *valueobjects.Envelope) error {
+// ErrLastAdmin keeps a room governable: the only admin has to appoint a
+// co-admin before giving up the role.
+var ErrLastAdmin = errors.New("room needs another admin first")
+
+// Administration is additive: appointing a co-admin never costs the caller
+// their own rights, so a room can never be left without an admin by accident.
+func handleRoomAppoint(c *Client, envelope *valueobjects.Envelope) error {
 	var payload memberTarget
 	if err := envelope.DecodePayload(&payload); err != nil {
 		c.v2Error(envelope, "invalid_payload", err)
@@ -51,18 +62,39 @@ func handleRoomTransfer(c *Client, envelope *valueobjects.Envelope) error {
 			}
 			target, present := room.userIDForMember(payload.MemberID)
 			role, member := room.RoleOf(target)
-			if !present || !member || role != RoleParticipant || target == c.userID {
+			if !present || !member || role != RoleParticipant {
 				return ErrForbidden
 			}
 			// Both roles may publish. No new permission or automatic mic activation.
-			room.admins = append(room.admins, target)
+			return room.AppointAdmin(target)
+		})
+	}
+	if err != nil {
+		c.v2Error(envelope, "appoint_failed", err)
+		return err
+	}
+	c.hub.MessageRoomV2(roomID, "room.invalidate", struct{}{}, nil)
+	return nil
+}
+
+// Voluntary self-removal. The last admin must appoint a co-admin first, which
+// keeps the room's moderation authority from silently disappearing.
+func handleRoomAbdicate(c *Client, envelope *valueobjects.Envelope) error {
+	_, roomID, _, _, _, err := c.v2RoomContext()
+	if err == nil {
+		err = c.hub.WithRoom(roomID, func(room *Room) error {
+			if !room.IsAdmin(c.userID) {
+				return ErrForbidden
+			}
+			if len(room.admins) <= 1 {
+				return ErrLastAdmin
+			}
 			room.RemoveAdmin(c.userID)
-			room.spectrumRevision++
 			return nil
 		})
 	}
 	if err != nil {
-		c.v2Error(envelope, "transfer_failed", err)
+		c.v2Error(envelope, "abdicate_failed", err)
 		return err
 	}
 	c.hub.MessageRoomV2(roomID, "room.invalidate", struct{}{}, nil)

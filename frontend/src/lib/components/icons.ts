@@ -36,6 +36,7 @@ import offline from 'iconoir/icons/regular/wifi-off.svg';
 import help from 'iconoir/icons/regular/help-circle.svg';
 import lock from 'iconoir/icons/regular/lock.svg';
 import journal from 'iconoir/icons/regular/journal-page.svg';
+import crown from 'iconoir/icons/regular/crown.svg';
 
 export const icons = {
 	save,
@@ -74,6 +75,7 @@ export const icons = {
 	offline,
 	help,
 	lock,
-	journal
+	journal,
+	crown
 };
 export type IconName = keyof typeof icons;

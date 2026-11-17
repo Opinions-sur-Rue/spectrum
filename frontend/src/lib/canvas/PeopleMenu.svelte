@@ -77,15 +77,21 @@
 	const onStage = $derived(members.filter((member) => member.role !== 'spectator'));
 	const spectators = $derived(members.filter((member) => member.role === 'spectator'));
 	const own = $derived(members.find((member) => member.id === room.userId));
+	const adminCount = $derived(members.filter((member) => member.role === 'admin').length);
 	$effect(() => {
 		if (!action) return;
-		const targetId = (action.payload as { memberId: string }).memberId;
+		// Self-removal has no target member to re-validate.
+		const targetId = (action.payload as { memberId?: string }).memberId;
+		if (!targetId) {
+			if (!admin) action = null;
+			return;
+		}
 		const target = members.find((member) => member.id === targetId);
 		if (
 			!admin ||
 			!target ||
 			target.id === room.userId ||
-			(action.op === 'room.transfer' && target.role !== 'participant')
+			(action.op === 'room.appoint' && target.role !== 'participant')
 		)
 			action = null;
 	});
@@ -203,6 +209,32 @@
 							>{member.nickname}{member.id === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
 						>
 						<span class="text-xs opacity-60">{roleLabel(member.role)}</span>
+						{#if admin && member.role === 'participant'}<IconButton
+								icon="crown"
+								label={m.v2_appoint_admin({ name: member.nickname })}
+								disabled={!ready}
+								onclick={() => {
+									action = {
+										op: 'room.appoint',
+										payload: { memberId: member.id },
+										title: m.v2_appoint_admin({ name: member.nickname }),
+										body: m.v2_appoint_admin_body({ name: member.nickname })
+									};
+								}}
+							/>{/if}
+						{#if admin && member.id === room.userId && adminCount > 1}<IconButton
+								icon="demote"
+								label={m.v2_abdicate_admin()}
+								disabled={!ready}
+								onclick={() => {
+									action = {
+										op: 'room.abdicate',
+										payload: {},
+										title: m.v2_abdicate_admin(),
+										body: m.v2_abdicate_admin_body()
+									};
+								}}
+							/>{/if}
 						{#if member.role !== 'spectator' && speakingSecondsFor(member.id, member.speakingSeconds, speakingTime) > 0}
 							{@const spoken = formatSpeakingTime(
 								speakingSecondsFor(member.id, member.speakingSeconds, speakingTime)
@@ -227,19 +259,6 @@
 								onclick={() => send('room.demote', { memberId: member.id })}
 							/>{/if}
 						{#if admin && member.role === 'participant'}
-							<IconButton
-								icon="people"
-								label={m.session_transfer({ name: member.nickname })}
-								disabled={!ready}
-								onclick={() => {
-									action = {
-										op: 'room.transfer',
-										payload: { memberId: member.id },
-										title: m.session_transfer({ name: member.nickname }),
-										body: m.session_transfer_body({ name: member.nickname })
-									};
-								}}
-							/>
 							<IconButton
 								icon="trash"
 								label={m.session_kick({ name: member.nickname })}

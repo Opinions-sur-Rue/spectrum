@@ -540,7 +540,7 @@ test('moderation: a departed target cancels its pending confirmation and restore
 	}
 });
 
-test('moderation: lost authority cancels pending transfer and room closure confirmations', async ({
+test('moderation: lost authority cancels pending admin appointment and room closure confirmations', async ({
 	page,
 	browser
 }) => {
@@ -568,7 +568,7 @@ test('moderation: lost authority cancels pending transfer and room closure confi
 		await page.getByLabel('People', { exact: true }).click();
 		await page.getByRole('button', { name: /^Promote / }).click();
 		await expect(guest.getByTestId('own-role')).toHaveText('participant');
-		await page.getByRole('button', { name: /^Transfer administration to / }).click();
+		await page.getByRole('button', { name: /^Make .+ admin$/ }).click();
 		await expect(page.getByRole('dialog')).toBeVisible();
 		deliver!({
 			...latest!,
@@ -580,7 +580,7 @@ test('moderation: lost authority cancels pending transfer and room closure confi
 		await expect(page.getByLabel('People', { exact: true })).toBeFocused();
 		deliver!(latest!);
 		await page.getByLabel('People', { exact: true }).click();
-		await page.getByRole('button', { name: /^Transfer administration to / }).click();
+		await page.getByRole('button', { name: /^Make .+ admin$/ }).click();
 		await expect(page.getByRole('dialog')).toBeVisible();
 		// Authoritative protocol fixture: same revision, new role. Server ACLs
 		// have separate Go coverage; this tests immediate frontend invalidation.
@@ -1278,7 +1278,7 @@ test('toolbar popovers remain reachable in short and narrow viewports', async ({
 	}
 });
 
-test('claim editing cancels with Escape and never restores a draft after authority transfer', async ({
+test('claim editing cancels with Escape and never restores a draft after an authority change', async ({
 	page,
 	browser
 }) => {
@@ -1310,13 +1310,20 @@ test('claim editing cancels with Escape and never restores a draft after authori
 		await page.getByTestId('edit-claim').click();
 		await page.getByTestId('claim-input').fill('Draft before revocation');
 		await page.getByLabel('People', { exact: true }).click();
-		await page.getByRole('button', { name: /^Transfer administration to / }).click();
+		// Appointment is additive, so the draft survives until the caller also
+		// steps down, which is the moment administration actually moves.
+		await page.getByRole('button', { name: /^Make .+ admin$/ }).click();
+		await page.getByTestId('confirm-session-action').click();
+		await expect(page.getByTestId('own-role')).toHaveText('admin');
+		await expect(next.getByTestId('own-role')).toHaveText('admin');
+		await page.getByLabel('People', { exact: true }).click();
+		await page.getByRole('button', { name: 'Give up my admin rights', exact: true }).click();
 		await page.getByTestId('confirm-session-action').click();
 		await expect(page.getByTestId('own-role')).toHaveText('participant');
 		await expect(page.getByTestId('claim-input')).toHaveCount(0);
 		await expect(page.getByTestId('room-claim')).not.toContainText('Draft before revocation');
 		await next.getByLabel('People', { exact: true }).click();
-		await next.getByRole('button', { name: /^Transfer administration to / }).click();
+		await next.getByRole('button', { name: /^Make .+ admin$/ }).click();
 		await next.getByTestId('confirm-session-action').click();
 		await expect(page.getByTestId('own-role')).toHaveText('admin');
 		await page.getByTestId('edit-claim').click();
@@ -1665,10 +1672,15 @@ async function confirmSession(page: Page) {
 	await page.getByTestId('confirm-session-action').click();
 }
 
-test('session controls transfer authority, remove stage and spectator members, and close rooms', async ({
+test('session controls appoint co-admins, let an admin step down, and close rooms', async ({
 	page,
 	browser
 }) => {
+	const openPeople = async (client: Page) => {
+		const panel = client.getByTestId('people-panel');
+		if (!(await panel.isVisible())) await client.getByLabel('People', { exact: true }).click();
+		await expect(panel).toBeVisible();
+	};
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
@@ -1683,17 +1695,26 @@ test('session controls transfer authority, remove stage and spectator members, a
 		await guest.getByLabel('Your pseudonym').fill('Next admin');
 		await guest.getByLabel('Save pseudonym', { exact: true }).click();
 		await guest.getByLabel('People', { exact: true }).click();
-		await page.getByLabel('People', { exact: true }).click();
+		await openPeople(page);
 		await page.getByLabel('Promote Next admin', { exact: true }).click();
 		await expect(guest.getByTestId('own-role')).toHaveText('participant');
-		await page.getByLabel('Transfer administration to Next admin', { exact: true }).click();
+		// The only admin cannot step down before naming somebody else.
+		await expect(page.getByLabel('Give up my admin rights')).toHaveCount(0);
+		await page.getByLabel('Make Next admin admin', { exact: true }).click();
 		await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(guest.getByTestId('own-role')).toHaveText('participant');
+		await openPeople(page);
+		await page.getByLabel('Make Next admin admin', { exact: true }).click();
+		await confirmSession(page);
+		// Appointment is additive: the caller keeps administration.
 		await expect(page.getByTestId('own-role')).toHaveText('admin');
-		await page.getByLabel('People', { exact: true }).click();
-		await page.getByLabel('Transfer administration to Next admin', { exact: true }).click();
+		await expect(guest.getByTestId('own-role')).toHaveText('admin');
+		await openPeople(page);
+		await page.getByLabel('Give up my admin rights', { exact: true }).click();
 		await confirmSession(page);
 		await expect(page.getByTestId('own-role')).toHaveText('participant');
-		await expect(guest.getByTestId('own-role')).toHaveText('admin');
+		await openPeople(page);
+		await expect(page.getByLabel('Make Next admin admin')).toHaveCount(0);
 		await observer.goto(guest.url());
 		await expect(observer.getByTestId('own-role')).toHaveText('spectator');
 		await guest.getByLabel('People', { exact: true }).click();

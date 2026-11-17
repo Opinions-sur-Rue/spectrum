@@ -7,39 +7,93 @@ import (
 	"Opinions-sur-Rue/spectrum/domain/valueobjects"
 )
 
-func TestSessionTransferIsScopedAndRemovesFormerAdmin(t *testing.T) {
-	hub, admin, guest, room := stageFixture(t)
-	target := stageEnvelope(t, "room.transfer", room.memberIDs[guest.userID])
-	if err := handleRoomTransfer(admin, target); err == nil {
-		t.Fatal("transferred to spectator")
-	}
-	if err := handleRoomPromote(admin, target); err != nil {
+func stagePromote(t *testing.T, admin, guest *Client, room *Room) string {
+	t.Helper()
+	memberID := room.memberIDs[guest.userID]
+	if err := handleRoomPromote(admin, stageEnvelope(t, "room.promote", memberID)); err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{admin.userID, guest.userID, fixtureOutsideMemberID} {
-		if err := handleRoomTransfer(admin, stageEnvelope(t, "room.transfer", id)); err == nil {
-			t.Fatal("accepted invalid member selector", id)
+	return memberID
+}
+
+func TestSessionAppointRejectsUntrustedSelectors(t *testing.T) {
+	_, admin, guest, room := stageFixture(t)
+	memberID := stagePromote(t, admin, guest, room)
+	if err := handleRoomAppoint(admin, stageEnvelope(t, "room.appoint", room.memberIDs[admin.userID])); err == nil {
+		t.Fatal("appointed the caller")
+	}
+	if err := handleRoomAppoint(admin, stageEnvelope(t, "room.appoint", fixtureOutsideMemberID)); err == nil {
+		t.Fatal("appointed a member of another room")
+	}
+	for _, id := range []string{admin.userID, memberID, fixtureOutsideMemberID} {
+		if err := handleRoomAppoint(guest, stageEnvelope(t, "room.appoint", id)); err == nil {
+			t.Fatal("participant appointed authority")
 		}
 	}
-	if err := handleRoomTransfer(guest, target); err == nil {
-		t.Fatal("participant transferred authority")
+	if len(room.admins) != 1 || !room.IsAdmin(admin.userID) {
+		t.Fatalf("rejected appointments mutated authority: %v", room.admins)
 	}
-	if err := handleRoomTransfer(admin, target); err != nil {
+	abdicate, _ := valueobjects.NewEnvelope("room.abdicate", struct{}{})
+	if err := handleRoomAbdicate(guest, abdicate); err == nil {
+		t.Fatal("participant gave up authority it never had")
+	}
+	if err := handleRoomAbdicate(admin, abdicate); !errors.Is(err, ErrLastAdmin) {
+		t.Fatalf("last admin abdicated: %v", err)
+	}
+	if !room.IsAdmin(admin.userID) {
+		t.Fatal("rejected abdication removed the only admin")
+	}
+}
+
+func TestSessionAppointIsAdditive(t *testing.T) {
+	_, admin, guest, room := stageFixture(t)
+	memberID := stagePromote(t, admin, guest, room)
+	target := stageEnvelope(t, "room.appoint", memberID)
+	stop, _ := valueobjects.NewEnvelope("room.stop", struct{}{})
+	if err := handleRoomStop(guest, stop); err == nil {
+		t.Fatal("participant stopped the room")
+	}
+	if err := handleRoomAppoint(admin, target); err != nil {
 		t.Fatal(err)
 	}
-	if role, _ := room.RoleOf(admin.userID); role != RoleParticipant {
-		t.Fatal("former admin retained role")
+	if !room.IsAdmin(admin.userID) || !room.IsAdmin(guest.userID) || len(room.admins) != 2 {
+		t.Fatalf("appointment was not additive: %v", room.admins)
 	}
-	if !room.IsAdmin(guest.userID) {
-		t.Fatal("target not admin")
+	if err := handleRoomAppoint(admin, target); err == nil {
+		t.Fatal("appointed the same member twice")
+	}
+	// Co-administration is real administration.
+	if role, _ := room.RoleOf(guest.userID); role != RoleAdmin {
+		t.Fatalf("co-admin role = %s", role)
+	}
+	if err := handleRoomAppoint(admin, stageEnvelope(t, "room.appoint", room.memberIDs[guest.userID])); err == nil {
+		t.Fatal("appointed an existing admin")
+	}
+}
+
+func TestSessionAbdicateIsVoluntaryAndProtectsLastAdmin(t *testing.T) {
+	hub, admin, guest, room := stageFixture(t)
+	memberID := stagePromote(t, admin, guest, room)
+	if err := handleRoomAppoint(admin, stageEnvelope(t, "room.appoint", memberID)); err != nil {
+		t.Fatal(err)
+	}
+	abdicate, _ := valueobjects.NewEnvelope("room.abdicate", struct{}{})
+	if err := handleRoomAbdicate(admin, abdicate); err != nil {
+		t.Fatal(err)
+	}
+	if room.IsAdmin(admin.userID) {
+		t.Fatal("voluntary self-removal retained authority")
+	}
+	if role, _ := room.RoleOf(admin.userID); role != RoleParticipant {
+		t.Fatalf("self-removed admin left the stage: %s", role)
+	}
+	if !room.IsAdmin(guest.userID) || hub.rooms[room.id] == nil {
+		t.Fatal("self-removal disrupted the room or its remaining admin")
+	}
+	if err := handleRoomAbdicate(guest, abdicate); !errors.Is(err, ErrLastAdmin) {
+		t.Fatalf("new last admin abdicated: %v", err)
 	}
 	stop, _ := valueobjects.NewEnvelope("room.stop", struct{}{})
-	if err := handleRoomStop(admin, stop); err == nil {
-		t.Fatal("former admin stopped session")
-	}
-	if hub.rooms[room.id] == nil {
-		t.Fatal("unauthorized stop mutated room")
-	}
 	if err := handleRoomStop(guest, stop); err != nil {
 		t.Fatal(err)
 	}
