@@ -25,7 +25,7 @@
 	$effect(() => {
 		if (open)
 			void tick().then(() => {
-				if (!open || panel?.contains(document.activeElement)) return;
+				if (!open || !panel || panel.contains(document.activeElement)) return;
 				// Avoid surfacing the mobile keyboard until the person taps the field.
 				const target = compact
 					? panel.querySelector<HTMLElement>('button')

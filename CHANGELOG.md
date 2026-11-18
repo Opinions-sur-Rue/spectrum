@@ -13,7 +13,8 @@ All notable changes to **Spectrum** are documented in this file.
 - Align the room timer typography and minimum height with the neighbouring toolbar controls.
 
 ### CI
-- Run frontend quality, per-browser UI and per-browser voice validation on isolated parallel runners. Balance WebKit across two one-worker shards; preserve every test and a fail-closed aggregate before image publication. Wall-time improvement remains to be measured on the next tagged run.
+- Run frontend quality, per-browser UI and per-browser voice validation on isolated parallel runners. Balance WebKit across two one-worker shards; preserve every test and a fail-closed aggregate before image publication.
+- Cache Playwright browser binaries per OS and package lock, and retry transient npm fetches. The first tagged run showed 21–22 min of repeated WebKit downloads versus under 3 min of actual UI tests; the cache keeps that download out of later runs.
 
 ## [v2.0.0-beta.25] - 2026-11-18
 

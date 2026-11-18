@@ -41,9 +41,15 @@
   All original gates retained: quality, four UI matrix cells (67 Chrome,67 FF,
   34+33 WebKit), two voice cells (18 cases total), mandatory fail-closed frontend
   aggregate. actionlint1.7.12, 216 status combos/unset results, exactly-once plan
-  coverage and actual fully-parallel Chromium **67/67** pass. Expected frontend
-  wall time 6–9m versus measured ~20m baseline, not yet measured on GitHub; total
-  runner usage ~35–45m. Applies to future tags; beta.25 immutable run untouched.
+  coverage and actual fully-parallel Chromium **67/67** pass. Applies to future
+  tags; beta.25 immutable run untouched.
+- First parallel CI run (beta.26, 44331755866) showed the real bottleneck: UI test
+  shards themselves took 2m21–2m50, but the browser-install step took 21m43–22m31
+  for WebKit and 9m23 for Firefox, each job downloading separately. Chromium's
+  failure was an npm registry timeout, not an assertion. Added a per-OS Playwright
+  browser cache keyed on `frontend/package-lock.json` with a prefix restore key in
+  checks/UI/voice jobs, plus bounded npm fetch retries. First run with a cold cache
+  still pays the download; later runs skip it.
 - Later audit lots remain queued. Claim monoline preference, the four second-batch
   requests, timer typography and relation legend are implemented. Local tracking/
   docs remain uncommitted; user workflow/README/deploy work preserved. No
