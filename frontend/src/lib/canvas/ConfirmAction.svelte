@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages.js';
 	import { dialogFocus } from './dialog-focus';
+	import { trapPanelFocus } from './panel-modality';
 	export interface Confirmation {
 		op: string;
 		payload: unknown;
@@ -30,9 +31,16 @@
 	<dialog
 		use:dialogFocus
 		bind:this={dialog}
-		class="bg-base-100 m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-md overflow-y-auto rounded-xl p-6 break-words shadow-xl backdrop:bg-black/40"
+		class="bg-base-100 pointer-events-auto m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-md overflow-y-auto rounded-xl p-6 break-words shadow-xl backdrop:bg-black/40"
 		aria-labelledby="session-confirm-title"
 		aria-describedby="session-confirm-body"
+		onkeydown={(event) => {
+			if (event.key === 'Tab') {
+				// Do not let an underlying panel trap focus into its now-inert controls.
+				event.stopPropagation();
+				if (dialog) trapPanelFocus(dialog, event);
+			}
+		}}
 		oncancel={() => {
 			action = null;
 		}}

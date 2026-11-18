@@ -3,6 +3,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
+	import ConfirmAction, { type Confirmation } from './ConfirmAction.svelte';
 	import { loadPersonalNotes, savePersonalNotes } from './personal-notes';
 	let { roomId }: { roomId: string } = $props();
 	let text = $state('');
@@ -10,6 +11,8 @@
 	let saved = $state(false);
 	let unavailable = $state(false);
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	let clearing = $state<Confirmation | null>(null);
+	let clearSnapshot = { room: '', text: '' };
 	function flush(room: string, value: string) {
 		clearTimeout(timer);
 		if (!room) return;
@@ -19,12 +22,42 @@
 	// overwrite them under the new room's key.
 	$effect(() => {
 		const next = roomId;
+		clearing = null;
 		if (ownedRoom && ownedRoom !== next) flush(ownedRoom, text);
 		ownedRoom = next;
 		text = loadPersonalNotes(next);
 		saved = false;
 		unavailable = false;
 	});
+	$effect(() => {
+		if (clearing && (clearSnapshot.room !== roomId || clearSnapshot.text !== text)) clearing = null;
+	});
+	function requestClear() {
+		if (!ownedRoom || ownedRoom !== roomId || !text) return;
+		clearSnapshot = { room: ownedRoom, text };
+		clearing = {
+			op: 'local.clear',
+			payload: null,
+			title: m.personal_notes_clear_title(),
+			body: m.personal_notes_clear_body()
+		};
+	}
+	function confirmClear() {
+		const pending = clearing;
+		clearing = null;
+		if (
+			!pending ||
+			clearSnapshot.room !== roomId ||
+			clearSnapshot.room !== ownedRoom ||
+			clearSnapshot.text !== text
+		)
+			return false;
+		// Cancel deferred autosave before clearing, so old text cannot reappear.
+		flush(clearSnapshot.room, '');
+		if (!unavailable) text = '';
+		saved = false;
+		return true;
+	}
 	function type() {
 		clearTimeout(timer);
 		const room = ownedRoom;
@@ -38,6 +71,7 @@
 		const discard = () => flush(ownedRoom, text);
 		window.addEventListener('pagehide', discard);
 		return () => {
+			clearing = null;
 			window.removeEventListener('pagehide', discard);
 			discard();
 		};
@@ -67,12 +101,9 @@
 				icon="trash"
 				label={m.personal_notes_clear()}
 				data-testid="personal-notes-clear"
-				onclick={() => {
-					text = '';
-					flush(ownedRoom, '');
-					saved = false;
-					unavailable = false;
-				}}
+				onclick={requestClear}
 			/>{/if}
 	</div>
 </section>
+
+<ConfirmAction bind:action={clearing} ready={true} send={confirmClear} />

@@ -12,7 +12,7 @@ import {
 import type { SpectrumState } from '../src/lib/canvas/room-client';
 import AxeBuilder from '@axe-core/playwright';
 
-test('readability: empty notes keep placeholders out of stored content and claim supports centered multiline editing', async ({
+test('readability: empty notes keep placeholders out of stored content and claim stays single-line', async ({
 	page
 }) => {
 	await page.goto('/v2');
@@ -57,31 +57,142 @@ test('readability: empty notes keep placeholders out of stored content and claim
 		await page.setViewportSize(viewport);
 		await page.getByTestId('edit-claim').click();
 		const input = page.getByTestId('claim-input');
-		await input.fill('Première ligne');
-		await input.press('End');
-		await input.press('Enter');
-		await input.press('S');
-		await expect(input).toHaveValue('Première ligne\nS');
+		await expect(input).toHaveJSProperty('tagName', 'INPUT');
+		await input.fill('Une proposition sur une seule ligne');
 		await expect(input).toBeFocused();
-		await input.fill('Première ligne\nSeconde ligne');
 		await input.press('Control+Enter');
 		await expect(input).toHaveCount(0);
 		const heading = page.getByTestId('room-claim').getByRole('heading', { level: 1 });
-		await expect(heading).toHaveText('Première ligne\nSeconde ligne');
-		expect(
-			await heading.evaluate((node) => [
-				getComputedStyle(node).textAlign,
-				getComputedStyle(node).whiteSpace
-			])
-		).toEqual(['center', 'pre-wrap']);
+		await expect(heading).toHaveText('Une proposition sur une seule ligne');
+		expect(await heading.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+		await expect(heading).toHaveCSS('text-align', 'center');
 		const box = (await heading.boundingBox())!;
-		expect(Math.abs(box.x + box.width / 2 - viewport.width / 2)).toBeLessThan(2);
+		const edit = (await page.getByTestId('edit-claim').boundingBox())!;
+		expect(box.x).toBeGreaterThanOrEqual(0);
+		expect(box.x + box.width).toBeLessThanOrEqual(edit.x);
+		expect(edit.x + edit.width).toBeLessThanOrEqual(viewport.width);
 		await page.getByTestId('edit-claim').click();
 		await input.fill('Cancelled claim');
 		await input.press('Escape');
-		await expect(heading).toHaveText('Première ligne\nSeconde ligne');
+		await expect(heading).toHaveText('Une proposition sur une seule ligne');
 	}
 });
+
+test('single-line proposition fits a narrow screen and full text remains accessible', async ({
+	page
+}) => {
+	await page.setViewportSize({ width: 320, height: 568 });
+	await page.goto('/v2');
+	const topic =
+		'Faut-il rendre les transports en commun gratuits pour tous, y compris les personnes résidant dans les communes périphériques ?';
+	await page.getByTestId('initial-topic').fill(topic);
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const heading = page.getByTestId('room-claim').getByRole('heading', { level: 1 });
+	const read = heading.getByRole('button');
+	await expect(heading).toHaveText(topic);
+	await expect(read).toHaveCSS('white-space', 'nowrap');
+	await expect(read).toHaveCSS('text-overflow', 'ellipsis');
+	expect(await read.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+	const box = (await read.boundingBox())!;
+	const edit = (await page.getByTestId('edit-claim').boundingBox())!;
+	expect(box.x).toBeGreaterThanOrEqual(0);
+	expect(box.x + box.width).toBeLessThanOrEqual(edit.x);
+	expect(edit.x + edit.width).toBeLessThanOrEqual(320);
+	await read.click();
+	await expect(page.getByRole('dialog')).toContainText(topic);
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+	await expect(read).toBeFocused();
+	await page.getByTestId('edit-claim').click();
+	await page.getByTestId('claim-input').fill('One new proposition');
+	await page.getByTestId('claim-input').press('Enter');
+	await expect(heading).toHaveText('One new proposition');
+});
+
+for (const compact of [false, true]) {
+	test(`note deletion waits for explicit confirmation and cancellation keeps content (${compact ? 'mobile' : 'desktop'})`, async ({
+		page
+	}) => {
+		await page.setViewportSize({ width: compact ? 390 : 1280, height: compact ? 844 : 900 });
+		const deletions: unknown[] = [];
+		page.on('websocket', (socket) => {
+			if (!socket.url().includes('/spectrum/ws')) return;
+			socket.on('framesent', ({ payload }) => {
+				const message = JSON.parse(String(payload));
+				if (message.op === 'note.delete') deletions.push(message.payload);
+			});
+		});
+		await page.goto('/v2');
+		await page.getByTestId('create-room').click();
+		await expect(page.getByTestId('own-role')).toHaveText('admin');
+		await page.getByTestId('new-note').click();
+		const note = page.locator('[data-note-id]').first();
+		if (compact) await note.locator('[data-note-inspect]').click();
+		await note.getByRole('heading', { level: 1 }).fill('Protected note');
+		await note.getByRole('button', { name: 'Save note', exact: true }).click();
+		await expect(note).toHaveAttribute('aria-label', 'Protected note');
+		const remove = note.getByRole('button', { name: 'Delete', exact: true });
+		await note.getByRole('textbox', { name: 'Note content' }).focus();
+		await remove.click();
+		const confirmation = page.getByRole('dialog', { name: /Delete .*Protected note/ });
+		await expect(confirmation).toBeVisible();
+		expect(deletions).toHaveLength(0);
+		await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(note).toHaveCount(1);
+		await expect(remove).toBeFocused();
+		await remove.click();
+		await page.keyboard.press('Escape');
+		await expect(confirmation).toHaveCount(0);
+		expect(deletions).toHaveLength(0);
+		await remove.click();
+		await confirmation.getByTestId('confirm-session-action').click();
+		await expect(note).toHaveCount(0);
+		expect(deletions).toHaveLength(1);
+	});
+}
+
+for (const compact of [false, true]) {
+	test(`private note clearing requires confirmation without sending its content (${compact ? 'mobile' : 'desktop'})`, async ({
+		page
+	}) => {
+		await page.setViewportSize({ width: compact ? 390 : 1280, height: compact ? 844 : 900 });
+		const messages: string[] = [];
+		page.on('websocket', (socket) => {
+			if (socket.url().includes('/spectrum/ws'))
+				socket.on('framesent', ({ payload }) => messages.push(String(payload)));
+		});
+		await page.goto('/v2');
+		await page.getByTestId('create-room').click();
+		await expect(page.getByTestId('own-role')).toHaveText('admin');
+		await openDiscussionTab(page, 'notes');
+		const input = page.getByTestId('personal-notes-input');
+		const text = 'A browser-only draft that must not be sent';
+		await input.fill(text);
+		await expect(page.getByTestId('personal-notes-status')).toHaveText('Saved on this device');
+		await page.getByTestId('personal-notes-clear').click();
+		const confirmation = page.getByRole('dialog', { name: 'Delete your private notes?' });
+		await expect(confirmation).toBeVisible();
+		await expect(input).toHaveValue(text);
+		const confirm = confirmation.getByTestId('confirm-session-action');
+		const cancel = confirmation.getByRole('button', { name: 'Cancel', exact: true });
+		await confirm.focus();
+		await page.keyboard.press('Tab');
+		await expect(cancel).toBeFocused();
+		await page.keyboard.press('Shift+Tab');
+		await expect(confirm).toBeFocused();
+		await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(input).toHaveValue(text);
+		await page.getByTestId('personal-notes-clear').click();
+		await confirmation.getByTestId('confirm-session-action').click();
+		await expect(input).toHaveValue('');
+		expect(messages.some((message) => message.includes(text))).toBe(false);
+		await page.reload();
+		await expect(page.getByTestId('own-role')).toHaveText('admin');
+		await openDiscussionTab(page, 'notes');
+		await expect(page.getByTestId('personal-notes-input')).toHaveValue('');
+	});
+}
 
 for (const demoteWhileSuspended of [false, true]) {
 	test(`mobile resume restores identity and ${demoteWhileSuspended ? 'respects offline demotion' : 'stage membership'}`, async ({
@@ -2160,6 +2271,10 @@ test('inline Markdown notes and actions synchronize across browser engines', asy
 		await second.getByRole('button', { name: 'Reject', exact: true }).click();
 		await expect(spectatorCards).toHaveCount(1);
 		await second.getByRole('button', { name: 'Delete', exact: true }).click();
+		await page
+			.getByRole('dialog', { name: /^Delete / })
+			.getByTestId('confirm-session-action')
+			.click();
 		await expect(cards).toHaveCount(1);
 		await expect(page.getByTestId('canvas-status')).toContainText('Links: 0');
 		await page.reload();

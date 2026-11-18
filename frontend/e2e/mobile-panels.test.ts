@@ -124,6 +124,15 @@ test('people sheet keeps profile and close visible while only the list scrolls',
 		)
 		.toBe(true);
 	await expect(page.locator('[data-member-id]')).toHaveCount(36);
+	const memberName = panel.locator('[data-member-name="fixture-0"]');
+	const memberActions = panel.locator('[data-member-actions="fixture-0"]');
+	await expect(memberName).toBeVisible();
+	expect(await memberName.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+	const nameBounds = (await memberName.boundingBox())!;
+	const actionBounds = (await memberActions.boundingBox())!;
+	expect(nameBounds.width).toBeGreaterThanOrEqual(200);
+	expect(actionBounds.y).toBeGreaterThanOrEqual(nameBounds.y + nameBounds.height);
+	expect(await panel.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
 	await page.screenshot({ path: test.info().outputPath('people-mobile.png') });
 	const heading = await panel.locator('header').boundingBox();
 	await panel.locator('.people-body').evaluate((node) => {

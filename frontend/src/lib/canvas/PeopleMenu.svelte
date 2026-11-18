@@ -178,7 +178,7 @@
 								class="flex items-center gap-2 text-xs"
 								data-hand-member={member.id}
 							>
-								<span class="min-w-0 flex-1 truncate">{member.nickname}</span
+								<span class="member-name min-w-0 flex-1">{member.nickname}</span
 								>{#if admin || member.id === room.userId}<IconButton
 										icon="demote"
 										label={m.social_lower_member_hand({ name: member.nickname })}
@@ -197,81 +197,89 @@
 			<ul class="space-y-1">
 				{#each onStage as member (member.id)}
 					<li
-						class="flex flex-wrap items-center gap-2 border-b py-2 text-sm"
+						class="member-row border-b py-2 text-sm"
 						aria-label={member.nickname}
 						data-member-id={member.id}
 					>
-						<span
-							class="h-2 w-2 rounded-full"
-							style:background-color={member.color ? `#${member.color}` : 'gray'}
-						></span>
-						<span class="min-w-0 flex-1 truncate"
-							>{member.nickname}{member.id === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
-						>
-						<span class="text-xs opacity-60">{roleLabel(member.role)}</span>
-						{#if admin && member.role === 'participant'}<IconButton
-								icon="crown"
-								label={m.v2_appoint_admin({ name: member.nickname })}
-								disabled={!ready}
-								onclick={() => {
-									action = {
-										op: 'room.appoint',
-										payload: { memberId: member.id },
-										title: m.v2_appoint_admin({ name: member.nickname }),
-										body: m.v2_appoint_admin_body({ name: member.nickname })
-									};
-								}}
-							/>{/if}
-						{#if admin && member.id === room.userId && adminCount > 1}<IconButton
-								icon="demote"
-								label={m.v2_abdicate_admin()}
-								disabled={!ready}
-								onclick={() => {
-									action = {
-										op: 'room.abdicate',
-										payload: {},
-										title: m.v2_abdicate_admin(),
-										body: m.v2_abdicate_admin_body()
-									};
-								}}
-							/>{/if}
-						{#if member.role !== 'spectator' && speakingSecondsFor(member.id, member.speakingSeconds, speakingTime) > 0}
-							{@const spoken = formatSpeakingTime(
-								speakingSecondsFor(member.id, member.speakingSeconds, speakingTime)
-							)}
+						<div class="member-identity">
 							<span
-								class="text-xs tabular-nums opacity-70"
-								data-speaking-time={member.id}
-								title={m.voice_speaking_time_aria({ name: member.nickname, time: spoken })}
-								>{spoken}</span
+								class="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+								style:background-color={member.color ? `#${member.color}` : 'gray'}
+							></span>
+							<span class="member-name" data-member-name={member.id}
+								>{member.nickname}{member.id === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
 							>
-						{/if}
-						{#if admin && member.role === 'participant' && room.voice?.available}<IconButton
-								icon="micOff"
-								label={m.voice_mute_member({ name: member.nickname })}
-								disabled={!ready || !!member.microphoneMuted}
-								onclick={() => send('voice.mute', { memberId: member.id })}
-							/>{/if}
-						{#if admin && member.role === 'participant'}<IconButton
-								icon="demote"
-								label={m.v2_demote({ name: member.nickname })}
-								disabled={!ready}
-								onclick={() => send('room.demote', { memberId: member.id })}
-							/>{/if}
-						{#if admin && member.role === 'participant'}
-							<IconButton
-								icon="trash"
-								label={m.session_kick({ name: member.nickname })}
-								disabled={!ready}
-								onclick={() => {
-									action = {
-										op: 'room.kick',
-										payload: { memberId: member.id },
-										title: m.session_kick({ name: member.nickname }),
-										body: m.session_kick_body({ name: member.nickname })
-									};
-								}}
-							/>
+						</div>
+						<div class="member-meta text-xs opacity-60">
+							<span>{roleLabel(member.role)}</span>
+							{#if speakingSecondsFor(member.id, member.speakingSeconds, speakingTime) > 0}
+								{@const spoken = formatSpeakingTime(
+									speakingSecondsFor(member.id, member.speakingSeconds, speakingTime)
+								)}
+								<span
+									class="tabular-nums"
+									data-speaking-time={member.id}
+									title={m.voice_speaking_time_aria({ name: member.nickname, time: spoken })}
+									>{spoken}</span
+								>
+							{/if}
+						</div>
+						{#if admin && (member.role === 'participant' || (member.id === room.userId && adminCount > 1))}
+							<div class="member-actions" data-member-actions={member.id}>
+								{#if admin && member.role === 'participant'}<IconButton
+										icon="crown"
+										label={m.v2_appoint_admin({ name: member.nickname })}
+										disabled={!ready}
+										onclick={() => {
+											action = {
+												op: 'room.appoint',
+												payload: { memberId: member.id },
+												title: m.v2_appoint_admin({ name: member.nickname }),
+												body: m.v2_appoint_admin_body({ name: member.nickname })
+											};
+										}}
+									/>{/if}
+								{#if admin && member.id === room.userId && adminCount > 1}<IconButton
+										icon="demote"
+										label={m.v2_abdicate_admin()}
+										disabled={!ready}
+										onclick={() => {
+											action = {
+												op: 'room.abdicate',
+												payload: {},
+												title: m.v2_abdicate_admin(),
+												body: m.v2_abdicate_admin_body()
+											};
+										}}
+									/>{/if}
+								{#if admin && member.role === 'participant' && room.voice?.available}<IconButton
+										icon="micOff"
+										label={m.voice_mute_member({ name: member.nickname })}
+										disabled={!ready || !!member.microphoneMuted}
+										onclick={() => send('voice.mute', { memberId: member.id })}
+									/>{/if}
+								{#if admin && member.role === 'participant'}<IconButton
+										icon="demote"
+										label={m.v2_demote({ name: member.nickname })}
+										disabled={!ready}
+										onclick={() => send('room.demote', { memberId: member.id })}
+									/>{/if}
+								{#if admin && member.role === 'participant'}
+									<IconButton
+										icon="trash"
+										label={m.session_kick({ name: member.nickname })}
+										disabled={!ready}
+										onclick={() => {
+											action = {
+												op: 'room.kick',
+												payload: { memberId: member.id },
+												title: m.session_kick({ name: member.nickname }),
+												body: m.session_kick_body({ name: member.nickname })
+											};
+										}}
+									/>
+								{/if}
+							</div>
 						{/if}
 						<MemberAudio
 							{member}
@@ -291,32 +299,38 @@
 			<ul class="space-y-1">
 				{#each spectators as member (member.id)}
 					<li
-						class="flex items-center gap-2 text-sm"
+						class="member-row py-2 text-sm"
 						aria-label={member.nickname}
 						data-member-id={member.id}
 					>
-						<span class="min-w-0 flex-1 truncate"
-							>{member.nickname}{member.id === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
-						>
-						{#if admin}<IconButton
-								icon="promote"
-								label={m.v2_promote({ name: member.nickname })}
-								disabled={!ready || onStage.length >= room.settings.participantSlots}
-								onclick={() => send('room.promote', { memberId: member.id })}
-							/>{/if}
-						{#if admin}<IconButton
-								icon="trash"
-								label={m.session_kick({ name: member.nickname })}
-								disabled={!ready}
-								onclick={() => {
-									action = {
-										op: 'room.kick',
-										payload: { memberId: member.id },
-										title: m.session_kick({ name: member.nickname }),
-										body: m.session_kick_body({ name: member.nickname })
-									};
-								}}
-							/>{/if}
+						<div class="member-identity">
+							<span class="member-name" data-member-name={member.id}
+								>{member.nickname}{member.id === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
+							>
+						</div>
+						{#if admin}
+							<div class="member-actions" data-member-actions={member.id}>
+								{#if admin}<IconButton
+										icon="promote"
+										label={m.v2_promote({ name: member.nickname })}
+										disabled={!ready || onStage.length >= room.settings.participantSlots}
+										onclick={() => send('room.promote', { memberId: member.id })}
+									/>{/if}
+								{#if admin}<IconButton
+										icon="trash"
+										label={m.session_kick({ name: member.nickname })}
+										disabled={!ready}
+										onclick={() => {
+											action = {
+												op: 'room.kick',
+												payload: { memberId: member.id },
+												title: m.session_kick({ name: member.nickname }),
+												body: m.session_kick_body({ name: member.nickname })
+											};
+										}}
+									/>{/if}
+							</div>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -376,6 +390,33 @@
 		overflow-y: auto;
 		overscroll-behavior: contain;
 		padding: 0.75rem 1rem;
+	}
+	.member-row {
+		display: flex;
+		min-width: 0;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.member-identity {
+		display: flex;
+		width: 100%;
+		min-width: 0;
+		align-items: flex-start;
+		gap: 0.5rem;
+	}
+	.member-name {
+		min-width: 0;
+		flex: 1;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+	.member-meta,
+	.member-actions {
+		display: flex;
+		min-width: 0;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
 	}
 	@media (max-width: 1023px) {
 		.people-panel {

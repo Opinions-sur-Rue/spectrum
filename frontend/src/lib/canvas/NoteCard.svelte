@@ -5,6 +5,7 @@
 	import { Markdown } from '@tiptap/markdown';
 	import Icon from '$lib/components/Icon.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
+	import ConfirmAction, { type Confirmation } from './ConfirmAction.svelte';
 	import type { EdgeModel, NoteModel, Relation } from './models';
 	import { m } from '$lib/paraglide/messages.js';
 	import { relationLabel } from './labels';
@@ -61,6 +62,44 @@
 	let resizing = $state(false);
 	let compact = $state(false);
 	let inspecting = $state(false);
+	let deletion = $state<Confirmation | null>(null);
+	let requestedDeletionContext = '';
+	const deletionContext = $derived(
+		JSON.stringify([
+			note.id,
+			note.version,
+			note.title,
+			note.markdown,
+			note.authorId,
+			editable,
+			manageable,
+			admin,
+			hidden,
+			presentation
+		])
+	);
+	$effect(() => {
+		if (deletion && (!ready || !manageable || requestedDeletionContext !== deletionContext))
+			deletion = null;
+	});
+	function requestDelete() {
+		if (!ready || !manageable || hidden || presentation) return;
+		requestedDeletionContext = deletionContext;
+		deletion = {
+			op: 'note.delete',
+			payload: { noteId: note.id },
+			title: m.ux_delete_note_title({ title: note.title }),
+			body: m.ux_delete_note_body()
+		};
+	}
+	function confirmDelete() {
+		const pending = deletion;
+		deletion = null;
+		if (!pending || !ready || !manageable || requestedDeletionContext !== deletionContext)
+			return false;
+		send('note.delete', { noteId: note.id });
+		return true;
+	}
 	function content(markdown: string) {
 		return markdown.trim()
 			? markdown
@@ -154,6 +193,7 @@
 		element.addEventListener('lostpointercapture', cancelDrag, { signal: events.signal });
 		element.addEventListener('click', swallowDragClick, { capture: true, signal: events.signal });
 		return () => {
+			deletion = null;
 			media.removeEventListener('change', updateCompact);
 			events.abort();
 			drag = null;
@@ -536,7 +576,7 @@
 						icon="trash"
 						label={m.v2_delete()}
 						disabled={!ready}
-						onclick={() => send('note.delete', { noteId: note.id })}
+						onclick={requestDelete}
 					/>{/if}
 				{#if admin}
 					{#if note.moderation !== 'approved'}<IconButton
@@ -589,6 +629,8 @@
 		{/if}
 	</div>
 </article>
+
+<ConfirmAction bind:action={deletion} {ready} send={confirmDelete} />
 
 <style>
 	.note-card {
