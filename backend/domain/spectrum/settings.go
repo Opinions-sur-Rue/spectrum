@@ -50,10 +50,9 @@ func DefaultRoomSettings() RoomSettings {
 		SpectatorChatEnabled:       false,
 		PelletsVisibleToSpectators: true,
 		NotesVisibleToSpectators:   false,
-		// Transcription stays off until an admin turns it on for the room: the
-		// pipeline is experimental and its Discussion tab must not appear by
-		// default. Deployments can still opt in with SPECTRUM_TRANSCRIPTION_ENABLED.
-		TranscriptionEnabled:  false,
+		// Room transcription defaults on; deployment availability and individual
+		// session consent remain separate requirements.
+		TranscriptionEnabled:  true,
 		TranscriptionLanguage: "fr",
 	}
 }

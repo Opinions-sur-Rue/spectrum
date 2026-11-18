@@ -1,5 +1,6 @@
 export type STTAssetId =
 	| 'runtime'
+	| 'mel-runtime'
 	| 'vad'
 	| 'vocabulary'
 	| 'features'

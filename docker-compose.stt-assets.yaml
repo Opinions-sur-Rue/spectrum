@@ -4,7 +4,7 @@ services:
   backend:
     environment:
       SPECTRUM_TRANSCRIPTION_AVAILABLE: "true"
-      SPECTRUM_TRANSCRIPTION_ENABLED: "false"
+      SPECTRUM_TRANSCRIPTION_ENABLED: "true"
       SPECTRUM_TRANSCRIPTION_MODE: browser
   frontend:
     volumes:

@@ -44,10 +44,12 @@ Two consequences worth stating plainly:
   That removes an entire build-and-verify pipeline from the plan. The measurement
   was single-threaded; the implementation deliberately stays single-threaded
   without changing cross-origin isolation for the rest of Spectrum.
-- **This export is WASM-only in Spectrum.** The pinned model card explicitly
-  labels w2a8 CPU-only. Earlier suggestions that generic MatMulNBits WebGPU
-  support proved this export GPU-compatible were unsupported. Whisper retains
-  its separate GPU option.
+- **Beta.22 runs this export on WASM.** A later exact-export probe with the
+  installed ORT asyncify/WebGPU runtime demonstrated real hardware Q2 dispatches
+  on AMD RDNA-3. Generic operator support alone was not sufficient evidence;
+  neither are model-card CUDA limitations proof of WebGPU incompatibility.
+  The unreleased explicit GPU path keeps the same weights and accelerates only
+  the encoder; CPU remains the default. See `BROWSER_STT.md` for follow-up scope.
 
 ## Graph contract for the Spectrum implementation
 
@@ -130,7 +132,7 @@ weights and runtime stay same-origin, matching the current
    they are.
 3. **Model picker** — explicit Parakeet CPU option, with raw download budget;
    Parakeet is the visible FR/EN default, Base the automatic-language choice;
-   Tiny and Small are retired. No GPU or automatic language
+   Tiny and Small are retired. Beta.22 has no Parakeet GPU or automatic language
    detection for Redux. Rooms must pin French or English; this is a configured
    language label, not proof of language detection. Missing weights fail without
    silent fallback. Existing microphone consent and stop rules remain intact.

@@ -30,7 +30,7 @@ export async function openTranscript(page: Page) {
 	return page.getByRole('log', { name: 'Transcript segments' });
 }
 
-/** Transcription is opt-in per room, so scenarios that need it turn it on first. */
+/** Enable transcription explicitly even when a fixture overrides the room default. */
 export async function enableTranscription(page: Page) {
 	await page.getByLabel('Room options', { exact: true }).click();
 	const option = page.getByRole('checkbox', { name: 'Local transcription' });

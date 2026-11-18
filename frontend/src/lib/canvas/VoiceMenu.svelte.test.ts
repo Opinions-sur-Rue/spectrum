@@ -4,6 +4,33 @@ import VoiceMenu from './VoiceMenu.svelte';
 import type { RoomState } from './room-client';
 import type { VoiceCredentials, VoiceConnectionStatus } from './voice-connection';
 import { m } from '$lib/paraglide/messages.js';
+import type { STTLoadProgress } from './browser-stt';
+
+const stt = vi.hoisted(() => ({
+	load: vi.fn(),
+	stop: vi.fn(),
+	pauseCapture: vi.fn(),
+	captureTrack: vi.fn(),
+	ready: () => {},
+	progress: (() => {}) as (value: STTLoadProgress) => void
+}));
+vi.mock('./browser-stt', () => ({
+	browserSTTSupported: () => true,
+	browserSTTWebGPUAvailable: async () => false,
+	BrowserSTT: class {
+		constructor(
+			_language: string,
+			callbacks: { ready: () => void; progress: (value: STTLoadProgress) => void }
+		) {
+			stt.ready = callbacks.ready;
+			stt.progress = callbacks.progress;
+		}
+		load = stt.load;
+		stop = stt.stop;
+		pauseCapture = stt.pauseCapture;
+		captureTrack = stt.captureTrack;
+	}
+}));
 
 const fixture = vi.hoisted(() => ({
 	callbacks: null as null | {
@@ -118,6 +145,40 @@ async function setup() {
 	const mic = () => view.getByTestId('voice-controls').querySelectorAll('button')[1];
 	return { view, room, send, credentials, mic };
 }
+
+it('keeps microphone-free preparation alive with audio options closed and shows progress outside', async () => {
+	HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+		this.open = true;
+	});
+	const { view, room } = await setup();
+	await view.rerender({
+		room: {
+			...room,
+			settings: { ...room.settings, transcriptionEnabled: true },
+			transcription: { available: true, mode: 'browser' }
+		} as unknown as RoomState
+	});
+	const menu = view.getByTestId('audio-options').parentElement as HTMLDetailsElement;
+	menu.open = true;
+	await fireEvent.click(view.getByTestId('browser-stt-toggle'));
+	await fireEvent.click(view.getByTestId('browser-stt-confirm'));
+	expect(stt.load).toHaveBeenCalledOnce();
+	menu.open = false;
+	await fireEvent(menu, new Event('toggle'));
+	stt.progress({ phase: 'download', asset: 'encoder', loaded: 50, total: 100 });
+	await waitFor(() => expect(view.getByTestId('browser-stt-summary').textContent).toContain('50'));
+	expect(stt.stop).not.toHaveBeenCalled();
+	expect(fixture.toggle).not.toHaveBeenCalled();
+	stt.ready();
+	await waitFor(() =>
+		expect(view.getByTestId('browser-stt-summary').textContent).toBe(m.browser_stt_prepared())
+	);
+	menu.open = true;
+	await fireEvent(menu, new Event('toggle'));
+	expect(view.getByTestId('browser-stt-controls').getAttribute('data-state')).toBe('prepared');
+	expect(stt.load).toHaveBeenCalledOnce();
+	expect(stt.captureTrack).not.toHaveBeenCalled();
+});
 
 it('keeps LiveKit and microphone alive while the application WebSocket reconnects', async () => {
 	const { view, mic, send } = await setup();

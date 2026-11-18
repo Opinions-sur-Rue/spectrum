@@ -4,6 +4,16 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Enable the room transcription option by default, preserving explicit deployment overrides, availability controls and individual consent.
+- Prepare local models without joining audio or opening a microphone. Keep preparation and the loaded model alive when Audio options closes or the publishing track disappears; show a ready/waiting status until microphone publication resumes.
+
+### Added
+- Gate experimental Parakeet WebGPU encoder acceleration behind `?stt-gpu=1` and explicit consent. Keep the same pinned w2a8/int8 weights, isolate mel's plain CPU runtime, and run joint/VAD on CPU. Require confirmed hardware, disclose the larger runtime budget and stop on GPU failure rather than silently retrying CPU. French fixture text differs from CPU; no accuracy or speed parity is claimed.
+
+### Fixed
+- Retire capture sessions on track loss, fence late admissions/results, cancel delayed worklet attachment and serialize inference across microphone restarts without stopping the voice track.
+
 ## [v2.0.0-beta.22] - 2026-11-18
 
 Deployed as a digest-pinned pair after a strict zero-activity gate, with verified read-only assets. Beta.21 remains a failed CI tag; its development-only model tests were routed to a dedicated mandatory browser harness without removing assertions.

@@ -26,11 +26,13 @@ scope.onmessage = async ({ data }) => {
 	let runtimeURL: string | undefined;
 	try {
 		if (data.type === 'load') {
+			await parakeet?.release();
+			parakeet = null;
+			await vad?.release();
+			vad = null;
 			backend = data.backend ?? 'wasm';
 			if (backend !== 'wasm' && backend !== 'webgpu') throw new Error('Unknown backend');
 			if (!['base', 'parakeet'].includes(data.model)) throw new Error('Unknown model');
-			if (data.model === 'parakeet' && backend !== 'wasm')
-				throw new Error('Redux w2a8 requires WASM');
 			if (backend === 'webgpu') {
 				// Fail before downloading weights when a real GPU is unavailable.
 				const adapter = await (
@@ -45,7 +47,10 @@ scope.onmessage = async ({ data }) => {
 						};
 					}
 				).gpu?.requestAdapter({ powerPreference: 'high-performance' });
-				if (!adapter || adapter.info?.isFallbackAdapter || !adapter.features.has('shader-f16'))
+				if (!adapter || adapter.info?.isFallbackAdapter !== false)
+					throw new Error('Hardware WebGPU unavailable');
+				// Whisper uses FP16 weights; the pinned Redux w2a8 encoder uses FP32 activations.
+				if (data.model === 'base' && !adapter.features.has('shader-f16'))
 					throw new Error('Hardware WebGPU with FP16 unavailable');
 				ort.env.webgpu.adapter = adapter as typeof ort.env.webgpu.adapter;
 			}
@@ -62,12 +67,19 @@ scope.onmessage = async ({ data }) => {
 			wasm.proxy = false;
 			const runtime =
 				STT_RUNTIMES[
-					data.model === 'parakeet' ? 'plain' : backend === 'webgpu' ? 'asyncify' : 'jsep'
+					backend === 'webgpu' ? 'asyncify' : data.model === 'parakeet' ? 'plain' : 'jsep'
 				];
 			const progress = (value: STTLoadProgress) =>
 				scope.postMessage({ type: 'progress', progress: value });
 			const assets = new STTAssetLoader(
-				[runtime.asset, VAD_ASSET, ...(data.model === 'parakeet' ? PARAKEET_ASSETS : [])],
+				[
+					runtime.asset,
+					VAD_ASSET,
+					...(data.model === 'parakeet' ? PARAKEET_ASSETS : []),
+					...(data.model === 'parakeet' && backend === 'webgpu'
+						? [{ ...STT_RUNTIMES.plain.asset, id: 'mel-runtime' as const }]
+						: [])
+				],
 				progress
 			);
 			const runtimeBytes = await assets.read('runtime');
@@ -82,7 +94,7 @@ scope.onmessage = async ({ data }) => {
 			ort.env.wasm.proxy = false;
 			ort.env.wasm.wasmPaths = wasm.wasmPaths;
 			if (data.model === 'parakeet') {
-				parakeet = await ParakeetRuntime.load(assets);
+				parakeet = await ParakeetRuntime.load(assets, backend);
 				const vadData = await assets.read('vad');
 				assets.initializing('vad');
 				vad = await ort.InferenceSession.create(vadData, {
@@ -223,6 +235,10 @@ scope.onmessage = async ({ data }) => {
 		}
 	} catch (error) {
 		working = false;
+		if (parakeet) {
+			await parakeet.release();
+			parakeet = null;
+		}
 		const reason =
 			backend === 'webgpu'
 				? 'gpu'

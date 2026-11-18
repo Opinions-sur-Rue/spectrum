@@ -24,6 +24,10 @@ class FakeCapture {
 	}
 }
 class FakeContext {
+	static last: FakeContext;
+	constructor() {
+		FakeContext.last = this;
+	}
 	sampleRate = 48000;
 	state = 'running';
 	audioWorklet = { addModule: vi.fn(async () => {}) };
@@ -99,6 +103,86 @@ it('times out stalled downloads rather than blocking voice indefinitely', () => 
 	vi.advanceTimersByTime(90000);
 	expect(callbacks.failure).toHaveBeenCalledWith('download');
 	expect(FakeWorker.last.terminate).toHaveBeenCalledOnce();
+});
+
+it('pausing microphone-free preparation preserves worker and download watchdog', () => {
+	engine.load();
+	engine.pauseCapture();
+	expect(FakeContext.last.createMediaStreamSource).not.toHaveBeenCalled();
+	expect(FakeWorker.last.terminate).not.toHaveBeenCalled();
+	vi.advanceTimersByTime(90000);
+	expect(callbacks.failure).toHaveBeenCalledWith('download');
+});
+
+it('discards paused inference and serializes capture resumed with the loaded worker', async () => {
+	const track = { stop: vi.fn() } as unknown as MediaStreamTrack;
+	engine.load();
+	const worker = FakeWorker.last;
+	worker.emit({ type: 'ready', backend: 'wasm' });
+	await engine.captureTrack(track);
+	for (let i = 0; i < 400; i++)
+		FakeCapture.last.port.onmessage?.({ data: new Float32Array(320).fill(0.1) });
+	expect(worker.postMessage.mock.calls.filter(([job]) => job.type === 'recognize')).toHaveLength(1);
+	const oldCapture = FakeCapture.last;
+	engine.pauseCapture();
+	expect(oldCapture.port.close).toHaveBeenCalledOnce();
+	expect(track.stop).not.toHaveBeenCalled();
+	expect(worker.terminate).not.toHaveBeenCalled();
+	await engine.captureTrack(track);
+	for (let i = 0; i < 400; i++)
+		FakeCapture.last.port.onmessage?.({ data: new Float32Array(320).fill(0.1) });
+	expect(worker.postMessage.mock.calls.filter(([job]) => job.type === 'recognize')).toHaveLength(1);
+	worker.emit({ type: 'result', id: 1, text: 'private old words', language: 'fr' });
+	expect(callbacks.segment).not.toHaveBeenCalled();
+	expect(worker.postMessage.mock.calls.filter(([job]) => job.type === 'recognize')).toHaveLength(2);
+	worker.emit({ type: 'result', id: 2, text: 'new words', language: 'fr' });
+	expect(callbacks.segment).toHaveBeenCalledWith(
+		expect.objectContaining({ text: 'new words', sequence: 1 })
+	);
+});
+
+it.each([false, true])(
+	'cancels delayed worklet attachment and ignores stale rejection=%s',
+	async (reject) => {
+		engine.load();
+		let resolve!: () => void;
+		let fail!: (reason: Error) => void;
+		FakeContext.last.audioWorklet.addModule.mockImplementationOnce(
+			() =>
+				new Promise<void>((yes, no) => {
+					resolve = yes;
+					fail = no;
+				})
+		);
+		const attaching = engine.captureTrack({} as MediaStreamTrack);
+		await Promise.resolve();
+		engine.pauseCapture();
+		if (reject) fail(new Error('stale worklet'));
+		else resolve();
+		await attaching;
+		expect(FakeContext.last.createMediaStreamSource).not.toHaveBeenCalled();
+		expect(callbacks.failure).not.toHaveBeenCalled();
+		expect(FakeWorker.last.terminate).not.toHaveBeenCalled();
+	}
+);
+
+it('checks live admission context before delayed capture attaches, without waiting for cleanup', async () => {
+	engine.load();
+	let resolve!: () => void;
+	let current = true;
+	FakeContext.last.audioWorklet.addModule.mockImplementationOnce(
+		() =>
+			new Promise<void>((done) => {
+				resolve = done;
+			})
+	);
+	const attaching = engine.captureTrack({} as MediaStreamTrack, () => current);
+	await Promise.resolve();
+	resolve();
+	current = false; // Prop/session invalidation precedes reactive effect cleanup.
+	await attaching;
+	expect(FakeContext.last.createMediaStreamSource).not.toHaveBeenCalled();
+	expect(callbacks.failure).not.toHaveBeenCalled();
 });
 
 it('keeps progressing downloads alive beyond two minutes, then stops on inactivity', () => {
@@ -207,6 +291,23 @@ it('rejects a silent GPU-to-CPU backend mismatch', () => {
 	FakeWorker.last.emit({ type: 'ready', backend: 'wasm' });
 	expect(callbacks.ready).not.toHaveBeenCalled();
 	expect(callbacks.failure).toHaveBeenCalledWith('gpu');
+});
+
+it('permits confirmed Parakeet hardware without FP16 but rejects unknown hardware identity', async () => {
+	vi.stubGlobal('navigator', {
+		gpu: {
+			requestAdapter: async () => ({
+				info: { isFallbackAdapter: false },
+				features: { has: () => false }
+			})
+		}
+	});
+	await expect(browserSTTWebGPUAvailable(false)).resolves.toBe(true);
+	await expect(browserSTTWebGPUAvailable()).resolves.toBe(false);
+	vi.stubGlobal('navigator', {
+		gpu: { requestAdapter: async () => ({ info: {}, features: { has: () => true } }) }
+	});
+	await expect(browserSTTWebGPUAvailable(false)).resolves.toBe(false);
 });
 
 it('closes local processing if browser refuses to construct the worker', () => {

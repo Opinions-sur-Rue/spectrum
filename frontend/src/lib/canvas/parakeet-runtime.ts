@@ -1,6 +1,8 @@
 import * as ort from 'onnxruntime-web/webgpu';
 import { parakeetGreedy, parakeetText, parakeetVocabulary } from './parakeet-tdt';
 import type { STTAssetLoader, STTAssetId } from './browser-stt-load';
+import { openParakeetMel, type ParakeetMel } from './parakeet-mel-bridge';
+import { STT_RUNTIMES } from './browser-stt-public-assets';
 
 function dispose(values: Record<string, ort.Tensor>) {
 	for (const tensor of Object.values(values)) tensor.dispose();
@@ -8,14 +10,20 @@ function dispose(values: Record<string, ort.Tensor>) {
 
 export class ParakeetRuntime {
 	private constructor(
-		private mel: ort.InferenceSession,
+		private mel: ort.InferenceSession | null,
 		private encoder: ort.InferenceSession,
 		private joint: ort.InferenceSession,
-		private vocabulary: string[]
+		private vocabulary: string[],
+		private melWorker?: ParakeetMel
 	) {}
 
-	static async load(assets: STTAssetLoader) {
-		const sessions: ort.InferenceSession[] = [];
+	static async load(
+		assets: STTAssetLoader,
+		backend: 'wasm' | 'webgpu' = 'wasm',
+		createMel = openParakeetMel
+	) {
+		const sessions: Partial<Record<STTAssetId, ort.InferenceSession>> = {};
+		let melWorker: ParakeetMel | undefined;
 		try {
 			const vocabulary = parakeetVocabulary(
 				new TextDecoder().decode(await assets.read('vocabulary'))
@@ -23,18 +31,43 @@ export class ParakeetRuntime {
 			for (const id of ['features', 'encoder', 'decoder'] as STTAssetId[]) {
 				const data = await assets.read(id);
 				assets.initializing(id);
-				sessions.push(
-					await ort.InferenceSession.create(data, {
-						executionProviders: ['wasm'],
-						logSeverityLevel: 3
-					})
-				);
+				if (id === 'features' && backend === 'webgpu') {
+					const runtime = await assets.read('mel-runtime');
+					assets.initializing('mel-runtime');
+					melWorker = await createMel(
+						data,
+						runtime,
+						`${location.origin}${STT_RUNTIMES.plain.module}`
+					);
+					continue;
+				}
+				sessions[id] = await ort.InferenceSession.create(data, {
+					// Only the encoder is GPU-accelerated. Shape operations may still
+					// use WASM; mel and the per-token joint stay entirely on CPU.
+					executionProviders:
+						id === 'encoder' && backend === 'webgpu' ? ['webgpu', 'wasm'] : ['wasm'],
+					logSeverityLevel: 3
+				});
 			}
-			return new ParakeetRuntime(sessions[0], sessions[1], sessions[2], vocabulary);
+			return new ParakeetRuntime(
+				sessions.features ?? null,
+				sessions.encoder!,
+				sessions.decoder!,
+				vocabulary,
+				melWorker
+			);
 		} catch (error) {
-			await Promise.allSettled(sessions.map((session) => session.release()));
+			melWorker?.release();
+			await Promise.allSettled(Object.values(sessions).map((session) => session.release()));
 			throw error;
 		}
+	}
+
+	async release() {
+		this.melWorker?.release();
+		await Promise.allSettled(
+			[this.mel, this.encoder, this.joint].map((session) => session?.release())
+		);
 	}
 
 	async recognize(audio: Float32Array): Promise<string> {
@@ -46,7 +79,15 @@ export class ParakeetRuntime {
 		let features: Record<string, ort.Tensor> = {};
 		let encoded: Record<string, ort.Tensor> = {};
 		try {
-			features = await this.mel.run(input);
+			if (this.melWorker) {
+				const result = await this.melWorker.run(audio);
+				features = {
+					features: new ort.Tensor('float32', result.features, result.dims),
+					features_lens: new ort.Tensor('int64', result.length, result.lengthDims)
+				};
+			} else {
+				features = await this.mel!.run(input);
+			}
 			encoded = await this.encoder.run({
 				audio_signal: features.features,
 				length: features.features_lens

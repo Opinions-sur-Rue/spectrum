@@ -97,7 +97,6 @@ test('selected models transcribe the same complete public fixture for comparison
 			const results = [];
 			for (const model of models) {
 				for (const backend of backends) {
-					if (model === 'parakeet' && backend === 'webgpu') continue; // CPU-only export, no fallback.
 					const worker = new Worker('/src/lib/canvas/browser-stt-worker.ts', { type: 'module' });
 					const request = (
 						message: Record<string, unknown>,
@@ -231,11 +230,15 @@ test('real browser local inference transcribes own opted-in microphone or explic
 		},
 		{ loop: process.env.SPECTRUM_TEST_SPEECH_ONCE !== 'true' }
 	);
-	await page.goto('/v2');
+	await page.goto(
+		process.env.SPECTRUM_TEST_WEBGPU === 'true' && process.env.SPECTRUM_TEST_MODEL === 'parakeet'
+			? '/v2?stt-gpu=1'
+			: '/v2'
+	);
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
 	await enableTranscription(page);
-	await expect(page.getByTestId('browser-stt-toggle')).toBeDisabled();
+	await expect(page.getByTestId('browser-stt-toggle')).toBeEnabled();
 	expect(modelRequests).toHaveLength(0);
 	const language = process.env.SPECTRUM_TEST_LANGUAGE ?? 'fr';
 	if (language !== 'fr') {
@@ -245,12 +248,6 @@ test('real browser local inference transcribes own opted-in microphone or explic
 			.selectOption(language);
 		await page.getByLabel('Room options', { exact: true }).click();
 	}
-	await page.getByRole('button', { name: 'Join audio', exact: true }).click();
-	await expect(page.getByTestId('voice-controls')).toHaveAttribute('data-status', 'connected', {
-		timeout: 15000
-	});
-	await page.getByRole('button', { name: 'Enable microphone', exact: true }).click();
-	await expect(page.getByTestId('voice-controls')).toHaveAttribute('data-microphone', 'true');
 	await page.getByTestId('audio-options').click();
 	await expect(page.getByRole('dialog')).toHaveCount(0);
 	expect(publications).toHaveLength(0);
@@ -274,15 +271,42 @@ test('real browser local inference transcribes own opted-in microphone or explic
 		const gpu = page.getByTestId('browser-stt-webgpu');
 		await expect(gpu).toBeVisible();
 		await gpu.check();
-		await expect(page.getByRole('dialog')).toContainText('180 MB');
+		await expect(page.getByRole('dialog')).toContainText(
+			selectedModel === 'parakeet' ? '255 MB' : '180 MB'
+		);
 	}
 	await page.getByTestId('browser-stt-confirm').click();
 	const controls = page.getByTestId('browser-stt-controls');
+	// Preparation must continue while the audio menu is closed, before capture.
+	await page.getByTestId('audio-options').click();
+	await Promise.race([
+		expect(controls).toHaveAttribute('data-state', 'prepared', { timeout: 120000 }),
+		controls
+			.getByRole('alert', { includeHidden: true })
+			.waitFor({ state: 'attached', timeout: 120000 })
+			.then(async () => {
+				throw new Error((await controls.textContent()) ?? 'Model preparation failed');
+			})
+	]);
+	expect(publications).toHaveLength(0);
+	expect(
+		await page.evaluate(() => (window as unknown as { captureCalls: number }).captureCalls)
+	).toBe(0);
+	await expect(page.getByTestId('browser-stt-summary')).toBeVisible();
+	await page.getByTestId('audio-options').click();
+	await expect(controls).toHaveAttribute('data-state', 'prepared');
+	await page.getByTestId('audio-options').click();
+	await page.getByRole('button', { name: 'Join audio', exact: true }).click();
+	await expect(page.getByTestId('voice-controls')).toHaveAttribute('data-status', 'connected', {
+		timeout: 15000
+	});
+	await page.getByRole('button', { name: 'Enable microphone', exact: true }).click();
+	await expect(page.getByTestId('voice-controls')).toHaveAttribute('data-microphone', 'true');
 	await Promise.race([
 		expect(controls).toHaveAttribute('data-state', 'active', { timeout: 120000 }),
 		controls
-			.getByRole('alert')
-			.waitFor({ state: 'visible', timeout: 120000 })
+			.getByRole('alert', { includeHidden: true })
+			.waitFor({ state: 'attached', timeout: 120000 })
 			.then(async () => {
 				throw new Error(await controls.innerText());
 			})
@@ -298,7 +322,8 @@ test('real browser local inference transcribes own opted-in microphone or explic
 				new URL(url).pathname.endsWith('ort-wasm-simd-threaded.asyncify.wasm')
 			)
 		).toBe(true);
-		expect(modelRequests.some((url) => url.endsWith('_fp16.onnx'))).toBe(true);
+		if (selectedModel !== 'parakeet')
+			expect(modelRequests.some((url) => url.endsWith('_fp16.onnx'))).toBe(true);
 	}
 	const outcome = await Promise.race([
 		expect(
@@ -382,7 +407,7 @@ test('real browser local inference transcribes own opted-in microphone or explic
 		await page.waitForTimeout(2500); // Deliberately allow any stale in-flight result to arrive.
 		expect(publications).toHaveLength(sent);
 		await page.getByRole('button', { name: 'Mute microphone', exact: true }).click();
-		await expect(page.getByTestId('browser-stt-toggle')).toBeDisabled();
+		await expect(page.getByTestId('browser-stt-toggle')).toBeEnabled();
 	} finally {
 		await context.close();
 	}

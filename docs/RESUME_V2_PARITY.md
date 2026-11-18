@@ -1,5 +1,47 @@
 # Resume: finish v1 → v2 parity
 
+## Follow-up validated locally — preparation lifecycle and GPU (not deployed)
+
+- Production remains beta.22. New local room default and the asset-overlay env
+  enable transcription; explicit env=false and individual consent remain valid.
+  Full `go test ./...` and CI-pinned backend lint pass.
+- Local control separates preparation from microphone capture/admission. Closed
+  menus and track loss keep loading/model state. Loaded-without-track waits in
+  `prepared`; active track loss retires its lease, fences old jobs and waits for
+  a fresh session. Context changes cancel the worker. Live predicate checks
+  after AudioContext/worklet awaits prevent capture before reactive cleanup.
+- Focused control/engine/menu unit regressions cover consent, microphone-free
+  preparation, closed menu summary, mute/restart serialization and stale results.
+- Full frontend TypeScript, lint, build and **283 unit tests** pass. Actual local
+  Chromium/Parakeet room captions pass with the revised flow: prepare before
+  joining audio, close/reopen the menu, assert zero microphone acquisitions,
+  then publish one microphone and obtain shared text/history with safe stop.
+- Exact w2a8 encoder dispatched Q2 on real AMD RDNA-3 WebGPU, including a 12-second
+  shape. Shared asyncify runtime cannot load pinned mel's FLOAT64 Cast; JSEP
+  alternative produced empty speech and was rejected. Plain-worker mel isolation
+  now recognizes real EN/FR, rejects silence and stops on device loss; parent
+  termination closes the nested worker. English matched CPU; French differs on
+  `lois/loin fiscales` plus another near-homophone. GPU remains explicitly gated
+  behind page URL `?stt-gpu=1`, checkbox and consent, with no precision/speed parity
+  claim. Raw verified assets total 251,784,339 bytes; consent estimate 255 MB.
+- First cold Vite room GPU integration failed during preparation. Investigation
+  reproduced a Vite dependency-discovery reload, not an inference exception:
+  newly discovered ORT GPU/WASM entrypoints triggered re-optimization and reset
+  the page. Explicitly pre-optimize both entrypoints with Transformers. The
+  investigator's actual-Vite full spec passed 3/3 with that configuration;
+  final repository configuration also passed **3/3 with `--force`**, including
+  actual room microphone/publication/history and GPU/CPU fixture comparison.
+  The same French fixture took 2,980 ms CPU / 631 ms GPU inference on this AMD
+  test machine, with the wording differences preserved in the recorded output.
+  This single-device/phrase timing is not a general speed or accuracy guarantee.
+- Final local gates: full frontend static/lint/build and 283 units; all Go tests
+  with race detector; v1 preview regression; 6/6 three-browser no-weight loader
+  regressions; 6/6 Chromium/Firefox PTT/mobile/admin-mute checks. Independent
+  read-only lifecycle and GPU reviews completed; the delayed-worklet race found
+  by review was fixed with a synchronous context predicate and regression test.
+- Full release CI and strict activity-gated paired deployment still required.
+  Preserve unrelated workflow/README/deploy changes and keep secrets outside Git.
+
 ## beta.22 production rollout — 2026-11-18
 
 - Complete release CI **44108353808** passed, including the newly isolated

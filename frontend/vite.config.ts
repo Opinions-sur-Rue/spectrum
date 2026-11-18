@@ -5,7 +5,9 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	optimizeDeps: { include: ['@huggingface/transformers'] },
+	optimizeDeps: {
+		include: ['@huggingface/transformers', 'onnxruntime-web/webgpu', 'onnxruntime-web/wasm']
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit(),

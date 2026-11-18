@@ -7,6 +7,52 @@ not a list of currently supported choices. Existing production asset releases
 are retained for rollback, not deleted in place. Stale tabs should reload the
 released frontend rather than assume retired choices remain available.
 
+## Follow-up: preparation without microphone (not yet deployed)
+
+New rooms enable the room-level transcription option by default. An explicit
+`SPECTRUM_TRANSCRIPTION_ENABLED=false` still overrides it; the availability kill
+switch remains independent. This never grants individual microphone or model
+download consent.
+
+After explicit confirmation, model preparation does not require joining audio
+or opening a microphone. Closing Audio options, muting or replacing the local
+track keeps the worker/model alive. Once prepared, status reads “waiting for
+your microphone”; no transcript session or capture starts until an existing
+published microphone track is present. Capture loss immediately retires the
+session and detaches ASR without stopping the voice track. Resumption requests
+a new session; old inference text and late admissions cannot cross that boundary.
+Room, generation, role, availability and language changes still cancel preparation.
+
+An explicit experimental Parakeet GPU option uses the same pinned w2a8 encoder
+and int8 joint weights. Only the encoder is GPU-accelerated; mel, joint and VAD
+remain CPU. The trial isolates mel's plain runtime from the encoder's asyncify
+runtime, raising the consent estimate from ~225 MB CPU to ~255 MB GPU without
+larger model weights. Confirmed hardware is required;
+Whisper Base additionally requires FP16. No silent whole-session CPU retry.
+Exact installed-runtime encoder probing on AMD RDNA-3 confirmed real Q2 GPU
+dispatches and finite output, with small numerical differences from CPU. This
+alone is not real-speech, sustained-realtime or phone acceptance.
+
+Parakeet GPU stays behind `?stt-gpu=1` on the page URL, plus explicit checkbox
+selection and download consent. Without this trial flag, Parakeet remains CPU.
+The full worker now recognizes real EN/FR audio, rejects silence and reports GPU
+device loss without retrying CPU. English matched CPU on the fixture; French did
+not: `lois fiscales` became `loin fiscales`, with another near-homophone change.
+Exact transcript parity is therefore not claimed. A 12-second non-VAD comparison
+did match, illustrating why full-worker/VAD validation is a separate gate.
+Verified GPU assets total 251,784,339 raw bytes, excluding application/module JS;
+the consent dialog conservatively rounds to 255 MB. No external requests or
+duplicate model downloads were observed. Physical devices, sustained accuracy
+and end-to-end speed remain unaccepted; this is an explicitly gated experiment.
+
+The actual Vite room suite passes 3/3 with forced cold dependency optimization:
+real VAD rejection, explicit CPU/GPU fixture comparison and shared room captions
+after microphone-free preparation with the menu closed. Pre-optimize both ORT
+entrypoints to avoid Vite discovering them late and reloading the page mid-load.
+Single-fixture inference measured 2,980 ms CPU / 631 ms GPU on the AMD test machine;
+French wording still differs, and this is neither broad accuracy acceptance nor
+an end-to-end/phone speed claim.
+
 ## Loading feedback and slow links
 
 Microphone device, push-to-talk, level and local transcription share one
@@ -29,8 +75,8 @@ failure. No audio, captions, room ID or nickname enters that cache. Incomplete
 downloads are not advertised as resumable. Browser stream byte counts are
 decoded bytes, not compressed `Content-Length`.
 
-Parakeet uses the stock **CPU-only** ORT WASM build (~14 MB raw) rather than the
-larger JSEP build; its model/VAD/runtime budget is about 225 MB raw. This reduces
+Parakeet's default CPU path uses the stock **CPU-only** ORT WASM build (~14 MB raw)
+rather than the larger JSEP build; its model/VAD/runtime budget is about 225 MB raw. This reduces
 download size, but does not itself solve Firefox's observed slow inference.
 The 20-second live inference/backlog safeguards remain separate from loading.
 

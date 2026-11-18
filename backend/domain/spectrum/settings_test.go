@@ -20,8 +20,8 @@ func TestDefaultRoomSettings(t *testing.T) {
 	if settings.NotesVisibleToSpectators {
 		t.Fatal("notes must be hidden from spectators by default")
 	}
-	if settings.TranscriptionEnabled {
-		t.Fatal("transcription must be disabled until an room admin opts in")
+	if !settings.TranscriptionEnabled {
+		t.Fatal("transcription must be enabled by default")
 	}
 	if settings.TranscriptionLanguage != "fr" {
 		t.Fatal("transcription language must default to French")
@@ -47,6 +47,26 @@ func TestLoadRoomSettingsEnvOverrides(t *testing.T) {
 	}
 	if !settings.TranscriptionEnabled {
 		t.Fatal("TranscriptionEnabled should be true")
+	}
+}
+
+func TestLoadRoomSettingsTranscriptionOverride(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled string
+		want    bool
+	}{
+		{name: "default enabled", want: true},
+		{name: "explicitly disabled", enabled: "false"},
+		{name: "explicitly enabled", enabled: "true", want: true},
+		{name: "invalid keeps default", enabled: "invalid", want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("SPECTRUM_TRANSCRIPTION_ENABLED", tc.enabled)
+			if got := LoadRoomSettings().TranscriptionEnabled; got != tc.want {
+				t.Fatalf("TranscriptionEnabled = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

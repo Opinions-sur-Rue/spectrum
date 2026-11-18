@@ -34,11 +34,12 @@
 		statusText?: string;
 	} = $props();
 	let supported = $state(false);
-	let phase = $state<'off' | 'loading' | 'starting' | 'active'>('off');
+	let phase = $state<'off' | 'loading' | 'prepared' | 'starting' | 'active'>('off');
 	let consentOpen = $state(false);
 	let model = $state<BrowserSTTModel>('parakeet');
 	let useGpu = $state(false);
 	let gpuAvailable = $state(false);
+	let parakeetGpuTrial = $state(false);
 	let dialog = $state<HTMLDialogElement>();
 	let error = $state('');
 	let progress = $state<STTLoadProgress | null>(null);
@@ -50,6 +51,7 @@
 	let chosenTrack: MediaStreamTrack | null = null;
 	let generation = 0;
 	let language = '';
+	let preparedRoom = '';
 	let heartbeat: ReturnType<typeof setInterval> | undefined;
 	let admissionTimer: ReturnType<typeof setTimeout> | undefined;
 	$effect(() => {
@@ -63,11 +65,13 @@
 					: progress?.phase === 'cache'
 						? m.browser_stt_cache_short()
 						: m.browser_stt_initializing_short()
-				: phase === 'starting'
-					? m.browser_stt_starting()
-					: phase === 'active'
-						? m.browser_stt_active_short()
-						: '';
+				: phase === 'prepared'
+					? m.browser_stt_prepared()
+					: phase === 'starting'
+						? m.browser_stt_starting()
+						: phase === 'active'
+							? m.browser_stt_active_short()
+							: '';
 	});
 	function loadingDescription() {
 		if (!progress) return m.browser_stt_loading();
@@ -83,26 +87,44 @@
 	}
 	onMount(() => {
 		supported = browserSTTSupported();
+		parakeetGpuTrial = new URLSearchParams(window.location.search).get('stt-gpu') === '1';
 	});
 	onDestroy(() => stop());
 	$effect(() => {
 		if (!consentOpen) return;
-		void browserSTTWebGPUAvailable().then((available) => {
+		let cancelled = false;
+		gpuAvailable = false;
+		if (model === 'parakeet' && !parakeetGpuTrial) {
+			useGpu = false;
+			return;
+		}
+		void browserSTTWebGPUAvailable(model === 'base').then((available) => {
+			if (cancelled) return;
 			gpuAvailable = available;
 			if (!available) useGpu = false;
 		});
+		return () => {
+			cancelled = true;
+		};
 	});
 	function downloadSize() {
-		if (model === 'parakeet') return '225';
+		if (model === 'parakeet') return useGpu ? '255' : '225';
 		return useGpu ? '180' : '110';
 	}
 	$effect(() => {
 		if (consentOpen && dialog && !dialog.open) dialog.showModal();
 	});
-	function stop(message = '') {
+	function pauseCapture() {
 		clearInterval(heartbeat);
 		clearTimeout(admissionTimer);
 		if (lease && ready) send('transcript.stop', lease);
+		engine?.pauseCapture();
+		lease = null;
+		request = null;
+		chosenTrack = null;
+	}
+	function stop(message = '') {
+		pauseCapture();
 		engine?.stop();
 		engine = null;
 		lease = null;
@@ -112,9 +134,24 @@
 		chosenTrack = null;
 		error = message;
 	}
+	function validContext() {
+		return (
+			ready &&
+			room.roomId === preparedRoom &&
+			room.role !== 'spectator' &&
+			room.settings.transcriptionEnabled === true &&
+			(room.voice?.generation ?? 0) === generation &&
+			(room.settings.transcriptionLanguage ?? 'fr') === language
+		);
+	}
 	function begin() {
 		consentOpen = false;
-		if (!track || !supported || !ready) return;
+		if (useGpu && !gpuAvailable) {
+			error = m.browser_stt_gpu_failed();
+			return;
+		}
+		if (!supported || !ready || room.role === 'spectator' || !room.settings.transcriptionEnabled)
+			return;
 		if (model === 'parakeet' && (room.settings.transcriptionLanguage ?? 'fr') === 'auto') {
 			error = m.browser_stt_parakeet_hint();
 			return;
@@ -123,7 +160,7 @@
 		progress = null;
 		cacheUnavailable = false;
 		phase = 'loading';
-		chosenTrack = track;
+		preparedRoom = room.roomId;
 		generation = room.voice?.generation ?? 0;
 		language = room.settings.transcriptionLanguage ?? 'fr';
 		const instance = new BrowserSTT(
@@ -136,15 +173,22 @@
 					}
 				},
 				ready: () => {
-					if (engine !== instance || !track || !ready) return;
-					phase = 'starting';
-					request = crypto.randomUUID();
-					admissionTimer = setTimeout(() => stop(m.browser_stt_failed()), 15000);
-					if (!send('transcript.start', { requestId: request, generation, consent: true }))
-						stop(m.browser_stt_failed());
+					if (engine !== instance) return;
+					if (!validContext()) {
+						stop();
+						return;
+					}
+					phase = 'prepared';
 				},
 				segment: (value) => {
-					if (engine === instance && lease && ready && track === chosenTrack) {
+					if (
+						engine === instance &&
+						phase === 'active' &&
+						lease &&
+						validContext() &&
+						track &&
+						track === chosenTrack
+					) {
 						if (!send('transcript.publish', { ...value, sessionId: lease.sessionId, generation }))
 							stop(m.browser_stt_failed());
 					}
@@ -167,29 +211,37 @@
 				}
 			},
 			model,
-			(useGpu && model !== 'parakeet' ? 'webgpu' : 'wasm') as BrowserSTTBackend
+			(useGpu && gpuAvailable ? 'webgpu' : 'wasm') as BrowserSTTBackend
 		);
 		engine = instance;
 		instance.load();
 	}
 	$effect(() => {
-		if (
-			phase !== 'off' &&
-			(!ready ||
-				!track ||
-				track !== chosenTrack ||
-				room.role === 'spectator' ||
-				!room.settings.transcriptionEnabled ||
-				room.voice?.generation !== generation ||
-				(room.settings.transcriptionLanguage ?? 'fr') !== language)
-		)
+		if (phase !== 'off' && !validContext()) {
 			stop();
+			return;
+		}
+		if ((phase === 'active' || phase === 'starting') && (!track || track !== chosenTrack)) {
+			pauseCapture();
+			phase = 'prepared';
+		}
+		if (phase === 'prepared' && track) {
+			chosenTrack = track;
+			phase = 'starting';
+			request = crypto.randomUUID();
+			admissionTimer = setTimeout(() => stop(m.browser_stt_failed()), 15000);
+			if (!send('transcript.start', { requestId: request, generation, consent: true }))
+				stop(m.browser_stt_failed());
+		}
 	});
 	$effect(() => {
 		if (!session || session.roomId !== room.roomId || session.sessionId === handledSession) return;
 		handledSession = session.sessionId;
 		if (
 			!request ||
+			phase !== 'starting' ||
+			!validContext() ||
+			track !== chosenTrack ||
 			session.requestId !== request ||
 			session.generation !== generation ||
 			!track ||
@@ -205,7 +257,19 @@
 		heartbeat = setInterval(() => {
 			if (lease && ready) send('transcript.keepalive', lease);
 		}, 5000);
-		void engine.captureTrack(track);
+		const instance = engine;
+		const captureSession = session;
+		const microphone = track;
+		void instance.captureTrack(
+			microphone,
+			() =>
+				engine === instance &&
+				lease === captureSession &&
+				phase === 'active' &&
+				validContext() &&
+				track === microphone &&
+				chosenTrack === microphone
+		);
 	});
 	$effect(() => {
 		if (
@@ -227,7 +291,7 @@
 		class="btn btn-sm btn-outline"
 		data-testid="browser-stt-toggle"
 		disabled={phase === 'off' &&
-			(!supported || !track || !ready || !room.settings.transcriptionEnabled)}
+			(!supported || !ready || room.role === 'spectator' || !room.settings.transcriptionEnabled)}
 		aria-pressed={phase !== 'off'}
 		onclick={() => {
 			if (phase !== 'off') stop();
@@ -241,18 +305,20 @@
 	<span role="status"
 		>{phase === 'loading'
 			? loadingDescription()
-			: phase === 'starting'
-				? m.browser_stt_starting()
-				: phase === 'active'
-					? m.browser_stt_active({
-							model: model === 'parakeet' ? 'Parakeet Redux w2a8' : 'Whisper base',
-							backend: useGpu && model !== 'parakeet' ? 'WebGPU' : 'CPU'
-						})
-					: !supported
-						? m.browser_stt_unsupported()
-						: !track
-							? m.browser_stt_needs_mic()
-							: m.browser_stt_optional()}</span
+			: phase === 'prepared'
+				? m.browser_stt_prepared()
+				: phase === 'starting'
+					? m.browser_stt_starting()
+					: phase === 'active'
+						? m.browser_stt_active({
+								model: model === 'parakeet' ? 'Parakeet Redux w2a8' : 'Whisper base',
+								backend: useGpu ? (model === 'parakeet' ? 'WebGPU + CPU' : 'WebGPU') : 'CPU'
+							})
+						: !supported
+							? m.browser_stt_unsupported()
+							: !track
+								? m.browser_stt_needs_mic()
+								: m.browser_stt_optional()}</span
 	>
 	{#if phase === 'loading'}
 		{#if progress?.phase === 'download' && progress.total > 0}
@@ -292,9 +358,6 @@
 				class="select select-bordered mt-1 w-full"
 				data-testid="browser-stt-model"
 				bind:value={model}
-				onchange={() => {
-					if (model === 'parakeet') useGpu = false;
-				}}
 			>
 				<option value="parakeet" disabled={room.settings.transcriptionLanguage === 'auto'}>
 					{m.browser_stt_model_parakeet()}
@@ -319,7 +382,6 @@
 					class="checkbox checkbox-sm"
 					data-testid="browser-stt-webgpu"
 					bind:checked={useGpu}
-					disabled={model === 'parakeet'}
 				/>
 				{m.browser_stt_webgpu()}
 			</label>

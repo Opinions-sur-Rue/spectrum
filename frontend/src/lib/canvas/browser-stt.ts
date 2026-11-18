@@ -28,8 +28,8 @@ export function browserSTTSupported(): boolean {
 	);
 }
 
-/** Hardware WebGPU with FP16 only; never selects a software fallback adapter. */
-export async function browserSTTWebGPUAvailable(): Promise<boolean> {
+/** Confirmed hardware only; Whisper FP16 requires an additional feature gate. */
+export async function browserSTTWebGPUAvailable(requireFP16 = true): Promise<boolean> {
 	if (typeof navigator === 'undefined') return false;
 	const gpu = (
 		navigator as Navigator & {
@@ -45,7 +45,9 @@ export async function browserSTTWebGPUAvailable(): Promise<boolean> {
 	try {
 		const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
 		return Boolean(
-			adapter && !adapter.info?.isFallbackAdapter && adapter.features.has('shader-f16')
+			adapter &&
+			adapter.info?.isFallbackAdapter === false &&
+			(!requireFP16 || adapter.features.has('shader-f16'))
 		);
 	} catch {
 		return false;
@@ -67,6 +69,8 @@ export class BrowserSTT {
 	private timer: ReturnType<typeof setTimeout> | undefined;
 	private loadDeadline: ReturnType<typeof setTimeout> | undefined;
 	private loading = false;
+	private inFlight = false;
+	private captureEpoch = 0;
 	private disposed = false;
 	constructor(
 		private language: 'fr' | 'en' | 'auto',
@@ -137,17 +141,18 @@ export class BrowserSTT {
 						? (data.reason as BrowserSTTFailureReason)
 						: 'failed'
 				);
-			else if (data.type === 'result' && data.id === this.job && this.current) {
+			else if (data.type === 'result' && data.id === this.job && this.inFlight) {
 				clearTimeout(this.timer);
-				const { start, end } = this.current;
+				this.inFlight = false;
+				const current = this.current;
 				this.current = null;
-				if (data.text)
+				if (data.text && current)
 					this.callbacks.segment({
 						text: data.text,
 						language: data.language,
 						sequence: ++this.sequence,
-						start,
-						end
+						start: current.start,
+						end: current.end
 					});
 				if (this.pending) {
 					const next = this.pending;
@@ -163,39 +168,60 @@ export class BrowserSTT {
 		this.loadDeadline = setTimeout(() => this.fail('download'), 30 * 60000);
 		this.worker.postMessage({ type: 'load', model: this.model, backend: this.backend });
 	}
-	async captureTrack(track: MediaStreamTrack) {
+	async captureTrack(track: MediaStreamTrack, isCurrent: () => boolean = () => true) {
+		this.pauseCapture();
+		const epoch = this.captureEpoch;
 		try {
 			const context = this.context;
 			if (!context) return;
 			if (context.sampleRate < 16000 || context.sampleRate > 96000)
 				throw new Error('Unsupported sample rate');
 			await context.resume();
+			if (this.disposed || epoch !== this.captureEpoch || !isCurrent()) return;
 			await context.audioWorklet.addModule('/stt-capture.js');
-			if (this.disposed) {
-				await context.close();
-				return;
-			}
+			if (this.disposed || epoch !== this.captureEpoch || !isCurrent()) return;
 			this.source = context.createMediaStreamSource(new MediaStream([track]));
 			this.capture = new AudioWorkletNode(context, 'spectrum-capture');
 			this.gain = context.createGain();
 			this.gain.gain.value = 0;
 			this.capture.port.onmessage = ({ data }) => {
-				if (this.disposed) return;
+				if (this.disposed || epoch !== this.captureEpoch || !isCurrent()) return;
 				const chunk = this.segmenter.push(data);
 				if (!chunk) return;
-				if (!this.current) this.infer(chunk);
+				if (!this.inFlight) this.infer(chunk);
 				else if (!this.pending) this.pending = chunk;
 				else this.fail('slow'); // Stop instead of accumulating or silently losing speech.
 			};
 			this.source.connect(this.capture);
 			this.capture.connect(this.gain).connect(context.destination);
 		} catch {
-			if (!this.disposed) this.fail('failed');
+			if (!this.disposed && epoch === this.captureEpoch && isCurrent()) this.fail('failed');
 		}
+	}
+	/** Detach only local ASR capture. Keep public model preparation/runtime alive. */
+	pauseCapture() {
+		this.captureEpoch++;
+		this.source?.disconnect();
+		this.capture?.disconnect();
+		this.gain?.disconnect();
+		if (this.capture) {
+			this.capture.port.onmessage = null;
+			this.capture.port.close();
+		}
+		this.source = null;
+		this.capture = null;
+		this.gain = null;
+		this.current = this.pending = null;
+		this.segmenter = new BrowserSTTSegmenter();
+		this.sequence = 0;
+		// An already running bounded job must finish/discard before a new one.
+		// Never clear download watchdogs when no microphone exists.
+		if (!this.loading && !this.inFlight) clearTimeout(this.timer);
 	}
 	private infer(chunk: BrowserAudioChunk) {
 		if (this.disposed || !this.worker) return;
 		this.current = chunk;
+		this.inFlight = true;
 		clearTimeout(this.timer);
 		this.timer = setTimeout(() => this.fail('slow'), 20000);
 		this.worker.postMessage(
@@ -215,17 +241,9 @@ export class BrowserSTT {
 		this.loading = false;
 		this.worker?.terminate();
 		this.worker = null;
-		this.source?.disconnect();
-		this.capture?.disconnect();
-		this.gain?.disconnect();
-		if (this.capture) {
-			this.capture.port.onmessage = null;
-			this.capture.port.close();
-		}
+		this.pauseCapture();
 		if (this.context && this.context.state !== 'closed') void this.context.close().catch(() => {});
-		this.source = null;
-		this.capture = null;
-		this.gain = null;
+		this.inFlight = false;
 		this.context = null;
 		this.current = this.pending = null;
 		this.segmenter = new BrowserSTTSegmenter();
