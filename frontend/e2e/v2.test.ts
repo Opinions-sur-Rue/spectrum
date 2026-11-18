@@ -1992,6 +1992,14 @@ test('discussion dock preserves drafts, supports keyboard tabs and restores focu
 	await openChat(page);
 	await expect(input).toHaveValue('Keep this unsent draft');
 	await page.setViewportSize({ width: 390, height: 844 });
+	// roomViewport updates visualViewport bounds on the next animation frame.
+	// Wait for that layout, not the preceding desktop CSS variable values.
+	await expect
+		.poll(async () => {
+			const bounds = await page.getByTestId('discussion-panel').boundingBox();
+			return bounds ? bounds.x + bounds.width : Infinity;
+		})
+		.toBeLessThanOrEqual(390);
 	const panel = (await page.getByTestId('discussion-panel').boundingBox())!;
 	expect(panel.x).toBeGreaterThanOrEqual(0);
 	expect(panel.x + panel.width).toBeLessThanOrEqual(390);
