@@ -4,6 +4,33 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Open private notes in a dedicated panel outside Discussion. Keep the same per-room browser-only storage, privacy copy and confirmed clearing; focus returns to the notes trigger.
+- Show relation type and direction without colour: a glyph badge on each canvas link, symbol + relation + target title in note links, and a symbol legend in the getting-started help.
+- Turn getting-started help into a compact on-demand modal that includes the pseudonym step, role-aware guidance and focus restoration.
+
+### Changed
+- Align the room timer typography and minimum height with the neighbouring toolbar controls.
+
+### CI
+- Run frontend quality, per-browser UI and per-browser voice validation on isolated parallel runners. Balance WebKit across two one-worker shards; preserve every test and a fail-closed aggregate before image publication. Wall-time improvement remains to be measured on the next tagged run.
+
+## [v2.0.0-beta.25] - 2026-11-18
+
+Deployed after complete CI and a strict zero-activity gate. Public CPU, automatic hardware GPU, visible CPU recovery and first-batch UI smokes pass. Previous voice services and runtime secrets remain unchanged.
+
+### Changed
+- Prefer compatible hardware GPU before consent, preserve manual CPU selection and recover once on CPU after GPU failure with a visible backend/interruption notice. Disclose Base FP16/q8 combined budget before confirmation; never retry integrity/download/consent failures or replay old audio.
+- Keep proposition display/editing single-line with ellipsis and an accessible full-text reading dialog; give participant names their own wrapping identity row and separate moderation actions.
+
+### Fixed
+- Require confirmation before shared-note deletion or browser-only private-note clearing. Fence stale contexts, preserve private text on storage failure, and keep shared deletion server-authorized.
+- Preserve focus through canvas toolbars, nested modals and disappearing moderation targets; contain the confirmation's Tab cycle instead of trapping into inert underlying controls.
+
+## [v2.0.0-beta.24] - 2026-11-18
+
+Deployed as a digest-pinned frontend/backend pair after complete CI and a strict 100-second zero-activity gate. Public CPU and gated hardware-GPU preparation/captions smokes pass; LiveKit, PeerJS and TURN remain unchanged. Beta.23 remains a failed CI tag; its viewport test now waits for the scheduled layout update without dropping geometry assertions.
+
 ### Changed
 - Enable the room transcription option by default, preserving explicit deployment overrides, availability controls and individual consent.
 - Prepare local models without joining audio or opening a microphone. Keep preparation and the loaded model alive when Audio options closes or the publishing track disappears; show a ready/waiting status until microphone publication resumes.

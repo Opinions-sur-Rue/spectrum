@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import type { Point } from './camera';
+import { relationSymbol } from './labels';
 import type { EdgeModel, Relation } from './models';
 
 export const RELATION_COLORS: Record<Relation, string> = {
@@ -31,6 +32,35 @@ export function createEdgeLine(edge: EdgeModel, from: Point, to: Point): Konva.G
 			opacity: 0.85
 		})
 	);
+
+	// Keep the relation legible without colour: a glyph travels with the arrow.
+	const badge = new Konva.Label({
+		x: (from.x + to.x) / 2,
+		y: (from.y + to.y) / 2,
+		listening: false
+	});
+	badge.add(
+		new Konva.Tag({
+			fill: '#ffffff',
+			stroke: color,
+			strokeWidth: 1,
+			cornerRadius: 8,
+			opacity: 0.95
+		})
+	);
+	badge.add(
+		new Konva.Text({
+			text: relationSymbol(edge.relation),
+			fill: color,
+			fontFamily: 'sans-serif',
+			fontSize: 14,
+			fontStyle: 'bold',
+			padding: 4
+		})
+	);
+	badge.offsetX(badge.width() / 2);
+	badge.offsetY(badge.height() / 2);
+	group.add(badge);
 
 	return group;
 }

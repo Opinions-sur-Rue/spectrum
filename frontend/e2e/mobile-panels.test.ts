@@ -193,17 +193,21 @@ test('discussion follows keyboard and viewport offsets without losing drafts or 
 	await expect(page.getByTestId('people-panel')).toBeHidden();
 });
 
-test('help expands in document flow instead of covering canvas controls', async ({ page }) => {
+test('help opens as a compact modal without moving the canvas', async ({ page }) => {
 	await setup(page);
-	const help = page.getByTestId('room-onboarding');
-	await expect(help).toHaveJSProperty('open', false);
-	await help.locator('summary').click();
-	await expect(help).toHaveJSProperty('open', true);
-	const helpBounds = (await help.boundingBox())!;
 	const canvas = (await page.getByTestId('canvas-viewport').boundingBox())!;
-	expect(helpBounds.y + helpBounds.height).toBeLessThanOrEqual(canvas.y + 1);
+	await page.getByTestId('room-onboarding').click();
+	const dialog = page.getByTestId('room-onboarding-dialog');
+	await expect(dialog).toBeVisible();
+	const bounds = (await dialog.boundingBox())!;
+	expect(bounds.x).toBeGreaterThanOrEqual(0);
+	expect(bounds.y).toBeGreaterThanOrEqual(0);
+	expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+	expect(bounds.y + bounds.height).toBeLessThanOrEqual(844);
+	expect(await page.getByTestId('canvas-viewport').boundingBox()).toEqual(canvas);
 	await page.getByRole('button', { name: 'Close help', exact: true }).click();
-	await expect(help).toHaveJSProperty('open', false);
+	await expect(dialog).toHaveCount(0);
+	await expect(page.getByTestId('room-onboarding')).toBeFocused();
 });
 
 test('small screens keep document width bounded and v1 regains its own page scrolling', async ({
@@ -212,7 +216,7 @@ test('small screens keep document width bounded and v1 regains its own page scro
 	await page.setViewportSize({ width: 320, height: 568 });
 	await setup(page);
 	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
-	for (const testId of ['edit-pseudonym', 'new-note', 'discussion-toggle'])
+	for (const testId of ['edit-pseudonym', 'new-note', 'personal-notes-toggle', 'discussion-toggle'])
 		await inside(page, page.getByTestId(testId));
 	expect((await page.getByTestId('canvas-viewport').boundingBox())!.height).toBeGreaterThan(80);
 	await page.screenshot({ path: test.info().outputPath('small-dense-toolbar.png') });

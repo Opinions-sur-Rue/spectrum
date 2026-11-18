@@ -7,7 +7,6 @@
 	import ChatPanel from './ChatPanel.svelte';
 	import ActivityPanel from './ActivityPanel.svelte';
 	import TranscriptPanel from './TranscriptPanel.svelte';
-	import PersonalNotes from './PersonalNotes.svelte';
 	import type { ActivityEntry } from './activity-state';
 	import type { RoomState } from './room-client';
 	import type { ChatState, ChatError } from './chat-state';
@@ -38,7 +37,7 @@
 		onClose: () => void;
 	} = $props();
 	type Tab = {
-		id: 'chat' | 'notes' | 'activity' | 'transcript';
+		id: 'chat' | 'activity' | 'transcript';
 		label: () => string;
 		icon: IconName;
 	};
@@ -49,7 +48,6 @@
 	};
 	const tabs = $derived<Tab[]>([
 		{ id: 'chat', label: () => m.chat(), icon: 'chat' },
-		{ id: 'notes', label: () => m.ux_tab_personal_notes(), icon: 'journal' },
 		{ id: 'activity', label: () => m.ux_tab_activity(), icon: 'history' },
 		// Transcription is opt-in per room: its tab must not advertise an empty
 		// panel while the pipeline is off.
@@ -197,8 +195,8 @@
 			</button>
 		{/each}
 	</div>
-	<!-- Keep all three bodies mounted: switching tabs or closing the panel must
-	     never discard chat drafts, pending acknowledgments, or scroll position. -->
+	<!-- Keep every body mounted: switching tabs or closing the panel must never
+	     discard chat drafts, pending acknowledgments, or scroll position. -->
 	<div
 		id="discussion-body-chat"
 		role="tabpanel"
@@ -208,16 +206,6 @@
 		hidden={tab !== 'chat'}
 	>
 		<ChatPanel {room} {ready} {chat} error={chatError} {send} active={open && tab === 'chat'} />
-	</div>
-	<div
-		id="discussion-body-notes"
-		role="tabpanel"
-		tabindex="0"
-		aria-labelledby="discussion-tab-notes"
-		class="discussion-body"
-		hidden={tab !== 'notes'}
-	>
-		<PersonalNotes roomId={room.roomId} />
 	</div>
 	<div
 		id="discussion-body-activity"

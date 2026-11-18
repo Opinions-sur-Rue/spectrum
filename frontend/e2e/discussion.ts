@@ -6,11 +6,14 @@ export async function openDiscussion(page: Page) {
 	if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
 }
 
+/** Open the persistent private-notes dock if it is closed. */
+export async function openPrivateNotes(page: Page) {
+	const toggle = page.getByTestId('personal-notes-toggle');
+	if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+}
+
 /** Open the discussion dock and select one of its tabs. */
-export async function openDiscussionTab(
-	page: Page,
-	tab: 'chat' | 'notes' | 'activity' | 'transcript'
-) {
+export async function openDiscussionTab(page: Page, tab: 'chat' | 'activity' | 'transcript') {
 	await openDiscussion(page);
 	await page.getByTestId(`discussion-tab-${tab}`).click();
 }

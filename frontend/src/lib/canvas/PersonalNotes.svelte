@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages.js';
-	import Icon from '$lib/components/Icon.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import ConfirmAction, { type Confirmation } from './ConfirmAction.svelte';
 	import { loadPersonalNotes, savePersonalNotes } from './personal-notes';
@@ -79,10 +78,6 @@
 </script>
 
 <section class="personal-notes flex h-full min-h-0 flex-col gap-2 p-4" data-testid="personal-notes">
-	<p class="flex items-start gap-2 text-xs opacity-70">
-		<Icon name="lock" />
-		<span>{m.personal_notes_private()}</span>
-	</p>
 	<textarea
 		class="textarea textarea-bordered min-h-0 w-full flex-1 resize-none"
 		placeholder={m.personal_notes_placeholder()}

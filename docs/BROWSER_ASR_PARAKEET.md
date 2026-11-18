@@ -48,7 +48,7 @@ Two consequences worth stating plainly:
   installed ORT asyncify/WebGPU runtime demonstrated real hardware Q2 dispatches
   on AMD RDNA-3. Generic operator support alone was not sufficient evidence;
   neither are model-card CUDA limitations proof of WebGPU incompatibility.
-  The unreleased explicit GPU path keeps the same weights and accelerates only
+  The beta.24 gated experimental GPU path keeps the same weights and accelerates only
   the encoder; CPU remains the default. See `BROWSER_STT.md` for follow-up scope.
 
 ## Graph contract for the Spectrum implementation

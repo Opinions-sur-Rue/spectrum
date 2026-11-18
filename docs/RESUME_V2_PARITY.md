@@ -1,8 +1,207 @@
 # Resume: finish v1 → v2 parity
 
-## Follow-up validated locally — preparation lifecycle and GPU (not deployed)
+## Current state — beta.25 in production, second UI batch ready to publish
 
-- Production remains beta.22. New local room default and the asset-overlay env
+- Second UI batch implemented on `v2` and validated locally: dedicated private-notes
+  panel outside Discussion, timer typography aligned with toolbar controls, relation
+  glyphs/legend/target labels, and a compact getting-started modal with pseudonym
+  capture and focus restoration. No voice/LiveKit/PeerJS/TURN changes.
+- Local evidence: 367 unit tests in 54 files; check/lint/build green; 68/68 UI
+  Chromium, 68/68 Firefox, 34+34 WebKit; 8 focused regressions per engine covering
+  private-note panel/focus, discussion tabs, onboarding/pseudonym and small-screen
+  geometry. Existing link, privacy and deletion assertions retained.
+- Still to do before claiming delivery: push, immutable tag, complete CI, strict
+  100-second zero-activity gate, digest-pinned paired deployment, public HTTP and
+  UI smoke. Production remains **beta.25** until then.
+
+- Production **beta.25**, source `c2c7f849c11a434c8df76230b2974fe729973be7`, deployed
+  at **13:00 UTC** after complete CI 44305017051 and strict 100-second zero-room/
+  participant/backend-connection gate. No exception. Shared reviewed runner used;
+  default-on asset overlay unchanged. LiveKit/PeerJS/TURN image/start times intact.
+- Frontend `sha256:2c1d35ed70b99324eaa09d15e4688aac7faaa1d344f26e45d2aff74a470a25b3`;
+  backend `sha256:27f856e127992079d738318ee825021b5d33e3ca4e99ff953393d58d8c7013dd`.
+  Assets `/opt/spectrum/stt/releases/beta25-c2c7f84`, same 38 verified public files.
+  Root-only rollback `/opt/spectrum/deploy-v2.0.0-beta.25-20261118T130037Z` restores
+  the beta.24 pair/environment; runtime secrets and voice configuration unchanged.
+- Public HTTP and actual Chromium smokes **pass**: explicit CPU, GPU preselected
+  without query flag, visible one-time CPU recovery with fresh CPU captions and
+  unchanged voice capture; microphone-free/menu-closed preparation, shared text,
+  spectator history and no late publication. Recovery public test injects a
+  worker-boundary GPU error; real hardware destruction was separately tested
+  locally for Parakeet/Base. Do not claim physical driver-crash acceptance.
+- Public UI smoke also passes: monoline proposition/full reading, wrapping names,
+  shared/private deletion confirmations and cancellation, three roles, mobile/
+  landscape/dark, five axe samples without detected violations. Initial CPU run
+  timed out at fresh spectator startup (Connecting); independent rerun with the
+  same 60-second remote allowance used by the UI audit passed. Initial failure
+  retained, root cause not established. Not a full physical-device/AT audit.
+- Artifacts: `/tmp/opencode/beta25-production-{cpu-retry,gpu,fallback,ui}.log`,
+  `/tmp/opencode/beta25-deploy.log`, `/tmp/opencode/uiux-beta25-production/`.
+- CI optimization pushed as **`c1ef2b1`** on `v2`, no extra release tag or restart.
+  All original gates retained: quality, four UI matrix cells (67 Chrome,67 FF,
+  34+33 WebKit), two voice cells (18 cases total), mandatory fail-closed frontend
+  aggregate. actionlint1.7.12, 216 status combos/unset results, exactly-once plan
+  coverage and actual fully-parallel Chromium **67/67** pass. Expected frontend
+  wall time 6–9m versus measured ~20m baseline, not yet measured on GitHub; total
+  runner usage ~35–45m. Applies to future tags; beta.25 immutable run untouched.
+- Later audit lots remain queued. Claim monoline preference, the four second-batch
+  requests, timer typography and relation legend are implemented. Local tracking/
+  docs remain uncommitted; user workflow/README/deploy work preserved. No
+  background task left running.
+
+### Implementation and validation checkpoints (superseded by state above)
+
+- Latest steering: frontend CI too slow; user requests optimization/parallelism.
+  Baseline beta.24 frontend ~20m: Chromium/Firefox340s, WebKit372s, voice250s
+  sequential; unit20s, npmci70s, browserinstall42s, fixtures64s. Split futureCI
+  into quality, per-browser UI (WebKit two one-worker fully-parallel shards),
+  per-browser voice, mandatory aggregate. Preserve every assertion/publish gate,
+  artifact provenance, immutable tag/source, cross-engine browser dependencies.
+  Workflow changes in progress for future tags, not beta.25 replay/retagging.
+- Beta.25 CI 44305017051 now fully green; downloaded complete pinned image pair.
+  Strict zero-activity deployment is running, using already-default-on overlay
+  unchanged and prepared assets. Public tests not yet run; do not call rollout
+  accepted until deployment/HTTP/realASR/UI smokes complete.
+
+- User now authorizes proceeding with our audited UX findings and explicitly
+  requests deploying all latest implemented changes after validation. Announced
+  first batch: deletion protection, narrow-screen single-line proposition,
+  readable participant names. Do not claim private-panel separation, timer font,
+  edge symbols or onboarding modal are implemented: they remain queued.
+- GPU preference/fallback is committed as `9af4736`, pushed to `v2`.
+  Real AMD GPU device-loss/init-failure recovery passed for Parakeet and Base,
+  including one CPU retry, fresh lease, new captions, persistent truthful notice,
+  unchanged voice capture and no retry after stop/context cancellation. 324 units.
+- First UX batch implemented in ClaimBar/NoteCard/PersonalNotes/PeopleMenu with
+  focused component and browser regressions. Full frontend check/lint/build and
+  352 tests pass. First targeted browser run: 8/12 passed; new shared-note confirm
+  inherited canvas pointer-events:none. Explicit pointer-events-auto on the
+  confirmation fixed clicks and the existing Markdown delete flow now passes.
+  Strengthened desktop/mobile cancellation tests exposed a second issue:
+  hidden toolbar opener and older parent-modal focus restoration. Fix underway
+  before rerunning all browser gates. Production beta.24, not affected by these
+  uncommitted UI changes. No source edits/check/build during dev-server tests.
+- Shared confirmation clicks/focus subsequently passed 6/6 Chromium/Firefox
+  desktop/mobile and Markdown-flow checks. Full three-engine UI run reached
+  192/198 passed: six failures were the existing departed-target/lost-authority
+  summary-focus cases across three engines. Restore the summary when its action
+  opener disconnects, rather than rejecting all disconnected openers.
+- Read-only review also identified mobile Discussion consuming Tab from a nested
+  private-note confirmation. Confirmation now isolates/traps its own Tab cycle;
+  new desktop/mobile browser cases assert Confirm→Cancel and Shift+Tab→Confirm.
+  Final static/units, targeted three-engine regressions and voice checks running.
+  No force-clicks, sleeps, removed assertions or test retries introduced.
+- Final corrections validated: 366 units, full check/lint/build, 30/30 targeted
+  Chromium/Firefox/WebKit regressions (including all six prior failures, hidden
+  openers, mobile/desktop deletion, nested Tab cycling) and 6/6 voice regressions.
+  UI commit `c2c7f849c11a434c8df76230b2974fe729973be7` pushed on `v2`; immutable
+  beta.25 tag published. [CI 44305017051](https://github.com/Opinions-sur-Rue/spectrum/actions/runs/44305017051)
+  runs the complete release gates. Assets prepared separately under
+  `/opt/spectrum/stt/releases/beta25-c2c7f84`: same 38 public files, including both
+  Base FP16/q8 variants. Active beta.24 assets/configuration unchanged.
+
+- Additional user feedback recorded in the local audit/tracker:
+  separate private-notes button/panel outside Discussion while preserving local
+  storage/privacy; harmonize timer typography; single-line claim display/edit
+  (supersedes earlier multiline preference); clearer edge arrows/symbols for
+  relation direction/type; compact on-demand Getting started modal including
+  pseudonym setup and role-specific guidance. Single-line claim with ellipsis
+  and full-text reading dialog is now in the first local batch; the other four
+  requests remain queued. New-panel placement remains a design detail to settle.
+
+- User now explicitly requests GPU by default when compatible and CPU fallback;
+  this supersedes the previous query-gated/no-retry policy. Local implementation
+  covers Parakeet and Base with one visible CPU retry, truthful backend labels,
+  fresh capture lease and stale callback fences. No download/microphone before
+  consent. Base's combined budget is 290 MB (FP16 GPU, q8 fetched only on retry);
+  Parakeet remains 255 MB with identical pinned model weights. CPU-only choices
+  remain available. Integrity/download/consent failures are not GPU retries.
+- Scoped STT changes are committed as noted above; actual Vite/hardware recovery
+  validation finished successfully and port 5201 is stopped. Production remains
+  beta.24 while beta.25 CI is running.
+- Fresh public beta.24 UI/UX audit completed: 20 captures, three roles, four
+  viewport sizes, light/dark, five axe samples without detected violations,
+  read-only code review. No existing user room inspected; audit room closed.
+  Findings/proposals: [AUDIT_UI_UX_2026-11-18.md](AUDIT_UI_UX_2026-11-18.md).
+  Initial audit was read-only; implementation of the first batch was authorized
+  subsequently, as recorded at the top of this section.
+- Keep user workflow/README/deploy work and all requested local tracking notes
+  untouched by source commits; notes remain uncommitted.
+
+## Current feedback and UI/UX tracking
+
+Use [SUIVI_FEEDBACK_UI_UX.md](SUIVI_FEEDBACK_UI_UX.md) for the consolidated current
+status: shipped, awaiting deployment, remaining acceptance and optional polish.
+This file preserves chronological technical evidence. Older “remaining”,
+“pending” and “not deployed” statements below may have been superseded by later
+releases; do not treat them as the current backlog.
+
+Beta.23 source `0c1168ccd3ae9035ed61911776f446dc69276078` is pushed and tagged;
+release CI: [44254360246](https://github.com/Opinions-sur-Rue/spectrum/actions/runs/44254360246).
+Beta.23 was never deployed.
+CI 44254360246 subsequently failed: backend passed, v2 Chromium/Firefox 123/124;
+one immediate post-resize geometry read saw the old 1280px visualViewport width
+before roomViewport's scheduled animation frame. No images were published.
+Keep the failed tag immutable; validate bounded layout synchronization while
+retaining all geometry assertions before issuing a fresh candidate.
+Correction `ac58650be3e8d5fdcaf894489bf894c0624540d3` passed 20/20 repeated
+Chromium/Firefox runs, preserving all original geometry/draft/focus assertions.
+Fresh immutable candidate beta.24:
+[CI 44258609199](https://github.com/Opinions-sur-Rue/spectrum/actions/runs/44258609199).
+Tracking notes remain local/uncommitted; the correction commit contains only
+`frontend/e2e/v2.test.ts`. Production remained beta.22 while validation ran.
+CI 44258609199 is now fully green, including both image publications and manifest.
+Deployment completed with strict zero-activity gate and explicit room-default-on
+overlay transition; real public CPU/GPU transcription smokes passed.
+
+## beta.24 production rollout — 2026-11-18
+
+- Complete CI **44258609199** passed for source
+  `ac58650be3e8d5fdcaf894489bf894c0624540d3`; failed beta.23 remains immutable.
+- Paired deployment completed at **07:51 UTC** after **100 seconds with zero**
+  SFU rooms, audio participants and backend connections. No override used.
+- Frontend `sha256:5847ee63fcbabdd7547477cec754a4beac0e89fba7e3db93d7a269d6c3d49490`;
+  backend `sha256:e9008a35c77847a6fd748fcae3a7659036822a63c6125ef9a133de6bcc115ae2`.
+- Assets `/opt/spectrum/stt/releases/beta24-ac58650`: same 38 verified public
+  files, new release manifest; previous releases remain intact. Read-only mount
+  verified by the deploy runner.
+- Root-only rollback snapshot:
+  `/opt/spectrum/deploy-v2.0.0-beta.24-20261118T075110Z`. Restore both image env
+  **and** the saved asset overlay to recover beta.22's room-default-off policy.
+  The deployment-specific wrapper installs the default-on overlay only after
+  snapshot/gate and restores it on failure; shared reviewed runner is unchanged.
+- Frontend/backend started `07:51:12Z` / `07:51:11Z`. LiveKit, PeerJS and TURN
+  retain exact previous image references/start times. Runtime secrets unchanged.
+- Public HTTP checks pass: `/`, `/v2/`, API status; missing-model/module 404s;
+  plain/JSEP/asyncify MIME; pinned vocabulary fingerprint and encoder gzip/Vary.
+- First real public CPU smoke confirmed default-on policy, no pre-consent model
+  requests, microphone-free preparation while menu closed, progress and actual
+  shared captions. Preparation took 6,972 ms with the existing test profile.
+  The subsequent fresh-spectator role assertion timed out, so the full smoke was
+  not counted as passed and GPU did not run in that initial chained command.
+  Diagnostic CPU rerun and independent GPU run both subsequently passed without
+  any production code/configuration change; the initial spectator timeout's
+  cause remains unestablished.
+- Actual production Chromium CPU **and** hardware-GPU smokes passed: explicit
+  download/GPU consent, preparation without joining audio or opening microphone,
+  menu closed throughout preparation, ready status outside/reopened menu,
+  shared French captions and spectator history, no late publication after stop,
+  one voice capture preserved, verified model-cache reuse, pinned same-origin
+  assets with no silent model/provider substitution.
+- CPU preparation was 3,486 ms with the cached model/runtime. The first GPU trial
+  prepared in 96,341 ms with model weights reused; this is startup including
+  runtime preparation, not GPU inference latency or a directly comparable warm
+  CPU/GPU benchmark. Local isolated inference numbers remain separate evidence.
+- Smoke artifacts: `/tmp/opencode/beta24-production-cpu-retry.log` and
+  `/tmp/opencode/beta24-production-gpu.log`. Deployment log:
+  `/tmp/opencode/beta24-deploy.log`. Tracking/documentation updates remain local,
+  uncommitted as requested; source/tag/CI refer to `ac58650`.
+- Parakeet GPU remains
+  gated behind `?stt-gpu=1`, explicit checkbox and consent; CPU remains default.
+
+## Implementation checkpoint before beta.24 — preparation lifecycle and GPU
+
+- At this checkpoint production was beta.22. New local room default and the asset-overlay env
   enable transcription; explicit env=false and individual consent remain valid.
   Full `go test ./...` and CI-pinned backend lint pass.
 - Local control separates preparation from microphone capture/admission. Closed
@@ -609,14 +808,12 @@ and local fixtures now force the densest toolbar regardless of backend flags.
 
 Remaining agreed feedback, intentionally outside this first UI batch:
 
-Status update: items 1–2 shipped in beta.17 (see sections above). Items 3–4 are
-now implemented, committed and fully validated locally on `v2` but **not yet
-deployed**: push-to-talk, targeted admin mute with self-only resume, shared
-speaking time, private browser-only notes, opt-in transcription tab, additive
-co-admins with voluntary step-down, and the Room/Stage/Admin chat channels with
-masked admin moderation. What remains from this list is physical-device
-acceptance (real iPhone/Safari and Android keyboards, app-switch and audio) and
-the rollout itself.
+Current status, superseding the earlier pre-rollout checkpoint: items 1–2 shipped
+in beta.17 and items 3–4 in beta.19. All four functional groups below are deployed.
+Physical-device acceptance remains open (real iPhone/Safari and Android keyboards,
+app-switch and audio). The later request to enable room transcription by default
+supersedes the original hide/off request; that change is part of beta.23, not yet
+deployed at this checkpoint. See the consolidated tracker linked above.
 
 Execution order confirmed by the user: finish the approved production rollout,
 then mobile reliability (item 1), then readability and notes (item 2).

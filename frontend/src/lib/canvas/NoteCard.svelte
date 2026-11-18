@@ -8,7 +8,7 @@
 	import ConfirmAction, { type Confirmation } from './ConfirmAction.svelte';
 	import type { EdgeModel, NoteModel, Relation } from './models';
 	import { m } from '$lib/paraglide/messages.js';
-	import { relationLabel } from './labels';
+	import { relationLabel, relationSymbol, RELATIONS } from './labels';
 	import type { NoteDrafts } from './note-drafts';
 	import { noteInspector } from './note-inspector';
 	import { noteDock } from './note-dock';
@@ -603,8 +603,8 @@
 						>{/each}</select
 				>
 				<select aria-label={m.v2_relation()} bind:value={relation}
-					>{#each ['supports', 'contradicts', 'questions', 'extends', 'related'] as value (value)}<option
-							{value}>{relationLabel(value as Relation)}</option
+					>{#each RELATIONS as value (value)}<option {value}
+							>{relationSymbol(value)} {relationLabel(value)}</option
 						>{/each}</select
 				>
 				<IconButton
@@ -618,12 +618,26 @@
 		{#if edges.some((edge) => edge.from === note.id)}
 			<div class="note-links advanced">
 				{#each edges.filter((edge) => edge.from === note.id) as edge (edge.id)}
+					{@const target = notes.find((item) => item.id === edge.to)}
+					<span
+						class="relation-entry"
+						title="{relationSymbol(edge.relation)} {relationLabel(edge.relation)}{target
+							? ` · ${target.title}`
+							: ''}"
+						><span class="relation-symbol" aria-hidden="true">{relationSymbol(edge.relation)}</span
+						><span
+							>{relationLabel(edge.relation)}{#if target}
+								· {target.title}{/if}</span
+						></span
+					>
 					{#if admin}<IconButton
 							icon="unlink"
-							label={m.v2_delete_relation_link({ relation: relationLabel(edge.relation) })}
+							label={m.v2_delete_relation_link({
+								relation: `${relationSymbol(edge.relation)} ${relationLabel(edge.relation)}`
+							})}
 							disabled={!ready}
 							onclick={() => send('edge.delete', { edgeId: edge.id })}
-						/>{:else}<span>{relationLabel(edge.relation)}</span>{/if}
+						/>{/if}
 				{/each}
 			</div>
 		{/if}
@@ -985,6 +999,21 @@
 		border-radius: var(--v2-radius-md);
 		padding-inline: 8px 26px;
 		min-height: 30px;
+	}
+	.relation-entry {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		min-width: 0;
+		max-width: 170px;
+	}
+	.relation-entry > span:last-child {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.relation-symbol {
+		font-weight: 700;
 	}
 	.conflict {
 		font-size: var(--v2-text-xs);

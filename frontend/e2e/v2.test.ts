@@ -7,6 +7,7 @@ import {
 	openChat,
 	openDiscussion,
 	openDiscussionTab,
+	openPrivateNotes,
 	openTranscript
 } from './discussion';
 import type { SpectrumState } from '../src/lib/canvas/room-client';
@@ -165,7 +166,7 @@ for (const compact of [false, true]) {
 		await page.goto('/v2');
 		await page.getByTestId('create-room').click();
 		await expect(page.getByTestId('own-role')).toHaveText('admin');
-		await openDiscussionTab(page, 'notes');
+		await openPrivateNotes(page);
 		const input = page.getByTestId('personal-notes-input');
 		const text = 'A browser-only draft that must not be sent';
 		await input.fill(text);
@@ -189,7 +190,7 @@ for (const compact of [false, true]) {
 		expect(messages.some((message) => message.includes(text))).toBe(false);
 		await page.reload();
 		await expect(page.getByTestId('own-role')).toHaveText('admin');
-		await openDiscussionTab(page, 'notes');
+		await openPrivateNotes(page);
 		await expect(page.getByTestId('personal-notes-input')).toHaveValue('');
 	});
 }
@@ -373,24 +374,33 @@ test('note navigation searches without accents and clears or selects results on 
 	await expect(note).toBeFocused();
 });
 
-test('getting-started help stays collapsed until requested and can be reopened', async ({
+test('getting-started help opens on demand in a compact modal with a pseudonym step', async ({
 	page
 }) => {
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	const onboarding = page.getByTestId('room-onboarding');
-	await expect(onboarding).toBeVisible();
-	await expect(onboarding).toHaveJSProperty('open', false);
-	await onboarding.locator('summary').click();
-	await expect(onboarding).toContainText('Three things to try');
-	await onboarding.getByRole('button', { name: 'Close help' }).click();
-	await expect(onboarding).toHaveJSProperty('open', false);
-	await onboarding.locator('summary').click();
-	await expect(onboarding).toHaveJSProperty('open', true);
-	await page.reload();
-	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	await expect(page.getByTestId('room-onboarding')).toHaveJSProperty('open', false);
+	const dialog = page.getByTestId('room-onboarding-dialog');
+	await expect(dialog).toHaveCount(0);
+	const trigger = page.getByTestId('room-onboarding');
+	await trigger.click();
+	await expect(dialog).toBeVisible();
+	await expect(dialog).toContainText('Three things to try');
+	await expect(dialog).toContainText('Link symbols');
+	await expect(dialog.getByText('supports', { exact: true })).toBeVisible();
+	const pseudonym = dialog.getByLabel('Your pseudonym');
+	await pseudonym.fill('Ada');
+	await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+	await expect(dialog.getByRole('status')).toContainText('Pseudonym saved');
+	await expect(page.getByTestId('edit-pseudonym')).toContainText('Ada');
+	await dialog.getByRole('button', { name: 'Close help' }).click();
+	await expect(dialog).toHaveCount(0);
+	await expect(trigger).toBeFocused();
+	await trigger.click();
+	await expect(dialog).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(dialog).toHaveCount(0);
+	await expect(trigger).toBeFocused();
 });
 
 test('offline banner explains paused changes and clears after reconnect', async ({ page }) => {
@@ -887,7 +897,6 @@ test('accessibility: Discussion traps focus after responsive transition and scro
 	await page.getByTestId('edit-claim').focus();
 	await page.setViewportSize({ width: 640, height: 450 });
 	await expect(page.getByTestId('discussion-tab-chat')).toBeFocused();
-	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press('ArrowRight');
 	await expect(page.getByTestId('discussion-tab-activity')).toBeFocused();
 	await page.keyboard.press('Tab');
@@ -2041,7 +2050,7 @@ test('personal notes stay on this device and survive reload and room switch', as
 	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	await openDiscussionTab(page, 'notes');
+	await openPrivateNotes(page);
 	const input = page.getByTestId('personal-notes-input');
 	await input.fill('Private reminder: ask about parking');
 	await expect(page.getByTestId('personal-notes-status')).toHaveText('Saved on this device');
@@ -2050,7 +2059,7 @@ test('personal notes stay on this device and survive reload and room switch', as
 	await expect(page.locator('[data-note-id]')).toHaveCount(0);
 	await page.reload();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
-	await openDiscussionTab(page, 'notes');
+	await openPrivateNotes(page);
 	await expect(page.getByTestId('personal-notes-input')).toHaveValue(
 		'Private reminder: ask about parking'
 	);
@@ -2061,12 +2070,34 @@ test('personal notes stay on this device and survive reload and room switch', as
 		await other.goto('/v2');
 		await other.getByTestId('create-room').click();
 		await expect(other.getByTestId('own-role')).toHaveText('admin');
-		await openDiscussionTab(other, 'notes');
+		await openPrivateNotes(other);
 		await expect(other.getByTestId('personal-notes-input')).toHaveValue('');
 		expect(new URL(other.url()).searchParams.get('room')).not.toBe(roomId);
 	} finally {
 		await otherContext.close();
 	}
+});
+
+test('private notes open in a dedicated panel outside discussion', async ({ page }) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const panel = page.getByTestId('personal-notes-panel');
+	await openPrivateNotes(page);
+	await expect(panel).toBeVisible();
+	await expect(page.getByTestId('discussion-panel')).toBeHidden();
+	await expect(panel.getByTestId('personal-notes-input')).toBeFocused();
+	await page.getByTestId('discussion-toggle').click();
+	await expect(panel).toBeHidden();
+	await expect(page.getByTestId('discussion-panel')).toBeVisible();
+	await expect(page.getByTestId('discussion-tab-notes')).toHaveCount(0);
+	await page.getByTestId('discussion-close').click();
+	await expect(page.getByTestId('discussion-toggle')).toBeFocused();
+	await page.getByTestId('personal-notes-toggle').click();
+	await expect(panel).toBeVisible();
+	await page.getByTestId('personal-notes-close').click();
+	await expect(panel).toBeHidden();
+	await expect(page.getByTestId('personal-notes-toggle')).toBeFocused();
 });
 
 test('discussion dock preserves drafts, supports keyboard tabs and restores focus', async ({
@@ -2082,9 +2113,6 @@ test('discussion dock preserves drafts, supports keyboard tabs and restores focu
 	const input = page.getByLabel('Chat message', { exact: true });
 	await input.fill('Keep this unsent draft');
 	await page.getByTestId('discussion-tab-chat').focus();
-	await page.keyboard.press('ArrowRight');
-	await expect(page.getByTestId('discussion-tab-notes')).toBeFocused();
-	await expect(page.getByTestId('discussion-tab-notes')).toHaveAttribute('aria-selected', 'true');
 	await page.keyboard.press('ArrowRight');
 	await expect(page.getByTestId('discussion-tab-activity')).toBeFocused();
 	await expect(page.getByTestId('discussion-tab-activity')).toHaveAttribute(

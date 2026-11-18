@@ -19,3 +19,19 @@ export function relationLabel(relation: Relation): string {
 		related: m.v2_relation_related()
 	}[relation];
 }
+
+/**
+ * Visual glyph for a relation. It always accompanies the written label so the
+ * meaning never depends on colour alone.
+ */
+export function relationSymbol(relation: Relation): string {
+	return {
+		supports: '→',
+		contradicts: '≠',
+		questions: '?',
+		extends: '↗',
+		related: '↔'
+	}[relation];
+}
+
+export const RELATIONS: Relation[] = ['supports', 'contradicts', 'questions', 'extends', 'related'];

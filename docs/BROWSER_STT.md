@@ -7,7 +7,34 @@ not a list of currently supported choices. Existing production asset releases
 are retained for rollback, not deleted in place. Stale tabs should reload the
 released frontend rather than assume retired choices remain available.
 
-## Follow-up: preparation without microphone (not yet deployed)
+## Beta.25 (deployed and publicly validated)
+
+Compatible hardware GPU is selected by default before download consent; CPU can
+still be chosen manually. One visible CPU recovery is allowed after GPU engine
+or device loss, never after integrity/download/consent failures. It retires the
+old worker/capture lease and starts a fresh session only for a currently published
+track. No microphone acquisition or model download precedes explicit consent.
+
+Parakeet retains identical pinned weights and its 255 MB GPU/recovery budget.
+Base discloses a combined 290 MB budget: FP16 initially, q8 fetched only if CPU
+recovery is needed. Persistent notice reports the actual backend and warns that
+speech during interruption can be lost; old audio is not replayed. Actual AMD
+device-loss recovery and new GPU/CPU captions pass for both models locally.
+
+The beta.24 query gate/no-retry policy below is historical. Beta.25 complete CI,
+strict activity-gated paired deployment and public CPU/GPU/recovery smokes pass.
+Public recovery was injected at the worker boundary, followed by real CPU
+captions without recapturing voice. Actual hardware destruction was validated
+locally; physical devices and representative accuracy remain open. See
+`SUIVI_FEEDBACK_UI_UX.md` for publication status.
+
+## Preparation without microphone (beta.24)
+
+Deployed on 18 November 2026 after complete CI and strict zero-activity paired
+rollout. Public Chromium CPU and hardware-GPU room smokes pass: microphone-free
+preparation with the menu closed, shared captions, spectator history and safe
+independent stop with voice preserved. These checks do not close the physical
+device, sustained-performance or representative-accuracy acceptance work below.
 
 New rooms enable the room-level transcription option by default. An explicit
 `SPECTRUM_TRANSCRIPTION_ENABLED=false` still overrides it; the availability kill
@@ -80,7 +107,7 @@ rather than the larger JSEP build; its model/VAD/runtime budget is about 225 MB 
 download size, but does not itself solve Firefox's observed slow inference.
 The 20-second live inference/backlog safeguards remain separate from loading.
 
-### Follow-up validation (unreleased code)
+### Earlier loading/cache validation (beta.22)
 
 - Merged-menu push-to-talk, tiny French viewport and targeted admin mute checks:
   6/6 Chromium/Firefox with real local SFU fixtures.

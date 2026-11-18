@@ -19,6 +19,7 @@
 	import PeopleMenu from '$lib/canvas/PeopleMenu.svelte';
 	import SpectrumBoard from '$lib/canvas/SpectrumBoard.svelte';
 	import DiscussionPanel from '$lib/canvas/DiscussionPanel.svelte';
+	import PrivateNotesPanel from '$lib/canvas/PrivateNotesPanel.svelte';
 	import ClaimBar from '$lib/canvas/ClaimBar.svelte';
 	import RoomLobby from '$lib/canvas/RoomLobby.svelte';
 	import RoomOnboarding from '$lib/canvas/RoomOnboarding.svelte';
@@ -96,6 +97,7 @@
 	let createTopic = $state('');
 	let discussionOpen = $state(false);
 	let discussionUnread = $state(0);
+	let notesOpen = $state(false);
 	let camera = $state<Camera>(createCamera());
 	let viewport = $state<Viewport>({ width: 0, height: 0 });
 	const admin = $derived(room?.role === 'admin');
@@ -230,6 +232,7 @@
 						roomInput = '';
 						discussionOpen = false;
 						discussionUnread = 0;
+						notesOpen = false;
 						live = null;
 						shareOpen = false;
 						presentation = false;
@@ -382,6 +385,13 @@
 				document.querySelector<HTMLButtonElement>('[data-testid="discussion-toggle"]')?.focus();
 		});
 	}
+	function closePrivateNotes() {
+		notesOpen = false;
+		void tick().then(() => {
+			if (!notesOpen)
+				document.querySelector<HTMLButtonElement>('[data-testid="personal-notes-toggle"]')?.focus();
+		});
+	}
 	function selectPending(note: NoteModel) {
 		if (!notes.some((value) => value.id === note.id)) return;
 		workspace?.setCamera(focusNote(camera, viewport, note));
@@ -514,6 +524,23 @@
 				><button
 					type="button"
 					class="btn btn-sm"
+					class:btn-active={notesOpen}
+					data-testid="personal-notes-toggle"
+					aria-label={m.ux_tab_personal_notes()}
+					title={m.ux_tab_personal_notes()}
+					aria-expanded={notesOpen}
+					aria-controls="room-private-notes"
+					onclick={() => {
+						workspace?.setCamera(camera);
+						notesOpen = !notesOpen;
+						if (notesOpen) discussionOpen = false;
+					}}
+					><Icon name="journal" /><span class="content-action-label"
+						>{m.ux_tab_personal_notes()}</span
+					></button
+				><button
+					type="button"
+					class="btn btn-sm"
 					class:btn-active={discussionOpen}
 					data-testid="discussion-toggle"
 					aria-label={discussionUnread
@@ -526,6 +553,7 @@
 						// Keep the user's world centre and zoom when the sidebar resizes the canvas.
 						workspace?.setCamera(camera);
 						discussionOpen = !discussionOpen;
+						if (discussionOpen) notesOpen = false;
 					}}
 					><Icon name="chat" /><span class="content-action-label">{m.ux_discussion_button()}</span
 					>{#if discussionUnread}<span
@@ -547,7 +575,12 @@
 				<Icon name="people" /><span>{m.ux_profile_edit()}</span>
 				<strong title={ownMember?.nickname}>{ownMember?.nickname}</strong>
 			</button>
-			<RoomOnboarding role={room.role} />
+			<RoomOnboarding
+				role={room.role}
+				nickname={ownMember?.nickname ?? ''}
+				{ready}
+				savePseudonym={(value) => send('room.profile', { nickname: value })}
+			/>
 		</div>
 		{#key room.roomId}<ClaimBar {room} {spectrum} {ready} {send} {presentation} />{/key}{/if}
 	{#if error && room}<div role="alert" class="alert alert-error rounded-none py-2">
@@ -651,6 +684,11 @@
 					bind:unread={discussionUnread}
 					onClose={closeDiscussion}
 				/>{/key}{/if}
+		{#if room}{#key room.roomId}<PrivateNotesPanel
+					roomId={room.roomId}
+					bind:open={notesOpen}
+					onClose={closePrivateNotes}
+				/>{/key}{/if}
 	</div>
 </div>
 
@@ -673,6 +711,7 @@
 		overflow: hidden;
 	}
 	.presentation :global(.discussion-panel),
+	.presentation :global(.personal-notes-panel),
 	.presentation :global(.note-tools),
 	.presentation :global(.resize-handle),
 	.presentation :global(.claim-hint) {

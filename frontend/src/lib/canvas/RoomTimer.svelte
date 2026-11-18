@@ -154,7 +154,10 @@
 		padding: 0.35rem 0.65rem;
 		border: 1px solid currentColor;
 		border-radius: var(--v2-radius-pill);
+		font-size: var(--v2-text-sm);
+		font-weight: 600;
 		font-variant-numeric: tabular-nums;
+		min-height: 36px;
 	}
 	.timer-copy {
 		display: flex;
@@ -190,6 +193,11 @@
 	@media (prefers-reduced-motion: reduce) {
 		.finished {
 			animation: none;
+		}
+	}
+	@media (max-width: 639px) {
+		.timer-readout {
+			min-height: 44px;
 		}
 	}
 </style>
