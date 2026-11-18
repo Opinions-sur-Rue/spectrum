@@ -3,7 +3,7 @@ import { BrowserSTT, browserSTTWebGPUAvailable } from './browser-stt';
 
 class FakeWorker {
 	static last: FakeWorker;
-	onerror: (() => void) | null = null;
+	onerror: ((event: { message?: string }) => void) | null = null;
 	onmessage: ((event: { data: Record<string, unknown> }) => void) | null = null;
 	postMessage = vi.fn();
 	terminate = vi.fn();
@@ -258,6 +258,40 @@ it('loads GPU only when explicitly selected and reports GPU failure distinctly',
 	});
 	FakeWorker.last.emit({ type: 'error', reason: 'gpu' });
 	expect(callbacks.failure).toHaveBeenCalledWith('gpu');
+});
+
+it.each(['WebGPU initialization failed', 'GPUDevice lost', 'device lost'])(
+	'classifies known GPU worker crash: %s',
+	(message) => {
+		engine = new BrowserSTT('fr', callbacks, 'parakeet', 'webgpu');
+		engine.load();
+		FakeWorker.last.onerror?.({ message });
+		expect(callbacks.failure).toHaveBeenCalledWith('gpu');
+		expect(FakeWorker.last.terminate).toHaveBeenCalledOnce();
+	}
+);
+
+it.each([
+	'Failed to fetch model',
+	'missing WebGPU asset',
+	'WebGPU integrity checksum failure',
+	undefined
+])('does not guess GPU for unclassified worker startup error: %s', (message) => {
+	engine = new BrowserSTT('fr', callbacks, 'parakeet', 'webgpu');
+	engine.load();
+	FakeWorker.last.onerror?.({ message });
+	expect(callbacks.failure).toHaveBeenCalledWith('engine');
+});
+
+it('keeps 20-second inference deadline terminal on GPU', async () => {
+	engine = new BrowserSTT('fr', callbacks, 'parakeet', 'webgpu');
+	engine.load();
+	FakeWorker.last.emit({ type: 'ready', backend: 'webgpu' });
+	await engine.captureTrack({} as MediaStreamTrack);
+	for (let i = 0; i < 400; i++)
+		FakeCapture.last.port.onmessage?.({ data: new Float32Array(320).fill(0.1) });
+	vi.advanceTimersByTime(20000);
+	expect(callbacks.failure).toHaveBeenCalledWith('slow');
 });
 
 it('offers WebGPU only for hardware adapters with FP16, never a software fallback', async () => {

@@ -39,7 +39,10 @@
 	let model = $state<BrowserSTTModel>('parakeet');
 	let useGpu = $state(false);
 	let gpuAvailable = $state(false);
-	let parakeetGpuTrial = $state(false);
+	let probingGpu = $state(false);
+	let actualBackend = $state<BrowserSTTBackend>('wasm');
+	let fellBack = $state(false);
+	let fallbackModel = $state<BrowserSTTModel>('parakeet');
 	let dialog = $state<HTMLDialogElement>();
 	let error = $state('');
 	let progress = $state<STTLoadProgress | null>(null);
@@ -52,11 +55,12 @@
 	let generation = 0;
 	let language = '';
 	let preparedRoom = '';
+	let preparedRole: RoomState['role'];
 	let heartbeat: ReturnType<typeof setInterval> | undefined;
 	let admissionTimer: ReturnType<typeof setTimeout> | undefined;
 	$effect(() => {
 		active = phase !== 'off';
-		statusText =
+		const summary =
 			phase === 'loading'
 				? progress?.phase === 'download' && progress.total > 0
 					? m.browser_stt_progress_short({
@@ -72,7 +76,13 @@
 						: phase === 'active'
 							? m.browser_stt_active_short()
 							: '';
+		statusText = fellBack ? `${summary} ${fallbackNotice()}`.trim() : summary;
 	});
+	function fallbackNotice() {
+		return fallbackModel === 'parakeet'
+			? m.browser_stt_gpu_fallback()
+			: m.browser_stt_gpu_fallback_base();
+	}
 	function loadingDescription() {
 		if (!progress) return m.browser_stt_loading();
 		if (progress.phase === 'cache') return m.browser_stt_cache_short();
@@ -87,21 +97,19 @@
 	}
 	onMount(() => {
 		supported = browserSTTSupported();
-		parakeetGpuTrial = new URLSearchParams(window.location.search).get('stt-gpu') === '1';
 	});
 	onDestroy(() => stop());
 	$effect(() => {
 		if (!consentOpen) return;
 		let cancelled = false;
 		gpuAvailable = false;
-		if (model === 'parakeet' && !parakeetGpuTrial) {
-			useGpu = false;
-			return;
-		}
+		useGpu = false;
+		probingGpu = true;
 		void browserSTTWebGPUAvailable(model === 'base').then((available) => {
 			if (cancelled) return;
 			gpuAvailable = available;
-			if (!available) useGpu = false;
+			useGpu = available;
+			probingGpu = false;
 		});
 		return () => {
 			cancelled = true;
@@ -109,7 +117,7 @@
 	});
 	function downloadSize() {
 		if (model === 'parakeet') return useGpu ? '255' : '225';
-		return useGpu ? '180' : '110';
+		return useGpu ? '290' : '110';
 	}
 	$effect(() => {
 		if (consentOpen && dialog && !dialog.open) dialog.showModal();
@@ -138,6 +146,7 @@
 		return (
 			ready &&
 			room.roomId === preparedRoom &&
+			room.role === preparedRole &&
 			room.role !== 'spectator' &&
 			room.settings.transcriptionEnabled === true &&
 			(room.voice?.generation ?? 0) === generation &&
@@ -145,6 +154,7 @@
 		);
 	}
 	function begin() {
+		if (probingGpu) return;
 		consentOpen = false;
 		if (useGpu && !gpuAvailable) {
 			error = m.browser_stt_gpu_failed();
@@ -159,10 +169,16 @@
 		error = '';
 		progress = null;
 		cacheUnavailable = false;
+		fellBack = false;
 		phase = 'loading';
 		preparedRoom = room.roomId;
+		preparedRole = room.role;
 		generation = room.voice?.generation ?? 0;
 		language = room.settings.transcriptionLanguage ?? 'fr';
+		startEngine(useGpu && gpuAvailable ? 'webgpu' : 'wasm');
+	}
+	function startEngine(backend: BrowserSTTBackend) {
+		actualBackend = backend;
 		const instance = new BrowserSTT(
 			language as 'fr' | 'en' | 'auto',
 			{
@@ -194,24 +210,41 @@
 					}
 				},
 				failure: (reason) => {
-					if (engine === instance)
-						stop(
-							reason === 'slow'
-								? m.browser_stt_slow()
-								: reason === 'gpu'
-									? m.browser_stt_gpu_failed()
-									: reason === 'download'
-										? m.browser_stt_download_failed()
-										: reason === 'assets'
-											? m.browser_stt_assets_failed()
-											: reason === 'engine'
-												? m.browser_stt_engine_failed()
-												: m.browser_stt_failed()
-						);
+					if (engine !== instance) return;
+					if (!validContext()) {
+						stop();
+						return;
+					}
+					// Parakeet reuses pinned weights. Base's GPU consent explicitly
+					// covers FP16 plus q8 weights fetched only on CPU fallback.
+					if (reason === 'gpu' && actualBackend === 'webgpu' && !fellBack) {
+						pauseCapture();
+						engine = null; // Fence every callback from the retired GPU instance.
+						instance.stop();
+						fellBack = true;
+						fallbackModel = model;
+						progress = null;
+						phase = 'loading';
+						startEngine('wasm');
+						return;
+					}
+					stop(
+						reason === 'slow'
+							? m.browser_stt_slow()
+							: reason === 'gpu'
+								? m.browser_stt_gpu_failed()
+								: reason === 'download'
+									? m.browser_stt_download_failed()
+									: reason === 'assets'
+										? m.browser_stt_assets_failed()
+										: reason === 'engine'
+											? m.browser_stt_engine_failed()
+											: m.browser_stt_failed()
+					);
 				}
 			},
 			model,
-			(useGpu && gpuAvailable ? 'webgpu' : 'wasm') as BrowserSTTBackend
+			backend
 		);
 		engine = instance;
 		instance.load();
@@ -312,7 +345,12 @@
 					: phase === 'active'
 						? m.browser_stt_active({
 								model: model === 'parakeet' ? 'Parakeet Redux w2a8' : 'Whisper base',
-								backend: useGpu ? (model === 'parakeet' ? 'WebGPU + CPU' : 'WebGPU') : 'CPU'
+								backend:
+									actualBackend === 'webgpu'
+										? model === 'parakeet'
+											? 'WebGPU + CPU'
+											: 'WebGPU'
+										: 'CPU'
 							})
 						: !supported
 							? m.browser_stt_unsupported()
@@ -341,6 +379,9 @@
 		{/if}
 	{/if}
 	{#if error}<span class="text-error" role="alert">{error}</span>{/if}
+	{#if fellBack}<p class="text-xs" data-testid="browser-stt-fallback">
+			{fallbackNotice()}
+		</p>{/if}
 	{#if cacheUnavailable}<p class="text-xs opacity-70">{m.browser_stt_cache_unavailable()}</p>{/if}
 </div>
 {#if consentOpen}<dialog
@@ -386,6 +427,9 @@
 				{m.browser_stt_webgpu()}
 			</label>
 			<p class="mb-3 text-sm opacity-70">{m.browser_stt_webgpu_hint()}</p>
+			{#if model === 'base' && useGpu}<p class="mb-3 text-sm opacity-70">
+					{m.browser_stt_base_gpu_consent()}
+				</p>{/if}
 		{/if}
 		<p class="mb-3 text-sm">{m.browser_stt_consent({ size: downloadSize() })}</p>
 		<p class="mb-4 text-sm opacity-70">{m.browser_stt_limits()}</p>
@@ -395,8 +439,11 @@
 				onclick={() => {
 					consentOpen = false;
 				}}>{m.cancel()}</button
-			><button class="btn btn-primary" data-testid="browser-stt-confirm" onclick={begin}
-				>{m.browser_stt_accept()}</button
+			><button
+				class="btn btn-primary"
+				data-testid="browser-stt-confirm"
+				disabled={probingGpu}
+				onclick={begin}>{m.browser_stt_accept()}</button
 			>
 		</div>
 	</dialog>{/if}

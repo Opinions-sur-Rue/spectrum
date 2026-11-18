@@ -105,7 +105,18 @@ export class BrowserSTT {
 			this.fail('failed');
 			return;
 		}
-		this.worker.onerror = () => this.fail(this.loading ? 'engine' : 'failed');
+		this.worker.onerror = (event) =>
+			this.fail(
+				this.backend === 'webgpu' &&
+					/webgpu|gpu.?device|device.?lost/i.test(event.message ?? '') &&
+					!/fetch|download|asset|integrity|checksum|missing|404|403|consent/i.test(
+						event.message ?? ''
+					)
+					? 'gpu'
+					: this.loading
+						? 'engine'
+						: 'failed'
+			);
 		this.worker.onmessage = ({ data }) => {
 			if (this.disposed) return;
 			if (data.type === 'ready') {

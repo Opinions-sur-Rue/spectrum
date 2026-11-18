@@ -21,11 +21,28 @@ let working = false;
 let vad: ort.InferenceSession | null = null;
 let backend: 'wasm' | 'webgpu' = 'wasm';
 let parakeet: ParakeetRuntime | null = null;
+let loadEpoch = 0;
+
+async function watchGPUDevice(epoch: number) {
+	if (backend !== 'webgpu') return;
+	const device = (await ort.env.webgpu.device) as { lost: Promise<unknown> };
+	void device.lost.then(() => {
+		if (epoch !== loadEpoch || backend !== 'webgpu') return;
+		if (parakeet) {
+			void parakeet.release().catch(() => {}); // Retire nested mel worker synchronously.
+			parakeet = null;
+		}
+		// Device loss may otherwise surface as a hung inference or an ORT error
+		// containing documentation URLs. Report its known GPU cause directly.
+		scope.postMessage({ type: 'error', reason: 'gpu' });
+	});
+}
 
 scope.onmessage = async ({ data }) => {
 	let runtimeURL: string | undefined;
 	try {
 		if (data.type === 'load') {
+			const epoch = ++loadEpoch;
 			await parakeet?.release();
 			parakeet = null;
 			await vad?.release();
@@ -100,6 +117,7 @@ scope.onmessage = async ({ data }) => {
 				vad = await ort.InferenceSession.create(vadData, {
 					executionProviders: ['wasm']
 				});
+				await watchGPUDevice(epoch);
 				scope.postMessage({ type: 'ready', backend });
 				return;
 			}
@@ -131,6 +149,7 @@ scope.onmessage = async ({ data }) => {
 			tokenizer = loaded[1];
 			model = loaded[2] as WhisperForConditionalGeneration;
 			vad = loaded[3];
+			await watchGPUDevice(epoch);
 			scope.postMessage({ type: 'ready', backend });
 		} else if (
 			data.type === 'recognize' &&
@@ -236,17 +255,36 @@ scope.onmessage = async ({ data }) => {
 	} catch (error) {
 		working = false;
 		if (parakeet) {
-			await parakeet.release();
+			// release() retires the nested mel worker synchronously. A lost GPU's
+			// session release must not block reporting the original failure.
+			void parakeet.release().catch(() => {});
 			parakeet = null;
 		}
+		// Transformers' Base loader does not use STTLoadError. Never turn a
+		// failed/missing download into a GPU retry with another weight variant.
+		const message = error instanceof Error ? error.message : '';
+		const assetFailure =
+			/integrity|checksum|sha256|404|403|not found|could not locate|missing.*(?:asset|file|model)|(?:asset|file|model).*missing/i.test(
+				message
+			);
+		const downloadFailure =
+			/failed to fetch|fetch failed|download|network(?:error| error)|http\s*(?:error|[45]\d\d)/i.test(
+				message
+			);
 		const reason =
-			backend === 'webgpu'
-				? 'gpu'
-				: data.type === 'load'
-					? error instanceof STTLoadError
-						? error.reason
-						: 'engine'
-					: 'failed';
+			error instanceof STTLoadError
+				? error.reason
+				: assetFailure
+					? 'assets'
+					: downloadFailure
+						? 'download'
+						: /consent|permission|notallowederror/i.test(message)
+							? 'failed'
+							: backend === 'webgpu'
+								? 'gpu'
+								: data.type === 'load'
+									? 'engine'
+									: 'failed';
 		scope.postMessage({ type: 'error', reason }); // Never log raw audio, text or model exceptions.
 	} finally {
 		if (runtimeURL) URL.revokeObjectURL(runtimeURL);

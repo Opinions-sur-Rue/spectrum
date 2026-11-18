@@ -66,6 +66,79 @@ test('real local Silero gate rejects silence, tones, noise and clicks before Whi
 		expect(result, result.kind).toMatchObject({ text: '', noSpeech: true });
 });
 
+async function instrumentGpuLoss(page: import('@playwright/test').Page) {
+	const failInit = process.env.SPECTRUM_TEST_GPU_INIT_FAIL === 'true';
+	// Test-only instrumentation of the actual Vite worker. Destroy the real
+	// ORT GPUDevice; do not replace inference or synthesize success/errors.
+	await page.route('**/browser-stt-worker.ts*', async (route) => {
+		const response = await route.fetch();
+		await route.fulfill({
+			response,
+			body: `
+const testDevices = [];
+const testRequestDevice = GPUAdapter.prototype.requestDevice;
+GPUAdapter.prototype.requestDevice = async function(...args) {
+  if (${JSON.stringify(failInit)}) throw new Error('WebGPU initialization failure (test)');
+  const device = await testRequestDevice.apply(this, args);
+  testDevices.push(device);
+  self.postMessage({type: '__test_device_created'});
+  return device;
+};
+self.addEventListener('message', ({data}) => {
+  if (data.type === '__test_destroy_gpu') {
+    for (const device of testDevices) device.destroy();
+    self.postMessage({type: '__test_device_destroyed', count: testDevices.length});
+  }
+});
+${await response.text()}`
+		});
+	});
+	await page.addInitScript(() => {
+		const NativeWorker = window.Worker;
+		const state = {
+			workers: [] as Worker[],
+			events: [] as {
+				worker: number;
+				type: string;
+				backend?: string;
+				reason?: string;
+				count?: number;
+			}[]
+		};
+		(window as unknown as { sttTest: typeof state }).sttTest = state;
+		window.Worker = class extends NativeWorker {
+			constructor(url: string | URL, options?: WorkerOptions) {
+				super(url, options);
+				if (!String(url).includes('browser-stt-worker')) return;
+				const worker = state.workers.push(this) - 1;
+				const post = this.postMessage.bind(this);
+				this.postMessage = ((
+					data: { type: string; backend?: string },
+					transfer: Transferable[]
+				) => {
+					state.events.push({ worker, type: `sent:${data.type}`, backend: data.backend });
+					post(data, transfer ?? []);
+				}) as Worker['postMessage'];
+				const terminate = this.terminate.bind(this);
+				this.terminate = () => {
+					state.events.push({ worker, type: 'terminated' });
+					terminate();
+				};
+				this.addEventListener('message', ({ data }) => {
+					if (data.type === 'progress') return;
+					state.events.push({
+						worker,
+						type: data.type,
+						backend: data.backend,
+						reason: data.reason,
+						count: data.count
+					});
+				});
+			}
+		};
+	});
+}
+
 test('selected models transcribe the same complete public fixture for comparison', async ({
 	page
 }) => {
@@ -172,8 +245,13 @@ test('real browser local inference transcribes own opted-in microphone or explic
 	);
 	const wav = readFileSync(process.env.SPECTRUM_TEST_SPEECH!);
 	const modelRequests: string[] = [];
+	const testGpuLoss = process.env.SPECTRUM_TEST_GPU_LOSS === 'true';
+	const testGpuInitFail = process.env.SPECTRUM_TEST_GPU_INIT_FAIL === 'true';
+	const gpuCancel = process.env.SPECTRUM_TEST_GPU_CANCEL;
+	if (testGpuLoss || testGpuInitFail || gpuCancel) await instrumentGpuLoss(page);
 	const externalRequests: string[] = [];
 	const publications: unknown[] = [];
+	const starts: { requestId: string }[] = [];
 	// Existing legacy font/CSS URLs are unrelated to ASR. Block every external
 	// HTTPS request: local recognition must work without third-party services.
 	await page.route('https://**/*', (route) => route.abort());
@@ -188,6 +266,7 @@ test('real browser local inference transcribes own opted-in microphone or explic
 		socket.on('framesent', ({ payload }) => {
 			const event = JSON.parse(String(payload));
 			if (event.op === 'transcript.publish') publications.push(event.payload);
+			if (event.op === 'transcript.start') starts.push(event.payload);
 		});
 	});
 	await page.route('**/browser-stt-fixture.wav', (route) =>
@@ -208,16 +287,17 @@ test('real browser local inference transcribes own opted-in microphone or explic
 					context.sampleRate
 				);
 				padded.copyToChannel(clip.getChannelData(0), 0, loop ? 0 : context.sampleRate);
-				const source = context.createBufferSource();
-				source.buffer = padded;
-				source.loop = loop;
 				const destination = context.createMediaStreamDestination();
-				source.connect(destination);
+				const play = () => {
+					const source = context.createBufferSource();
+					source.buffer = padded;
+					source.loop = loop;
+					source.connect(destination);
+					source.start();
+				};
 				await context.resume();
-				if (loop) source.start();
-				else
-					(window as unknown as { startPublicSpeech: () => void }).startPublicSpeech = () =>
-						source.start();
+				if (loop) play();
+				else (window as unknown as { startPublicSpeech: () => void }).startPublicSpeech = play;
 				for (const track of destination.stream.getTracks()) {
 					const stop = track.stop.bind(track);
 					track.stop = () => {
@@ -230,11 +310,7 @@ test('real browser local inference transcribes own opted-in microphone or explic
 		},
 		{ loop: process.env.SPECTRUM_TEST_SPEECH_ONCE !== 'true' }
 	);
-	await page.goto(
-		process.env.SPECTRUM_TEST_WEBGPU === 'true' && process.env.SPECTRUM_TEST_MODEL === 'parakeet'
-			? '/v2?stt-gpu=1'
-			: '/v2'
-	);
+	await page.goto('/v2');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
 	await enableTranscription(page);
@@ -253,7 +329,31 @@ test('real browser local inference transcribes own opted-in microphone or explic
 	expect(publications).toHaveLength(0);
 	expect(modelRequests).toHaveLength(0);
 	await page.getByTestId('browser-stt-toggle').click();
-	await expect(page.getByRole('dialog')).toContainText(language === 'auto' ? '110 MB' : '225 MB');
+	await expect(page.getByTestId('browser-stt-confirm')).toBeEnabled();
+	const defaultGpu = await page
+		.getByTestId('browser-stt-webgpu')
+		.isChecked()
+		.catch(() => false);
+	await expect(page.getByRole('dialog')).toContainText(
+		language === 'auto' ? (defaultGpu ? '290 MB' : '110 MB') : defaultGpu ? '255 MB' : '225 MB'
+	);
+	if (process.env.SPECTRUM_TEST_WEBGPU === 'true') {
+		await expect(page.getByTestId('browser-stt-webgpu')).toBeChecked();
+		await page.getByTestId('browser-stt-model').selectOption('base');
+		await expect(page.getByTestId('browser-stt-confirm')).toBeEnabled();
+		await expect(page.getByTestId('browser-stt-webgpu')).toBeChecked();
+		await expect(page.getByRole('dialog')).toContainText('290 MB');
+		await expect(page.getByRole('dialog')).toContainText('FP16');
+		await expect(page.getByRole('dialog')).toContainText('q8');
+		expect(modelRequests).toHaveLength(0);
+		expect(
+			await page.evaluate(() => (window as unknown as { captureCalls: number }).captureCalls)
+		).toBe(0);
+		await page
+			.getByTestId('browser-stt-model')
+			.selectOption(language === 'auto' ? 'base' : 'parakeet');
+		await expect(page.getByTestId('browser-stt-confirm')).toBeEnabled();
+	}
 	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 	expect(modelRequests).toHaveLength(0);
 	await page.getByTestId('browser-stt-toggle').click();
@@ -263,16 +363,53 @@ test('real browser local inference transcribes own opted-in microphone or explic
 		(process.env.SPECTRUM_TEST_WEBGPU === 'true' ? 'base' : undefined);
 	if (selectedModel === 'base' || selectedModel === 'parakeet') {
 		await page.getByTestId('browser-stt-model').selectOption(selectedModel);
-		await expect(page.getByRole('dialog')).toContainText(
-			selectedModel === 'parakeet' ? '225 MB' : '110 MB'
-		);
+		await expect(page.getByTestId('browser-stt-confirm')).toBeEnabled();
+	}
+	if (process.env.SPECTRUM_TEST_WEBGPU === 'true') {
+		const adapter = await page.evaluate(async () => {
+			const gpu = (
+				navigator as unknown as {
+					gpu: { requestAdapter(): Promise<{ info: object; features: Iterable<string> } | null> };
+				}
+			).gpu;
+			const adapter = await gpu.requestAdapter();
+			const info = adapter?.info as
+				| {
+						vendor?: string;
+						architecture?: string;
+						device?: string;
+						description?: string;
+						isFallbackAdapter?: boolean;
+				  }
+				| undefined;
+			return (
+				adapter && {
+					info: {
+						vendor: info?.vendor,
+						architecture: info?.architecture,
+						device: info?.device,
+						description: info?.description,
+						isFallbackAdapter: info?.isFallbackAdapter
+					},
+					features: [...adapter.features]
+				}
+			);
+		});
+		console.info('HARDWARE ADAPTER:', JSON.stringify(adapter));
 	}
 	if (process.env.SPECTRUM_TEST_WEBGPU === 'true') {
 		const gpu = page.getByTestId('browser-stt-webgpu');
 		await expect(gpu).toBeVisible();
-		await gpu.check();
+		await expect(gpu).toBeChecked(); // Prove automatic selection, never force it.
 		await expect(page.getByRole('dialog')).toContainText(
-			selectedModel === 'parakeet' ? '255 MB' : '180 MB'
+			selectedModel === 'parakeet' ? '255 MB' : '290 MB'
+		);
+	} else {
+		// CPU benchmark stays explicit even when local hardware supports GPU.
+		const gpu = page.getByTestId('browser-stt-webgpu');
+		if (await gpu.isVisible()) await gpu.uncheck();
+		await expect(page.getByRole('dialog')).toContainText(
+			selectedModel === 'base' || language === 'auto' ? '110 MB' : '225 MB'
 		);
 	}
 	await page.getByTestId('browser-stt-confirm').click();
@@ -375,6 +512,141 @@ test('real browser local inference transcribes own opted-in microphone or explic
 		expect(payload).not.toHaveProperty('speakerId');
 	}
 	await expect(transcript).toContainText('Automatic · browser supplied');
+	if (testGpuInitFail) {
+		await expect(page.getByTestId('browser-stt-summary')).toContainText(/switched.*to CPU/);
+		const events = await page.evaluate(
+			() => (window as unknown as { sttTest: { events: { type: string }[] } }).sttTest.events
+		);
+		expect(events.filter((event) => event.type === 'sent:load')).toHaveLength(2);
+		expect(events).toContainEqual(
+			expect.objectContaining({ worker: 0, type: 'error', reason: 'gpu' })
+		);
+		expect(events).toContainEqual(
+			expect.objectContaining({ worker: 1, type: 'ready', backend: 'wasm' })
+		);
+		console.info(
+			'GPU INITIALIZATION FAILURE: one CPU fallback, real CPU captions, one voice capture.'
+		);
+	}
+	if (gpuCancel) {
+		const before = publications.length;
+		if (gpuCancel === 'stop') {
+			await page.getByTestId('audio-options').click();
+			await page.getByTestId('browser-stt-toggle').click();
+		} else if (gpuCancel === 'mute') {
+			await page.getByRole('button', { name: 'Mute microphone', exact: true }).click();
+			await expect(controls).toHaveAttribute('data-state', 'prepared');
+		} else if (gpuCancel === 'room') {
+			await page.getByLabel('Room options', { exact: true }).click();
+			await page
+				.getByLabel('Transcription language (restarts audio)', { exact: true })
+				.selectOption('en');
+			await page.getByLabel('Room options', { exact: true }).click();
+		} else throw new Error('Unknown GPU cancellation scenario');
+		if (gpuCancel === 'room')
+			await expect
+				.poll(() =>
+					page.evaluate(() => (window as unknown as { captureCalls: number }).captureCalls)
+				)
+				.toBe(2);
+		const capturesAfterCancel = await page.evaluate(
+			() => (window as unknown as { captureCalls: number }).captureCalls
+		);
+		await page.evaluate(() =>
+			(window as unknown as { sttTest: { workers: Worker[] } }).sttTest.workers[0].postMessage({
+				type: '__test_destroy_gpu'
+			})
+		);
+		if (gpuCancel === 'mute') {
+			// Microphone loss preserves preparation, but never re-admits capture.
+			await expect(page.getByTestId('browser-stt-summary')).toContainText(/switched.*to CPU/);
+			await expect(controls).toHaveAttribute('data-state', 'prepared', { timeout: 120000 });
+			expect(starts).toHaveLength(1);
+			await expect(page.getByTestId('voice-controls')).toHaveAttribute('data-microphone', 'false');
+		} else await expect(controls).toHaveAttribute('data-state', 'off');
+		await page.waitForTimeout(2000);
+		const events = await page.evaluate(
+			() => (window as unknown as { sttTest: { events: { type: string }[] } }).sttTest.events
+		);
+		expect(events.filter((event) => event.type === 'sent:load')).toHaveLength(
+			gpuCancel === 'mute' ? 2 : 1
+		);
+		expect(publications).toHaveLength(before);
+		expect(
+			await page.evaluate(() => (window as unknown as { captureCalls: number }).captureCalls)
+		).toBe(capturesAfterCancel);
+		console.info(
+			`CANCELLATION ${gpuCancel}: no new caption admission/publication or fallback voice capture; ${gpuCancel === 'mute' ? 'CPU preparation only' : 'no CPU retry'}. Voice captures after action: ${capturesAfterCancel}${gpuCancel === 'room' ? ' (room language intentionally restarts voice)' : ''}.`
+		);
+		return;
+	}
+	if (testGpuLoss) {
+		const before = publications.length;
+		expect(starts).toHaveLength(1);
+		const weightsBefore = modelRequests.filter((url) => /\.onnx(?:\?|$)/.test(url));
+		if (selectedModel === 'base')
+			expect(weightsBefore.some((url) => url.includes('_quantized.onnx'))).toBe(false);
+		await page.evaluate(() => {
+			const state = (window as unknown as { sttTest: { workers: Worker[] } }).sttTest;
+			state.workers[0].postMessage({ type: '__test_destroy_gpu' });
+		});
+		try {
+			await expect(page.getByTestId('browser-stt-summary')).toContainText(/switched.*to CPU/, {
+				timeout: 35000
+			});
+		} catch (error) {
+			console.info(
+				'DEVICE LOSS FAILURE:',
+				JSON.stringify(
+					await page.evaluate(
+						() => (window as unknown as { sttTest: { events: unknown[] } }).sttTest.events
+					)
+				),
+				await controls.textContent()
+			);
+			throw error;
+		}
+		await expect(controls).toHaveAttribute('data-state', 'active', { timeout: 120000 });
+		expect(starts).toHaveLength(2);
+		expect(starts[1].requestId).not.toBe(starts[0].requestId);
+		await page.getByTestId('audio-options').click();
+		await expect(controls.getByRole('status')).toContainText('CPU');
+		await expect(controls.getByRole('status')).not.toContainText('WebGPU');
+		await expect(page.getByTestId('browser-stt-fallback')).toContainText('not replayed');
+		const events = await page.evaluate(
+			() => (window as unknown as { sttTest: { events: unknown[] } }).sttTest.events
+		);
+		console.info('DEVICE LOSS EVENTS:', JSON.stringify(events));
+		expect(events.filter((event) => (event as { type: string }).type === 'sent:load')).toHaveLength(
+			2
+		);
+		expect(events).toContainEqual(
+			expect.objectContaining({ worker: 0, type: '__test_device_destroyed', count: 1 })
+		);
+		expect(events).toContainEqual(expect.objectContaining({ worker: 0, type: 'terminated' }));
+		expect(events).toContainEqual(
+			expect.objectContaining({ worker: 1, type: 'ready', backend: 'wasm' })
+		);
+		if (selectedModel === 'parakeet')
+			expect(modelRequests.filter((url) => /\.onnx(?:\?|$)/.test(url))).toEqual(weightsBefore);
+		else expect(modelRequests.some((url) => url.includes('_quantized.onnx'))).toBe(true);
+		expect(
+			await page.evaluate(() => (window as unknown as { captureCalls: number }).captureCalls)
+		).toBe(1);
+		await expect(page.getByTestId('voice-controls')).toHaveAttribute('data-microphone', 'true');
+		await page.waitForTimeout(1000);
+		expect(publications.length).toBe(before); // Failed phrase is not silently replayed.
+		await page.evaluate(() =>
+			(window as unknown as { startPublicSpeech(): void }).startPublicSpeech()
+		);
+		await expect.poll(() => publications.length, { timeout: 60000 }).toBeGreaterThan(before);
+		expect((publications[before] as { sessionId: string }).sessionId).not.toBe(
+			(publications[0] as { sessionId: string }).sessionId
+		);
+		console.info(
+			'CPU FALLBACK: new speech transcribed; GPU speech not replayed; voice capture unchanged.'
+		);
+	}
 	// Stop before opening another browser: slower devices may exhaust their
 	// bounded queue while that browser starts. History must survive either stop.
 	if ((await controls.getAttribute('data-state')) !== 'off') {

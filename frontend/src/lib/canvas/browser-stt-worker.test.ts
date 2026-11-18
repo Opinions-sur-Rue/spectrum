@@ -7,6 +7,10 @@ const fixture = vi.hoisted(() => ({
 	initialize: vi.fn(),
 	recognize: vi.fn(),
 	release: vi.fn(),
+	processor: vi.fn(),
+	tokenizer: vi.fn(),
+	baseModel: vi.fn(),
+	deviceLost: null as null | (() => void),
 	wasm: {} as Record<string, unknown>,
 	ortEnv: { wasm: {}, webgpu: {} } as {
 		wasm: Record<string, unknown>;
@@ -15,10 +19,10 @@ const fixture = vi.hoisted(() => ({
 }));
 vi.mock('@huggingface/transformers', () => ({
 	env: { backends: { onnx: { wasm: fixture.wasm } } },
-	AutoProcessor: {},
-	AutoTokenizer: {},
+	AutoProcessor: { from_pretrained: fixture.processor },
+	AutoTokenizer: { from_pretrained: fixture.tokenizer },
 	Tensor: class {},
-	WhisperForConditionalGeneration: {}
+	WhisperForConditionalGeneration: { from_pretrained: fixture.baseModel }
 }));
 vi.mock('onnxruntime-web/webgpu', () => ({
 	env: fixture.ortEnv,
@@ -36,7 +40,11 @@ vi.mock('./browser-stt-load', () => ({
 		read = fixture.read;
 		initializing = vi.fn();
 	},
-	STTLoadError: class extends Error {}
+	STTLoadError: class extends Error {
+		constructor(public reason: string) {
+			super(reason);
+		}
+	}
 }));
 
 function adapter(fallback: boolean | undefined = false, fp16 = false) {
@@ -66,11 +74,99 @@ beforeEach(() => {
 	fixture.read.mockResolvedValue(new Uint8Array([1]));
 	fixture.create.mockResolvedValue({ release: vi.fn().mockResolvedValue(undefined) });
 	fixture.ortEnv.webgpu = {};
+	fixture.ortEnv.webgpu.device = Promise.resolve({
+		lost: new Promise<void>((resolve) => {
+			fixture.deviceLost = resolve;
+		})
+	});
 	fixture.ortEnv.wasm = {};
+	fixture.processor.mockReset().mockResolvedValue({});
+	fixture.tokenizer.mockReset().mockResolvedValue({});
+	fixture.baseModel.mockReset().mockResolvedValue({});
 });
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Parakeet worker GPU selection', () => {
+	it('reports actual device loss before another inference and releases nested helper', async () => {
+		const scope = await worker(adapter());
+		await scope.onmessage({ data: { type: 'load', model: 'parakeet', backend: 'webgpu' } });
+		fixture.deviceLost!();
+		await Promise.resolve();
+		expect(fixture.release).toHaveBeenCalledOnce();
+		expect(scope.postMessage).toHaveBeenLastCalledWith({ type: 'error', reason: 'gpu' });
+	});
+	it('does not report stale GPU device loss after switching to CPU', async () => {
+		const scope = await worker(adapter());
+		await scope.onmessage({ data: { type: 'load', model: 'parakeet', backend: 'webgpu' } });
+		await scope.onmessage({ data: { type: 'load', model: 'parakeet', backend: 'wasm' } });
+		fixture.deviceLost!();
+		await Promise.resolve();
+		expect(scope.postMessage).toHaveBeenLastCalledWith({ type: 'ready', backend: 'wasm' });
+	});
+	it('does not confuse a documentation URL inside GPU inference failure with download failure', async () => {
+		fixture.recognize.mockRejectedValue(
+			new Error('GPUDevice destroyed. See https://example.test/webgpu')
+		);
+		const scope = await worker(adapter());
+		await scope.onmessage({ data: { type: 'load', model: 'parakeet', backend: 'webgpu' } });
+		await scope.onmessage({
+			data: { type: 'recognize', language: 'fr', id: 1, audio: new Float32Array(16000).buffer }
+		});
+		expect(scope.postMessage).toHaveBeenLastCalledWith({ type: 'error', reason: 'gpu' });
+	});
+	it('loads only Base FP16 on GPU and q8 only when a new CPU load is explicitly requested', async () => {
+		const scope = await worker(adapter(false, true));
+		await scope.onmessage({ data: { type: 'load', model: 'base', backend: 'webgpu' } });
+		expect(fixture.baseModel).toHaveBeenCalledOnce();
+		expect(fixture.baseModel).toHaveBeenLastCalledWith(
+			'/stt/models/whisper-base',
+			expect.objectContaining({ device: 'webgpu', dtype: 'fp16' })
+		);
+		expect(scope.postMessage).toHaveBeenCalledWith({ type: 'ready', backend: 'webgpu' });
+		await scope.onmessage({ data: { type: 'load', model: 'base', backend: 'wasm' } });
+		expect(fixture.baseModel).toHaveBeenCalledTimes(2);
+		expect(fixture.baseModel).toHaveBeenLastCalledWith(
+			'/stt/models/whisper-base',
+			expect.objectContaining({ device: 'wasm', dtype: 'q8' })
+		);
+	});
+
+	it.each([
+		['Could not locate file /stt/base_fp16.onnx', 'assets'],
+		['Failed to fetch', 'download']
+	])('does not misclassify Base loader failure %s as GPU', async (message, reason) => {
+		fixture.baseModel.mockRejectedValueOnce(new Error(message));
+		const scope = await worker(adapter(false, true));
+		await scope.onmessage({ data: { type: 'load', model: 'base', backend: 'webgpu' } });
+		expect(scope.postMessage).toHaveBeenLastCalledWith({ type: 'error', reason });
+		expect(fixture.baseModel).toHaveBeenCalledOnce();
+	});
+	it.each([
+		['Could not locate file /stt/model.onnx', 'assets'],
+		['Missing model asset', 'assets'],
+		['integrity checksum mismatch', 'assets'],
+		['Failed to fetch WebGPU model', 'download'],
+		['Network download failed', 'download'],
+		['Consent denied', 'failed']
+	])('preserves non-typed loader error %s as %s instead of GPU', async (message, reason) => {
+		fixture.load.mockRejectedValueOnce(new Error(message));
+		const scope = await worker(adapter());
+		await scope.onmessage({ data: { type: 'load', model: 'parakeet', backend: 'webgpu' } });
+		expect(scope.postMessage).toHaveBeenLastCalledWith({ type: 'error', reason });
+	});
+	it.each(['assets', 'download', 'engine'])(
+		'preserves %s failure rather than classifying it as GPU',
+		async (reason) => {
+			const { STTLoadError } = await import('./browser-stt-load');
+			fixture.read.mockRejectedValueOnce(
+				new STTLoadError(reason as 'assets' | 'download' | 'engine')
+			);
+			const scope = await worker(adapter());
+			await scope.onmessage({ data: { type: 'load', model: 'parakeet', backend: 'webgpu' } });
+			expect(scope.postMessage).toHaveBeenLastCalledWith({ type: 'error', reason });
+			expect(fixture.load).not.toHaveBeenCalled();
+		}
+	);
 	it('uses asyncify, explicit backend and CPU VAD without requiring FP16', async () => {
 		const hardware = adapter();
 		const scope = await worker(hardware);
