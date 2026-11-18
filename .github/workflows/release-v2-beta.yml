@@ -63,6 +63,8 @@ jobs:
         run: python3 .github/scripts/test_wait_for_http.py -v
       - name: Test release manifest assembly
         run: python3 .github/scripts/test_release_manifest.py -v
+      - name: Test frontend aggregate gate
+        run: python3 .github/scripts/test_frontend_ci_gate.py -v
 
   backend:
     needs: release
@@ -86,7 +88,7 @@ jobs:
       - name: Full race-enabled tests (not short mode)
         run: go test -race ./...
 
-  frontend:
+  frontend-checks:
     needs: release
     # Playwright 1.60 supports Ubuntu 24.04, not the floating 26.04 runner.
     runs-on: ubuntu-24.04
@@ -119,22 +121,143 @@ jobs:
           WEBKIT_DISABLE_COMPOSITING_MODE: '1'
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: npm run test:e2e:parakeet -- --grep 'cache refusal|removed Whisper tiers'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: beta-test-results-checks
+          path: frontend/test-results/
+          retention-days: 7
+
+  frontend-ui:
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Inline Markdown regression launches Firefox from Chromium/WebKit,
+          # and Chromium from Firefox: each cell needs both browser engines.
+          - id: chromium
+            project: chromium
+            suite: v2
+            browsers: chromium firefox
+            shard: 1/1
+            workers: 2
+          - id: firefox
+            project: firefox
+            suite: v2
+            browsers: chromium firefox
+            shard: 1/1
+            workers: 2
+          - id: webkit-1
+            project: webkit
+            suite: webkit
+            browsers: webkit firefox
+            shard: 1/2
+            workers: 1
+          - id: webkit-2
+            project: webkit
+            suite: webkit
+            browsers: webkit firefox
+            shard: 2/2
+            workers: 1
+    env:
+      VITE_API_URL: http://localhost:3000
+      VITE_PUBLIC_URL: http://localhost:5173
+      CI: 'true'
+      WEBKIT_DISABLE_COMPOSITING_MODE: '1'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Install UI browser engines
+        env:
+          BROWSERS: ${{ matrix.browsers }}
+        run: npx playwright install --with-deps $BROWSERS
       - name: Start isolated backend and voice fixtures
         working-directory: .
         run: |
           docker compose -p spectrum-ci -f docker-compose.dev.yaml -f docker-compose.browser-stt.yaml --profile voice up -d --build backend livekit stun
           bash .github/scripts/wait-for-http.sh http://localhost:3000/docs/index.html
-      - name: v2 Chromium and Firefox
-        run: npm run test:e2e:v2 -- --workers=2 --output=test-results/v2
-      - name: v2 WebKit UI (not real Safari audio)
-        run: npm run test:e2e:webkit -- --workers=1 --output=test-results/webkit
+      - name: v2 UI shard (WebKit is not real Safari audio)
+        env:
+          SUITE: ${{ matrix.suite }}
+          PROJECT: ${{ matrix.project }}
+          SHARD: ${{ matrix.shard }}
+          WORKERS: ${{ matrix.workers }}
+        # Shard individual cases, not the two unevenly sized spec files.
+        run: npm run "test:e2e:$SUITE" -- --project="$PROJECT" --shard="$SHARD" --fully-parallel --workers="$WORKERS" --output=test-results/ui
+      - name: Save service logs
+        if: always()
+        working-directory: .
+        run: |
+          mkdir -p frontend/test-results
+          docker compose -p spectrum-ci -f docker-compose.dev.yaml -f docker-compose.browser-stt.yaml logs --no-color > frontend/test-results/services.log 2>&1
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: beta-test-results-ui-${{ matrix.id }}
+          path: frontend/test-results/
+          retention-days: 7
+      - name: Stop fixtures
+        if: always()
+        working-directory: .
+        run: docker compose -p spectrum-ci -f docker-compose.dev.yaml -f docker-compose.browser-stt.yaml --profile voice down
+
+  frontend-voice:
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox]
+    env:
+      VITE_API_URL: http://localhost:3000
+      VITE_PUBLIC_URL: http://localhost:5173
+      CI: 'true'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Install voice browser engine
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: npx playwright install --with-deps "$PROJECT"
+      - name: Start isolated backend and voice fixtures
+        working-directory: .
+        run: |
+          docker compose -p spectrum-ci -f docker-compose.dev.yaml -f docker-compose.browser-stt.yaml --profile voice up -d --build backend livekit stun
+          bash .github/scripts/wait-for-http.sh http://localhost:3000/docs/index.html
       - name: Start isolated virtual audio output for Firefox
         working-directory: .
         run: |
           sudo apt-get install --no-install-recommends -y pulseaudio pulseaudio-utils
           bash .github/scripts/start-ci-audio.sh "$RUNNER_TEMP/spectrum-pulse"
-      - name: Voice Chromium and Firefox
-        run: npm run test:e2e:voice -- --workers=1 --output=test-results/voice
+      - name: Voice browser regression
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: npm run test:e2e:voice -- --project="$PROJECT" --workers=1 --output=test-results/voice
       - name: Save service logs
         if: always()
         working-directory: .
@@ -147,7 +270,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: beta-test-results
+          name: beta-test-results-voice-${{ matrix.project }}
           path: frontend/test-results/
           retention-days: 7
       - name: Stop fixtures
@@ -158,6 +281,26 @@ jobs:
         if: always() && env.PULSE_SERVER != ''
         working-directory: .
         run: pactl exit
+
+  # Preserve the public frontend job ID as the complete, fail-closed gate.
+  frontend:
+    needs: [release, frontend-checks, frontend-ui, frontend-voice]
+    if: ${{ always() && needs.release.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every frontend job to succeed
+        env:
+          CHECKS_RESULT: ${{ needs.frontend-checks.result }}
+          UI_RESULT: ${{ needs.frontend-ui.result }}
+          VOICE_RESULT: ${{ needs.frontend-voice.result }}
+        run: |
+          set -euo pipefail
+          for result in "$CHECKS_RESULT" "$UI_RESULT" "$VOICE_RESULT"; do
+            if [[ "$result" != success ]]; then
+              echo "::error::Frontend job did not succeed: ${result:-missing}"
+              exit 1
+            fi
+          done
 
   publish:
     needs: [release, backend, frontend]
