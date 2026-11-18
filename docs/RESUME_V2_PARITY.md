@@ -1,5 +1,41 @@
 # Resume: finish v1 → v2 parity
 
+## beta.22 production rollout — 2026-11-18
+
+- Complete release CI **44108353808** passed, including the newly isolated
+  three-browser no-weight loading harness, all existing UI/voice gates, both
+  image publications and release manifest. Source:
+  `bcb4cadfba6aeac2d2489c7a33509f519bf3d788`.
+- Digest-pinned pair deployed at **01:03 UTC** after a strict **100-second zero
+  activity gate**: zero SFU rooms, zero audio participants and zero backend
+  connections throughout; no exception used.
+- Frontend `sha256:736abd9eaa5ce1435535d2b1bde270afd007e5860a40906fffef15bbc28579c8`;
+  backend `sha256:66419f7c18bff4de64bff10591fe9585a2cb4cfa7ff7ddf4d01e6f153589b391`.
+- Read-only assets: `/opt/spectrum/stt/releases/beta22-bcb4cad`, 38 verified public
+  files, only Base/Parakeet plus their shared runtime/VAD. The new CPU-only WASM
+  files came from the already integrity-verified ORT archive; existing model
+  files were reused, not re-uploaded. Previous release directories remain intact.
+- Root-only rollback snapshot:
+  `/opt/spectrum/deploy-v2.0.0-beta.22-20261118T010321Z`.
+  Frontend/backend started `01:03:24Z` / `01:03:23Z`. LiveKit, PeerJS and TURN
+  keep their exact previous image references and start times.
+- Public HTTP checks pass: `/`, `/v2/`, API `up`; missing model/module 404s;
+  JavaScript/WASM MIME for both plain and JSEP runtime; pinned vocabulary hash;
+  encoder gzip/Vary through the already-corrected host proxy.
+- Actual production Chromium/Parakeet smoke **passed**: engine available with
+  rooms initially opted out; only Base/Parakeet offered; device/PTT/transcription
+  in one audio menu; no pre-consent model requests; download and initialization
+  progress reported; real French captions published as text only and visible in
+  spectator history; independent stop with no late publication; microphone
+  connected with exactly one capture. No remote/silent model fallback.
+- Preparation took **8,384 ms with verified model cache reuse**. This dedicated
+  test profile had previously downloaded and fingerprint-verified the public
+  model files; this is not a claim that a new cold download takes eight seconds.
+  Cold public files had separately taken 307 seconds on the measured link.
+- Firefox short-utterance room recognition passed locally, but sustained
+  Firefox realtime performance and physical-phone acceptance remain limited
+  or unverified; do not turn capacity-stop safety passes into accuracy claims.
+
 ## beta.21 CI routing failure; correction for beta.22
 
 - Beta.21 tag `220d1716fb896a303cebafb49d5a54f023888d6b`, CI **44106180694**:

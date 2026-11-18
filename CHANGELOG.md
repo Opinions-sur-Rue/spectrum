@@ -4,6 +4,10 @@ All notable changes to **Spectrum** are documented in this file.
 
 ## [Unreleased]
 
+## [v2.0.0-beta.22] - 2026-11-18
+
+Deployed as a digest-pinned pair after a strict zero-activity gate, with verified read-only assets. Beta.21 remains a failed CI tag; its development-only model tests were routed to a dedicated mandatory browser harness without removing assertions.
+
 ### Changed
 - Merge microphone device selection, push-to-talk, level meter and browser transcription into one Audio options menu. Preparation status stays visible when that menu is closed.
 - Keep only Parakeet Redux and Whisper Base in the model picker, worker and asset setup. Parakeet is the default for configured French/English, Base for automatic language detection; retain old release assets for rollback without deleting them in place.
