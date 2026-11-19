@@ -1,18 +1,32 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.25 in production, second UI batch ready to publish
+## Current state — beta.29 in production, second UI batch accepted
 
-- Second UI batch implemented on `v2` and validated locally: dedicated private-notes
-  panel outside Discussion, timer typography aligned with toolbar controls, relation
-  glyphs/legend/target labels, and a compact getting-started modal with pseudonym
-  capture and focus restoration. No voice/LiveKit/PeerJS/TURN changes.
+- Production **beta.29**, source `b731a9f6f0f79eeb241a464916848d0d6bb14f0c`,
+  deployed **2026-11-19 02:05 UTC** after complete CI 44438724366 and the strict
+  100-second zero-room/participant/backend-connection gate. Reviewed runner used;
+  default-on asset overlay unchanged. LiveKit/PeerJS/TURN image/start times intact.
+- Frontend `sha256:6830528470601c5f72111585c9c06776d279d25e945593b3c40862b6521da23c`;
+  backend `sha256:e21f12c7a99f47096a262aaceff8ec0de888fc1146215c31323bb0c2105f6c8a`.
+  Assets `/opt/spectrum/stt/releases/beta29-b731a9f`, 38 verified public files.
+  Root-only rollback `/opt/spectrum/deploy-v2.0.0-beta.29-20261119T020539Z` restores
+  the beta.28 pair/environment; runtime secrets and voice configuration unchanged.
+- Second UI batch delivered: dedicated private-notes panel outside Discussion,
+  timer typography aligned with toolbar controls, relation glyph/badge + target
+  labels + legend, and a compact getting-started dialog with pseudonym capture and
+  focus restoration. No voice/LiveKit/PeerJS/TURN changes.
 - Local evidence: 367 unit tests in 54 files; check/lint/build green; 68/68 UI
-  Chromium, 68/68 Firefox, 34+34 WebKit; 8 focused regressions per engine covering
-  private-note panel/focus, discussion tabs, onboarding/pseudonym and small-screen
-  geometry. Existing link, privacy and deletion assertions retained.
-- Still to do before claiming delivery: push, immutable tag, complete CI, strict
-  100-second zero-activity gate, digest-pinned paired deployment, public HTTP and
-  UI smoke. Production remains **beta.25** until then.
+  Chromium, 68/68 Firefox, 34+34 WebKit; focused regressions per engine covering
+  private-note panel/focus, discussion tabs, onboarding/pseudonym, small-screen
+  geometry and the icon-only help trigger's accessible name.
+- Public acceptance: 11/11 UI steps, 22 captures, zero axe violations on six
+  screens, timer measured 12 px/600 and 36 px high like neighbouring buttons,
+  relation glyph present in the note link list, private notes panel and clear
+  confirmation, pseudonym saved and focus restored. CPU, automatic GPU and visible
+  single CPU fallback all produce real captions with microphone-free preparation,
+  verified model-cache reuse, spectator history and no late publication.
+
+### Previous accepted release — beta.25 (historical)
 
 - Production **beta.25**, source `c2c7f849c11a434c8df76230b2974fe729973be7`, deployed
   at **13:00 UTC** after complete CI 44305017051 and strict 100-second zero-room/
@@ -48,11 +62,20 @@
   for WebKit and 9m23 for Firefox, each job downloading separately. Chromium's
   failure was an npm registry timeout, not an assertion. Added a per-OS Playwright
   browser cache keyed on `frontend/package-lock.json` with a prefix restore key in
-  checks/UI/voice jobs, plus bounded npm fetch retries. First run with a cold cache
-  still pays the download; later runs skip it.
+  checks/UI/voice jobs, plus bounded npm fetch retries.
+- Cache verified on beta.28/44433455059: frontend green in about 6 min, three UI
+  jobs installed engines in 26–41 s. One WebKit job still spent 21m13 inside
+  `--with-deps` apt installation, so system dependencies remain the variable cost;
+  browser downloads are no longer the issue.
+- Annotated tags beta.26 to beta.29 exist and are immutable. beta.26 and beta.27
+  failed CI (`'panel' is possibly 'undefined'`, then an unused e2e import) and were
+  never deployed. beta.28 was deployed, then replaced after public axe found an
+  unnamed icon-only help trigger on mobile; beta.29 carries that fix and is the
+  accepted production release.
 - Later audit lots remain queued. Claim monoline preference, the four second-batch
-  requests, timer typography and relation legend are implemented. Local tracking/
-  docs remain uncommitted; user workflow/README/deploy work preserved. No
+  requests, timer typography and relation legend are delivered. Local tracking/
+  docs for the final deployment are committed with this release; user workflow/
+  README/deploy work preserved. No
   background task left running.
 
 ### Implementation and validation checkpoints (superseded by state above)

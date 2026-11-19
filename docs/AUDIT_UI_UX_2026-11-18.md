@@ -3,19 +3,19 @@
 Statut : utilisateur autorise la poursuite des points relevés et demande le
 déploiement après validation. **Premier lot déployé et validé dans beta.25** :
 confirmation des suppressions, proposition monoligne lisible et noms des
-participants sur une ligne d’identité distincte. **Deuxième lot implémenté et
-validé localement, pas encore publié** : notes privées hors Discussion, minuteur
-harmonisé, symboles/légende des liens et aide modale avec pseudonyme. Les autres
-points de l’audit restent à traiter dans des lots suivants. GPU par défaut/repli
-CPU est un commit distinct. Validation locale finale du deuxième lot : 367
-unités, contrôles statiques/build, 68/68 UI Chromium et Firefox, 34+34 WebKit,
-huit régressions ciblées par moteur. CI complète et recette publique restent
-requises avant toute annonce de livraison.
+participants sur une ligne d’identité distincte. **Deuxième lot déployé et validé
+dans beta.29** : notes privées hors Discussion, minuteur harmonisé, symboles/
+légende des liens et aide modale avec pseudonyme. Les autres points de l’audit
+restent à traiter dans des lots suivants. GPU par défaut/repli CPU est un commit
+distinct. Validation locale du deuxième lot : 367 unités, contrôles statiques/
+build, 68/68 UI Chromium et Firefox, 34+34 WebKit, régressions ciblées par moteur.
+CI complète, gate d’activité, recette publique UI et transcription CPU/GPU/repli
+réussies ; la recette a aussi corrigé un nom accessible manquant avant beta.29.
 
 ## Feedback utilisateur ajouté après l’audit
 
-Les quatre demandes du deuxième lot sont implémentées localement et couvertes
-par des tests ; leur publication attend le tag, la CI et la recette publique.
+Les quatre demandes du deuxième lot sont déployées dans beta.29 et couvertes par
+des tests locaux et une recette publique.
 
 1. **Notes privées séparées de Discussion** : bouton et panneau dédiés. Préserver
    le contenu existant, l’autosauvegarde locale, le rattachement à la salle et

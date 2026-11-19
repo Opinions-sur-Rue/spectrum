@@ -2,7 +2,9 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
-## [Unreleased]
+## [v2.0.0-beta.29] - 2026-11-19
+
+Deployed after complete CI 44438724366. beta.26 and beta.27 were blocked by failed CI and never deployed; beta.28 was replaced after a public accessibility finding. Strict 100-second zero-activity gate, digest-pinned pair, unchanged voice services. Public UI acceptance and CPU/GPU/CPU-fallback transcription smokes pass.
 
 ### Added
 - Open private notes in a dedicated panel outside Discussion. Keep the same per-room browser-only storage, privacy copy and confirmed clearing; focus returns to the notes trigger.

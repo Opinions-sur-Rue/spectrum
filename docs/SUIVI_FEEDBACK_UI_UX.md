@@ -1,6 +1,6 @@
 # Suivi du feedback et des audits UI/UX
 
-Mis à jour le 18 novembre 2026. Synthèse de l’état courant ; les anciens comptes
+Mis à jour le 19 novembre 2026. Synthèse de l’état courant ; les anciens comptes
 rendus restent dans [RESUME_V2_PARITY.md](RESUME_V2_PARITY.md). Leurs mentions
 « restant », « non déployé » ou « pending » peuvent décrire une étape historique
 déjà terminée : elles ne constituent pas le backlog actuel.
@@ -10,23 +10,25 @@ déjà terminée : elles ne constituent pas le backlog actuel.
 ### Feedback supplémentaire à intégrer au prochain lot discuté
 
 - [x] Sortir les notes privées de Discussion : bouton/panneau dédiés, contenu
-  local existant conservé et confidentialité inchangée. Implémenté et validé
-  localement ; beta.26 à déployer.
-- [x] Harmoniser la police du minuteur avec les autres boutons. Implémenté.
+  local existant conservé et confidentialité inchangée. **Déployé dans beta.29.**
+- [x] Harmoniser la police du minuteur avec les autres boutons. Minuteur et
+  boutons voisins mesurés à 12 px / 600, hauteur 36 px. **Déployé dans beta.29.**
 - [x] Proposition/claim sur une seule ligne, y compris la saisie — déployée
   dans beta.25. Ellipsis et lecture complète
   au clic ; remplace la demande multiligne précédente.
 - [x] Rendre le sens/type des liens plus explicite par symboles/flèches lisibles,
-  légende et alternative textuelle, pas uniquement des couleurs. Glyphes sur le
-  canevas, listes de liens et légende de l’aide.
+  légende et alternative textuelle, pas uniquement des couleurs. Glyphe sur le
+  canevas, liste « symbole + relation + note cible », légende de l’aide.
+  **Déployé dans beta.29.**
 - [x] « Bien démarrer » en popup modale compacte, avec l’étape pseudonyme et une
   aide adaptée au rôle ; petit bouton d’ouverture, gestion correcte du focus.
+  **Déployé dans beta.29**, y compris nom accessible du bouton icône sur mobile.
 
 L’utilisateur a demandé de poursuivre les points relevés, puis de déployer les
 derniers changements après validation. Premier lot borné : protéger l’effacement,
 proposition monoligne, noms lisibles ; les autres demandes restent au suivi.
 Deuxième lot : les quatre points ci-dessus, validés localement sur les trois
-moteurs ; déploiement après CI complète et contrôle d’activité.
+moteurs puis en production (22 captures, axe sans violation, CPU/GPU/repli).
 
 - [Audit complet beta.24 du 18 novembre](AUDIT_UI_UX_2026-11-18.md) : 20 captures,
   trois rôles, desktop/mobile émulé/paysage, thèmes clair et sombre, revue de code.
@@ -57,24 +59,32 @@ moteurs ; déploiement après CI complète et contrôle d’activité.
     fermeture Échap/bouton, focus rendu au déclencheur, adaptation au rôle.
 - Validation du deuxième lot : 367 tests unitaires, check/lint/build verts,
   68/68 cas UI Chromium et Firefox, 34+34 WebKit, plus 8 régressions ciblées par
-  moteur sur panneaux, focus, aide et notes. Aucune assertion retirée. Reste à
-  publier un nouveau tag, observer la CI et effectuer la recette publique.
+  moteur sur panneaux, focus, aide et notes. Aucune assertion retirée.
+- Publication : tags beta.26 à beta.29. beta.26 et beta.27 ont échoué en CI
+  (erreur Svelte-check, import e2e inutilisé) et n’ont pas été déployées. La
+  recette publique de beta.28 a trouvé un bouton d’aide sans nom accessible sur
+  mobile ; corrigé, beta.29 est passée complète, a été déployée puis validée.
 
 ## État de publication
 
-- **Production confirmée : beta.25**, déployée le 18 novembre à 13:00 UTC.
-  Source `c2c7f849c11a434c8df76230b2974fe729973be7`.
-  [CI 44305017051](https://github.com/Opinions-sur-Rue/spectrum/actions/runs/44305017051)
-  entièrement verte ; paire épinglée par digest, 100 secondes sans salle,
-  participant audio ni connexion backend. LiveKit/PeerJS/TURN inchangés.
-- Recette publique CPU, GPU automatique, repli CPU visible et UI réussie.
-  Repli public injecté à la frontière du worker ; destruction réelle du
-  périphérique GPU testée séparément en local. Micro préservé, sous-titres et
-  historique spectateur vérifiés. Les quatre autres demandes UI sont traitées
-  dans le deuxième lot local, pas encore publié.
-- Historique : beta.24 déployée et validée à 07:51 UTC ; beta.23 conservée comme
-  tag de CI échouée, sans images ni déploiement. Son test de redimensionnement
-  a été corrigé sans retirer les assertions.
+- **Production : beta.29**, déployée le 19 novembre à 02:05 UTC. Source
+  `b731a9f6f0f79eeb241a464916848d0d6bb14f0c`,
+  [CI 44438724366](https://github.com/Opinions-sur-Rue/spectrum/actions/runs/44438724366)
+  entièrement verte. Frontend
+  `sha256:6830528470601c5f72111585c9c06776d279d25e945593b3c40862b6521da23c`,
+  backend `sha256:e21f12c7a99f47096a262aaceff8ec0de888fc1146215c31323bb0c2105f6c8a`.
+  Paire épinglée par digest, 100 secondes sans salle, participant audio ni
+  connexion backend. LiveKit/PeerJS/TURN inchangés. Assets
+  `/opt/spectrum/stt/releases/beta29-b731a9f` (38 fichiers vérifiés) ; retour
+  arrière `/opt/spectrum/deploy-v2.0.0-beta.29-20261119T020539Z` vers beta.28.
+- Recette publique beta.29 : 11 étapes UI sur 11, 22 captures, axe sans violation
+  sur six écrans, minuteur 12 px/600 comme les boutons, légende et glyphes de
+  relations, panneau privé dédié, pseudonyme et focus rendus. CPU, GPU automatique
+  et repli CPU visible passent avec sous-titres réels, préparation sans micro,
+  cache modèle réutilisé, historique spectateur et absence de publication tardive.
+- Historique : beta.28 déployée à 01:33 UTC puis remplacée après la régression
+  d’accessibilité détectée en recette. beta.26 et beta.27 ont échoué en CI et n’ont
+  jamais été déployées. beta.25 reste la référence précédente acceptée.
 - Toujours : paire frontend/backend validée ensemble, contrôle d’activité strict,
   pas d’interruption de réunion, v1 et services voix préservés.
 
@@ -83,10 +93,9 @@ moteurs ; déploiement après CI complète et contrôle d’activité.
 - Mesure beta.24 : environ 20 min de frontend, dont 340 s UI Chromium/Firefox,
   372 s WebKit, 250 s voix, exécutés successivement. Unitaires : 20 s ; npm ci :
   70 s ; installation navigateurs : 42 s ; fixtures : 64 s.
-- Nouveau découpage préparé : qualité/v1/chargeur, UI Chromium, UI Firefox, deux
-  shards WebKit à un worker, voix Chromium et voix Firefox, fixtures isolées.
-  Commit `c1ef2b1` poussé sur `v2` ; actif pour les prochains tags, pas de nouveau
-  tag ni de redémarrage de production uniquement pour cette optimisation.
+- Nouveau découpage actif depuis beta.26 : qualité/v1/chargeur, UI Chromium, UI
+  Firefox, deux shards WebKit à un worker, voix Chromium et voix Firefox, fixtures
+  isolées. Commit `c1ef2b1`.
 - Toutes les étapes restent obligatoires. Statut `frontend` agrégateur refusant
   aussi les jobs échoués, annulés, ignorés ou manquants avant publication.
 - Couverture vérifiée par découverte : 201 cas UI et 18 cas voix exactement une
@@ -94,9 +103,10 @@ moteurs ; déploiement après CI complète et contrôle d’activité.
 - Les tests UI croisés nécessitent un second moteur. `--fully-parallel` distribue
   les cas WebKit, pas simplement les deux gros fichiers. Exécution Chromium
   réelle dans ce mode : 67/67 tests passent avec deux workers.
-- Objectif estimé 6–9 min, pas encore mesuré sur GitHub ; environ 35–45 minutes
-  de runners cumulées. La CI beta.25 n’est ni relancée ni modifiée. Nouveau
-  workflow pour les prochaines validations, sans nouveau tag purement pour cela.
+- Mesure beta.28 : frontend vert en environ 6 min pour trois jobs UI. Le cache
+  Playwright ramène l’installation des moteurs à 26–41 s. Un job WebKit a encore
+  passé 21 min dans l’installation apt de `--with-deps` : le téléchargement des
+  navigateurs n’est plus le coût variable, les dépendances système le restent.
 
 ## Feedback fonctionnel livré
 
