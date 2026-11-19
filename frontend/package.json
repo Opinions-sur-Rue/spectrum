@@ -16,7 +16,7 @@
 		"check": "npm run generate:i18n && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "npm run generate:i18n && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write src e2e",
-		"lint": "prettier --check src e2e && eslint src",
+		"lint": "prettier --check src e2e && eslint src e2e",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
 		"test:e2e": "playwright test",

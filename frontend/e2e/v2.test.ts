@@ -6,7 +6,6 @@ import {
 	openActivity,
 	openChat,
 	openDiscussion,
-	openDiscussionTab,
 	openPrivateNotes,
 	openTranscript
 } from './discussion';

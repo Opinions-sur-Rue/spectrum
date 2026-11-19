@@ -14,6 +14,7 @@ All notable changes to **Spectrum** are documented in this file.
 
 ### CI
 - Run frontend quality, per-browser UI and per-browser voice validation on isolated parallel runners. Balance WebKit across two one-worker shards; preserve every test and a fail-closed aggregate before image publication.
+- Extend the shared `npm run lint` script to the end-to-end specs so unused imports fail locally, not only in the separate CI step.
 - Cache Playwright browser binaries per OS and package lock, and retry transient npm fetches. The first tagged run showed 21–22 min of repeated WebKit downloads versus under 3 min of actual UI tests; the cache keeps that download out of later runs.
 
 ## [v2.0.0-beta.25] - 2026-11-18
