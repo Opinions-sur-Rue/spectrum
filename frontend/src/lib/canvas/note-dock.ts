@@ -34,14 +34,21 @@ export function noteDock(node: HTMLElement) {
 			height: Math.max(1, viewport.height - 60)
 		};
 		const width = Math.max(1, Math.min(anchor.width, bounds.width - 16));
+		// A tall command dock must scroll on the roomier side instead of being
+		// clamped over the note it belongs to. Keep the note reachable so a
+		// second gesture never lands on the dock by accident.
+		const gap = 10;
+		const spaceBelow = Math.max(1, bounds.y + bounds.height - (anchor.y + anchor.height + gap));
+		const spaceAbove = Math.max(1, anchor.y - gap - bounds.y);
+		const available = Math.max(spaceBelow, spaceAbove);
 		node.style.setProperty('--dock-width', `${width / scale}px`);
-		node.style.setProperty('--dock-height', `${Math.max(1, bounds.height - 16) / scale}px`);
+		node.style.setProperty('--dock-height', `${available / scale}px`);
 		const layout = floatingLayout(
 			anchor,
-			{ width, height: node.scrollHeight * scale },
+			{ width, height: Math.min(node.scrollHeight * scale, available) },
 			bounds,
 			'center',
-			10
+			gap
 		);
 		node.style.setProperty('--dock-left', `${(layout.x - anchor.x) / scale}px`);
 		node.style.setProperty('--dock-top', `${(layout.y - anchor.y) / scale}px`);

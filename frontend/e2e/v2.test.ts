@@ -1200,7 +1200,7 @@ test('mobile note inspector keeps one editor and screen-sized actions without lo
 		'data-editor-identity',
 		'retained'
 	);
-	await card.locator('.inspector-layout summary').click();
+	await card.getByText('Canvas position and size', { exact: true }).click();
 	await card.getByRole('button', { name: 'Move note right', exact: true }).click();
 	await card.getByLabel('Width', { exact: true }).fill('500');
 	await card.getByLabel('Width', { exact: true }).press('Tab');
@@ -2181,6 +2181,8 @@ test('inline Markdown notes and actions synchronize across browser engines', asy
 		await first.hover();
 		await expect(first.getByRole('button', { name: 'Reveal', exact: true })).toBeVisible();
 		await expect(first.getByRole('button', { name: 'H1', exact: true })).toBeHidden();
+		await expect(first.getByRole('heading', { name: 'Edit', exact: true })).toBeVisible();
+		await first.getByText('Text formatting', { exact: true }).click();
 		await first.getByRole('heading', { level: 1 }).fill('First argument');
 		await expect(first.getByRole('button', { name: 'H1', exact: true })).toBeVisible();
 		await expect(first.getByText('Unsaved', { exact: true })).toBeVisible();
@@ -2215,7 +2217,20 @@ test('inline Markdown notes and actions synchronize across browser engines', asy
 		await second.getByRole('button', { name: 'Approve', exact: true }).click();
 		await second.getByRole('button', { name: 'Reveal', exact: true }).click();
 		await expect(spectatorCards).toHaveCount(2);
-		await second.getByLabel('Target note').selectOption({ label: 'First argument' });
+		await expect(second.getByRole('heading', { name: 'Arrange', exact: true })).toBeVisible();
+		await expect(second.getByRole('heading', { name: 'Moderation', exact: true })).toBeVisible();
+		await expect(second.getByRole('heading', { name: 'Link', exact: true })).toBeVisible();
+		await second.getByText('Link a note', { exact: true }).click();
+		const targetSearch = second.getByRole('searchbox', {
+			name: 'Search by title, author or excerpt',
+			exact: true
+		});
+		await targetSearch.fill('absent');
+		await expect(
+			second.getByText('No matching notes. Try another word or clear the search.')
+		).toBeVisible();
+		await targetSearch.fill('first');
+		await second.getByRole('radio', { name: /First argument/ }).check();
 		await second.getByRole('button', { name: 'Create link', exact: true }).click();
 		await expect(spectator.getByTestId('canvas-status')).toContainText('Links: 1');
 		// An unfocused note drags from its text without a handle or editor focus.

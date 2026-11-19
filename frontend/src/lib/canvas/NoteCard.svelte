@@ -13,6 +13,7 @@
 	import { noteInspector } from './note-inspector';
 	import { noteDock } from './note-dock';
 	import { MIN_NOTE_WIDTH, MIN_NOTE_HEIGHT, MAX_NOTE_WIDTH, MAX_NOTE_HEIGHT } from './note-layout';
+	import { notePreview, searchNotes } from './note-search';
 
 	let {
 		note,
@@ -57,7 +58,22 @@
 	let baseVersion: number | undefined;
 	let confirmedMarkdown = '';
 	let targetId = $state('');
+	let targetQuery = $state('');
 	let relation = $state<Relation>('supports');
+	const outgoing = $derived(edges.filter((edge) => edge.from === note.id));
+	const targetNotes = $derived(notes.filter((item) => item.id !== note.id));
+	const targetResults = $derived(
+		targetQuery.trim() ? searchNotes(targetNotes, targetQuery) : targetNotes
+	);
+	$effect(() => {
+		if (targetId && !targetResults.some((item) => item.id === targetId)) targetId = '';
+	});
+	function targetTitle(other: NoteModel) {
+		return other.title.trim() || m.ux_note_untitled();
+	}
+	function targetAuthor(other: NoteModel) {
+		return other.authorName?.trim() || m.ux_note_unknown_author();
+	}
 	let dragging = $state(false);
 	let resizing = $state(false);
 	let compact = $state(false);
@@ -470,9 +486,10 @@
 		{#if conflict}<p class="conflict" role="status">
 				{m.v2_note_conflict()} <button onclick={reload}>{m.v2_note_reload()}</button>
 			</p>{/if}
-		{#if editable || admin}
-			<div class="note-actions">
-				{#if editable}
+		{#if editable}
+			<section class="command" aria-labelledby={`note-edit-${note.id}`}>
+				<h3 class="command-title" id={`note-edit-${note.id}`}>{m.ux_note_section_edit()}</h3>
+				<div class="note-actions">
 					<IconButton
 						icon="save"
 						label={m.v2_note_save()}
@@ -480,105 +497,108 @@
 						onclick={save}
 					/>
 					{#if dirty}<IconButton icon="cancel" label={m.cancel()} onclick={reload} />{/if}
-				{/if}
-				{#if manageable}<IconButton
+				</div>
+				<details class="command-details">
+					<summary>{m.v2_note_formatting()}</summary>
+					<div class="formatting" aria-label={m.v2_note_formatting()}>
+						<IconButton
+							icon="heading"
+							label="H1"
+							disabled={!ready}
+							onclick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+						/>
+						<IconButton
+							icon="bold"
+							label={m.v2_bold()}
+							disabled={!ready}
+							onclick={() => editor?.chain().focus().toggleBold().run()}
+						/>
+						<IconButton
+							icon="italic"
+							label={m.v2_italic()}
+							disabled={!ready}
+							onclick={() => editor?.chain().focus().toggleItalic().run()}
+						/>
+						<IconButton
+							icon="list"
+							label={m.v2_list()}
+							disabled={!ready}
+							onclick={() => editor?.chain().focus().toggleBulletList().run()}
+						/>
+					</div>
+				</details>
+			</section>
+		{/if}
+		{#if manageable}
+			<section class="command" aria-labelledby={`note-arrange-${note.id}`}>
+				<h3 class="command-title" id={`note-arrange-${note.id}`}>{m.ux_note_section_organise()}</h3>
+				<div class="note-actions">
+					<IconButton
 						icon={note.pinned ? 'unpin' : 'pin'}
 						label={note.pinned ? m.v2_note_unpin() : m.v2_note_pin()}
 						aria-pressed={Boolean(note.pinned)}
 						disabled={!ready}
 						onclick={() => send('note.pin', { noteId: note.id, pinned: !note.pinned })}
 					/>
+					<IconButton
+						icon="trash"
+						label={m.v2_delete()}
+						disabled={!ready}
+						onclick={requestDelete}
+					/>
+				</div>
+				{#if compact && inspecting}
+					<details class="command-details">
+						<summary>{m.ux_note_layout()}</summary>
+						<div class="note-actions">
+							{#each nudges as nudge (nudge.symbol)}<button
+									type="button"
+									aria-label={nudge.label()}
+									disabled={!ready || note.pinned}
+									onclick={() => move(note.id, note.x + nudge.dx, note.y + nudge.dy, true)}
+									>{nudge.symbol}</button
+								>{/each}
+						</div>
+						<div class="note-actions">
+							<label
+								>{m.ux_note_width()}<input
+									type="number"
+									min={MIN_NOTE_WIDTH}
+									max={MAX_NOTE_WIDTH}
+									value={note.width}
+									disabled={!ready || note.pinned}
+									onchange={(event) =>
+										resize(note.id, event.currentTarget.valueAsNumber, note.height, true)}
+								/></label
+							>
+							<label
+								>{m.ux_note_height()}<input
+									type="number"
+									min={MIN_NOTE_HEIGHT}
+									max={MAX_NOTE_HEIGHT}
+									value={note.height}
+									disabled={!ready || note.pinned}
+									onchange={(event) =>
+										resize(note.id, note.width, event.currentTarget.valueAsNumber, true)}
+								/></label
+							>
+						</div>
+					</details>
 				{/if}
-				{#if admin}
+			</section>
+		{/if}
+		{#if admin}
+			<section class="command" aria-labelledby={`note-moderate-${note.id}`}>
+				<h3 class="command-title" id={`note-moderate-${note.id}`}>
+					{m.ux_note_section_moderate()}
+				</h3>
+				<div class="note-actions">
 					<IconButton
 						icon={note.visible ? 'eyeClosed' : 'eye'}
 						label={note.visible ? m.note_hide() : m.note_reveal()}
 						disabled={!ready || dirty || note.moderation !== 'approved'}
 						onclick={() => send('note.reveal', { noteId: note.id, visible: !note.visible })}
 					/>
-				{/if}
-				<IconButton
-					icon="more"
-					label={m.v2_note_more()}
-					class="more-options"
-					onclick={() => element.querySelector<HTMLElement>('.tiptap')?.focus()}
-				/>
-			</div>
-		{/if}
-		{#if manageable}
-			{#if compact && inspecting}<details class="inspector-layout">
-					<summary>{m.ux_note_layout()}</summary>
-					<div class="note-actions">
-						{#each nudges as nudge (nudge.symbol)}<button
-								type="button"
-								aria-label={nudge.label()}
-								disabled={!ready || note.pinned}
-								onclick={() => move(note.id, note.x + nudge.dx, note.y + nudge.dy, true)}
-								>{nudge.symbol}</button
-							>{/each}
-					</div>
-					<div class="note-actions">
-						<label
-							>{m.ux_note_width()}<input
-								type="number"
-								min={MIN_NOTE_WIDTH}
-								max={MAX_NOTE_WIDTH}
-								value={note.width}
-								disabled={!ready || note.pinned}
-								onchange={(event) =>
-									resize(note.id, event.currentTarget.valueAsNumber, note.height, true)}
-							/></label
-						>
-						<label
-							>{m.ux_note_height()}<input
-								type="number"
-								min={MIN_NOTE_HEIGHT}
-								max={MAX_NOTE_HEIGHT}
-								value={note.height}
-								disabled={!ready || note.pinned}
-								onchange={(event) =>
-									resize(note.id, note.width, event.currentTarget.valueAsNumber, true)}
-							/></label
-						>
-					</div>
-				</details>{/if}
-		{/if}
-		{#if editable}<div class="formatting advanced" aria-label={m.v2_note_formatting()}>
-				<IconButton
-					icon="heading"
-					label="H1"
-					disabled={!ready}
-					onclick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-				/>
-				<IconButton
-					icon="bold"
-					label={m.v2_bold()}
-					disabled={!ready}
-					onclick={() => editor?.chain().focus().toggleBold().run()}
-				/>
-				<IconButton
-					icon="italic"
-					label={m.v2_italic()}
-					disabled={!ready}
-					onclick={() => editor?.chain().focus().toggleItalic().run()}
-				/>
-				<IconButton
-					icon="list"
-					label={m.v2_list()}
-					disabled={!ready}
-					onclick={() => editor?.chain().focus().toggleBulletList().run()}
-				/>
-			</div>
-		{/if}
-		{#if editable || admin}
-			<div class="note-actions advanced">
-				{#if manageable}<IconButton
-						icon="trash"
-						label={m.v2_delete()}
-						disabled={!ready}
-						onclick={requestDelete}
-					/>{/if}
-				{#if admin}
 					{#if note.moderation !== 'approved'}<IconButton
 							icon="check"
 							label={m.approve()}
@@ -591,55 +611,98 @@
 							disabled={!ready || dirty}
 							onclick={() => moderate('rejected')}
 						/>{/if}
+				</div>
+			</section>
+		{/if}
+		{#if admin || outgoing.length}
+			<section class="command" aria-labelledby={`note-link-${note.id}`}>
+				<h3 class="command-title" id={`note-link-${note.id}`}>{m.ux_note_section_link()}</h3>
+				{#if admin}
+					<details class="command-details">
+						<summary>{m.ux_note_link_add()}</summary>
+						<fieldset class="target-picker">
+							<legend class="command-subtitle">{m.ux_note_target_legend()}</legend>
+							<input
+								type="search"
+								aria-label={m.ux_note_target_search()}
+								placeholder={m.ux_note_target_hint()}
+								bind:value={targetQuery}
+							/>
+							<p class="command-meta" role="status">
+								{m.ux_note_search_count({
+									count: targetResults.length,
+									total: targetNotes.length
+								})}
+							</p>
+							{#if targetResults.length}
+								<div class="target-list">
+									{#each targetResults as other (other.id)}
+										<label class="target-option" class:selected={targetId === other.id}>
+											<input
+												type="radio"
+												name={`target-${note.id}`}
+												value={other.id}
+												bind:group={targetId}
+											/>
+											<span class="target-context">
+												<span class="target-title">{targetTitle(other)}</span>
+												<span class="target-author"
+													>{m.ux_note_author({ name: targetAuthor(other) })}</span
+												>
+												<span class="target-excerpt">{notePreview(other, targetQuery)}</span>
+											</span>
+										</label>
+									{/each}
+								</div>
+							{:else}
+								<p class="command-empty">{m.ux_note_search_empty()}</p>
+							{/if}
+						</fieldset>
+						<div class="note-actions">
+							<select aria-label={m.v2_relation()} bind:value={relation}
+								>{#each RELATIONS as value (value)}<option {value}
+										>{relationSymbol(value)} {relationLabel(value)}</option
+									>{/each}</select
+							>
+							<IconButton
+								icon="link"
+								label={m.v2_create_link()}
+								disabled={!ready || !targetResults.some((item) => item.id === targetId)}
+								onclick={() =>
+									send('edge.create', { from: note.id, to: targetId, relation, label: '' })}
+							/>
+						</div>
+					</details>
 				{/if}
-			</div>
-		{/if}
-		{#if admin}
-			<div class="note-links advanced">
-				<select aria-label={m.v2_target_note()} bind:value={targetId}
-					><option value="">{m.v2_link_to()}</option
-					>{#each notes.filter((item) => item.id !== note.id) as other (other.id)}<option
-							value={other.id}>{other.title}</option
-						>{/each}</select
-				>
-				<select aria-label={m.v2_relation()} bind:value={relation}
-					>{#each RELATIONS as value (value)}<option {value}
-							>{relationSymbol(value)} {relationLabel(value)}</option
-						>{/each}</select
-				>
-				<IconButton
-					icon="link"
-					label={m.v2_create_link()}
-					disabled={!ready || !notes.some((item) => item.id === targetId)}
-					onclick={() => send('edge.create', { from: note.id, to: targetId, relation, label: '' })}
-				/>
-			</div>
-		{/if}
-		{#if edges.some((edge) => edge.from === note.id)}
-			<div class="note-links advanced">
-				{#each edges.filter((edge) => edge.from === note.id) as edge (edge.id)}
-					{@const target = notes.find((item) => item.id === edge.to)}
-					<span
-						class="relation-entry"
-						title="{relationSymbol(edge.relation)} {relationLabel(edge.relation)}{target
-							? ` · ${target.title}`
-							: ''}"
-						><span class="relation-symbol" aria-hidden="true">{relationSymbol(edge.relation)}</span
-						><span
-							>{relationLabel(edge.relation)}{#if target}
-								· {target.title}{/if}</span
-						></span
-					>
-					{#if admin}<IconButton
-							icon="unlink"
-							label={m.v2_delete_relation_link({
-								relation: `${relationSymbol(edge.relation)} ${relationLabel(edge.relation)}`
-							})}
-							disabled={!ready}
-							onclick={() => send('edge.delete', { edgeId: edge.id })}
-						/>{/if}
-				{/each}
-			</div>
+				{#if outgoing.length}
+					<p class="command-subtitle">{m.ux_note_links_existing()}</p>
+					<div class="note-links">
+						{#each outgoing as edge (edge.id)}
+							{@const target = notes.find((item) => item.id === edge.to)}
+							<span
+								class="relation-entry"
+								title="{relationSymbol(edge.relation)} {relationLabel(edge.relation)}{target
+									? ` · ${target.title}`
+									: ''}"
+								><span class="relation-symbol" aria-hidden="true"
+									>{relationSymbol(edge.relation)}</span
+								><span
+									>{relationLabel(edge.relation)}{#if target}
+										· {target.title}{/if}</span
+								></span
+							>
+							{#if admin}<IconButton
+									icon="unlink"
+									label={m.v2_delete_relation_link({
+										relation: `${relationSymbol(edge.relation)} ${relationLabel(edge.relation)}`
+									})}
+									disabled={!ready}
+									onclick={() => send('edge.delete', { edgeId: edge.id })}
+								/>{/if}
+						{/each}
+					</div>
+				{/if}
+			</section>
 		{/if}
 	</div>
 </article>
@@ -773,29 +836,10 @@
 	}
 	.inspecting :global(.icon-button),
 	.inspecting button,
-	.inspecting select {
+	.inspecting select,
+	.inspecting input {
 		min-width: 44px;
 		min-height: 44px;
-	}
-	.inspector-layout summary {
-		min-height: 44px;
-		padding: 12px;
-		cursor: pointer;
-		font-size: var(--v2-text-md);
-	}
-	.inspector-layout label {
-		flex: 1;
-		min-width: 0;
-	}
-	.inspector-layout input {
-		display: block;
-		width: 100%;
-		min-height: 44px;
-		padding: 8px;
-		border: 1px solid var(--color-base-300);
-		border-radius: var(--v2-radius-sm);
-		background: var(--color-base-200);
-		color: var(--color-base-content);
 	}
 	.note-tools {
 		display: flex;
@@ -856,23 +900,158 @@
 	.unsaved {
 		font-weight: 600;
 	}
-	.formatting,
-	.note-actions,
-	.note-links {
+	.command {
 		display: flex;
-		align-items: center;
-		align-self: center;
-		width: max-content;
-		max-width: 100%;
-		gap: 6px;
 		flex-wrap: wrap;
-		padding: 6px;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+		padding: 5px 6px;
 		border: 1px solid color-mix(in oklab, var(--color-base-content) 14%, transparent);
 		border-radius: var(--v2-radius-xl);
 		background: color-mix(in oklab, var(--color-base-100) 88%, transparent);
 		backdrop-filter: blur(16px);
 		box-shadow: 0 6px 20px #0002;
 		font-size: var(--v2-text-xs);
+	}
+	.command-title {
+		flex: 0 0 auto;
+		margin: 0;
+		padding: 0 2px;
+		font-size: 0.68rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+	}
+	.command-subtitle {
+		margin: 0;
+		padding: 0 6px;
+		font-size: var(--v2-text-xs);
+		font-weight: 600;
+	}
+	.command-details {
+		flex: 0 1 auto;
+		min-width: 0;
+	}
+	.command-details[open] {
+		flex-basis: 100%;
+	}
+	.command-details summary {
+		min-height: 30px;
+		padding: 5px 6px;
+		cursor: pointer;
+		font-size: var(--v2-text-xs);
+	}
+	.command-details label {
+		flex: 1;
+		min-width: 0;
+	}
+	.command-details input:not([type='radio']) {
+		display: block;
+		width: 100%;
+		min-height: 30px;
+		padding: 4px 8px;
+		border: 1px solid var(--color-base-300);
+		border-radius: var(--v2-radius-sm);
+		background: var(--color-base-200);
+		color: var(--color-base-content);
+	}
+	.command-meta,
+	.command-empty {
+		margin: 0;
+		padding: 0 6px;
+		font-size: var(--v2-text-xs);
+		color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+	}
+	.formatting,
+	.note-actions {
+		display: flex;
+		align-items: center;
+		width: max-content;
+		max-width: 100%;
+		gap: 6px;
+		flex-wrap: wrap;
+		padding: 2px;
+	}
+	.note-links {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		flex-basis: 100%;
+		gap: 4px;
+		min-width: 0;
+		padding: 2px;
+	}
+	.target-picker {
+		display: flex;
+		flex-direction: column;
+		flex-basis: 100%;
+		gap: 4px;
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+	.target-picker input[type='search'] {
+		width: 100%;
+		min-height: 32px;
+		padding: 4px 8px;
+		border: 1px solid var(--color-base-300);
+		border-radius: var(--v2-radius-sm);
+		background: var(--color-base-200);
+		color: var(--color-base-content);
+	}
+	.target-list {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		max-height: 10rem;
+		overflow-y: auto;
+	}
+	.target-option {
+		display: flex;
+		align-items: flex-start;
+		gap: 6px;
+		min-width: 0;
+		padding: 5px 6px;
+		border: 1px solid transparent;
+		border-radius: var(--v2-radius-md);
+		background: color-mix(in oklab, var(--color-base-200) 70%, transparent);
+		cursor: pointer;
+	}
+	.target-option.selected {
+		border-color: var(--color-primary);
+		background: color-mix(in oklab, var(--color-primary) 12%, var(--color-base-100));
+	}
+	.target-option input {
+		margin-top: 2px;
+		accent-color: var(--color-primary);
+	}
+	.target-context {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+		min-width: 0;
+	}
+	.target-title,
+	.target-author,
+	.target-excerpt {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.target-title {
+		font-weight: 600;
+		white-space: nowrap;
+	}
+	.target-author {
+		color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+	}
+	.target-excerpt {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
 	}
 	.note-tools :global(.icon-button) {
 		border-color: transparent;
@@ -991,9 +1170,9 @@
 		border-left: 3px solid var(--color-base-300);
 		padding-left: 8px;
 	}
-	.note-links select {
+	.command select {
 		min-width: 0;
-		max-width: 130px;
+		max-width: 150px;
 		background-color: var(--color-base-200);
 		color: var(--color-base-content);
 		border-radius: var(--v2-radius-md);
@@ -1022,12 +1201,6 @@
 		border: 1px solid var(--color-warning);
 		border-radius: var(--v2-radius-lg);
 		padding: 4px 10px;
-	}
-	.note-tools .advanced {
-		display: none;
-	}
-	.note-card:focus-within .advanced {
-		display: flex;
 	}
 	@media (hover: none) {
 		.note-card:focus-within .note-topbar {

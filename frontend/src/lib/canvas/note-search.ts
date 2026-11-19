@@ -76,6 +76,31 @@ export function textMatches(value: string, query: string): boolean {
 	return matcher ? matcher.test(value) : false;
 }
 
+function plainBody(markdown: string): string {
+	return (
+		markdown
+			// A note body usually repeats its title as the first heading.
+			.replace(/^#{1,6}[^\r\n]*(?:\r?\n|$)/, '')
+			.replace(/[#>*_`~[\]()!-]+/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()
+	);
+}
+
+/** Context for a target picker: a query excerpt when it matches, else the start. */
+export function notePreview(note: NoteModel, query = '', limit = 80): string {
+	const text = plainBody(note.markdown);
+	if (!text) return '';
+	const matcher = pattern(query);
+	const found = matcher?.exec(text);
+	if (found) {
+		const start = Math.max(0, Math.min((found.index ?? 0) - 24, text.length - limit));
+		const excerpt = text.slice(start, start + limit);
+		return `${start > 0 ? '…' : ''}${excerpt}${start + limit < text.length ? '…' : ''}`;
+	}
+	return text.length > limit ? `${text.slice(0, limit).trimEnd()}…` : text;
+}
+
 /** Search only the caller's already-authorized note list. No extra data fetch. */ export function searchNotes(
 	notes: NoteModel[],
 	query: string
@@ -83,7 +108,7 @@ export function textMatches(value: string, query: string): boolean {
 	const wanted = terms(query);
 	if (!wanted.length) return notes;
 	return notes.filter((note) => {
-		const text = searchable(`${note.title}\n${note.markdown}`);
+		const text = searchable(`${note.title}\n${note.markdown}\n${note.authorName ?? ''}`);
 		return wanted.every((term) => text.includes(term));
 	});
 }

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import type { ComponentProps } from 'svelte';
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import NoteCard from './NoteCard.svelte';
 import { NoteDrafts } from './note-drafts';
@@ -45,7 +46,16 @@ const note: NoteModel = {
 	version: 1
 };
 
-function setup() {
+const other: NoteModel = {
+	...note,
+	id: 'note-b',
+	title: 'Second argument',
+	markdown: '# Second argument\n\nLe train réduit les coûts.',
+	authorId: 'author-b',
+	authorName: 'Samira'
+};
+
+function setup(overrides: Partial<ComponentProps<typeof NoteCard>> = {}) {
 	const send = vi.fn();
 	const view = render(NoteCard, {
 		note: { ...note },
@@ -61,7 +71,8 @@ function setup() {
 		scale: 1,
 		send,
 		move: vi.fn(),
-		resize: vi.fn()
+		resize: vi.fn(),
+		...overrides
 	});
 	return { view, send };
 }
@@ -125,4 +136,68 @@ it('unmount cancels pending shared-note deletion', async () => {
 	view.unmount();
 	await fireEvent.click(confirm);
 	expect(send).not.toHaveBeenCalled();
+});
+
+it('groups commands into explicit edit, arrange, moderation and link zones', () => {
+	const { view } = setup({ admin: true, notes: [note, other] });
+	for (const name of [
+		m.ux_note_section_edit(),
+		m.ux_note_section_organise(),
+		m.ux_note_section_moderate(),
+		m.ux_note_section_link()
+	])
+		expect(view.getByRole('heading', { name })).toBeInTheDocument();
+	expect(view.getByRole('button', { name: m.v2_delete() })).toBeInTheDocument();
+});
+
+it('keeps formatting collapsed until explicitly opened', async () => {
+	const { view } = setup();
+	const details = view.getByText(m.v2_note_formatting()).closest('details');
+	if (!details) throw new Error('Missing formatting disclosure');
+	expect(details.open).toBe(false);
+	await fireEvent.click(view.getByText(m.v2_note_formatting()));
+	expect(details.open).toBe(true);
+	expect(view.getByRole('button', { name: 'H1' })).toBeInTheDocument();
+});
+
+it('searches a link target by title, author or excerpt and creates one link', async () => {
+	const { view, send } = setup({ admin: true, notes: [note, other] });
+	await fireEvent.click(view.getByText(m.ux_note_link_add()));
+	const search = view.getByRole('searchbox', { name: m.ux_note_target_search() });
+	const count = (text: string) => expect(view.getByRole('status').textContent).toContain(text);
+
+	await fireEvent.input(search, { target: { value: 'samira' } });
+	expect(view.getByRole('radio', { name: /Second argument/ })).toBeInTheDocument();
+	count(m.ux_note_search_count({ count: 1, total: 1 }));
+
+	await fireEvent.input(search, { target: { value: 'train' } });
+	expect(view.getByRole('radio', { name: /Second argument/ })).toBeInTheDocument();
+
+	await fireEvent.input(search, { target: { value: 'absent' } });
+	expect(view.queryByRole('radio')).toBeNull();
+	expect(view.getByText(m.ux_note_search_empty())).toBeInTheDocument();
+
+	await fireEvent.input(search, { target: { value: '' } });
+	expect(view.queryByRole('radio', { name: /Important note/ })).toBeNull();
+	await fireEvent.click(view.getByRole('radio', { name: /Second argument/ }));
+	await fireEvent.click(view.getByRole('button', { name: m.v2_create_link() }));
+	expect(send).toHaveBeenCalledExactlyOnceWith('edge.create', {
+		from: note.id,
+		to: other.id,
+		relation: 'supports',
+		label: ''
+	});
+});
+
+it('does not tempt readers with link creation but shows outgoing relations', () => {
+	const { view } = setup({
+		editable: false,
+		manageable: false,
+		notes: [note, other],
+		edges: [{ id: 'edge-1', from: note.id, to: other.id, relation: 'supports', label: '' }]
+	});
+	expect(view.getByRole('heading', { name: m.ux_note_section_link() })).toBeInTheDocument();
+	expect(view.queryByRole('searchbox', { name: m.ux_note_target_search() })).toBeNull();
+	expect(view.queryByRole('button', { name: m.v2_create_link() })).toBeNull();
+	expect(view.getByText(/soutient|supports/)).toBeInTheDocument();
 });

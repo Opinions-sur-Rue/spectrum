@@ -1,15 +1,27 @@
 import { expect, it } from 'vitest';
 import type { NoteModel } from './models';
-import { highlightParts, noteSnippet, searchNotes, textMatches } from './note-search';
+import { highlightParts, notePreview, noteSnippet, searchNotes, textMatches } from './note-search';
 
 const notes = [
-	{ id: 'one', title: 'Énergie partagée', markdown: '## Proposition\nRéduire les coûts ensemble.' },
-	{ id: 'two', title: 'Mobilité', markdown: 'Le train et le vélo.' }
+	{
+		id: 'one',
+		title: 'Énergie partagée',
+		markdown: '## Proposition\nRéduire les coûts ensemble.',
+		authorName: 'Samira'
+	},
+	{
+		id: 'two',
+		title: 'Mobilité',
+		markdown: 'Le train et le vélo.',
+		authorName: 'Noé'
+	}
 ] as NoteModel[];
 
-it('searches titles and note content without accents or case sensitivity', () => {
+it('searches titles, authors and note content without accents or case sensitivity', () => {
 	expect(searchNotes(notes, 'ENERGIE couts').map((n) => n.id)).toEqual(['one']);
 	expect(searchNotes(notes, ' velo ').map((n) => n.id)).toEqual(['two']);
+	expect(searchNotes(notes, 'samira').map((n) => n.id)).toEqual(['one']);
+	expect(searchNotes(notes, 'noe').map((n) => n.id)).toEqual(['two']);
 	expect(searchNotes(notes, 'absent')).toEqual([]);
 });
 
@@ -52,4 +64,12 @@ it('builds a short snippet when the match is only in the note body', () => {
 	expect(textMatches('Mobilité', 'energie')).toBe(false);
 	expect(textMatches('Mobilité', '   ')).toBe(false);
 	expect(textMatches('Vélo & train', 'velo')).toBe(true);
+});
+
+it('builds a target excerpt without repeating the title heading', () => {
+	expect(notePreview(notes[1], '')).toBe('Le train et le vélo.');
+	expect(notePreview(notes[0], 'couts')).toContain('Réduire les coûts');
+	expect(notePreview(notes[0], 'couts')).not.toContain('Proposition');
+	expect(notePreview(notes[0], 'energie')).toBe('Réduire les coûts ensemble.');
+	expect(notePreview({ ...notes[1], markdown: '# Mobilité' } as NoteModel, '')).toBe('');
 });
