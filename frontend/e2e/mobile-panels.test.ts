@@ -196,6 +196,8 @@ test('discussion follows keyboard and viewport offsets without losing drafts or 
 test('help opens as a compact modal without moving the canvas', async ({ page }) => {
 	await setup(page);
 	const canvas = (await page.getByTestId('canvas-viewport').boundingBox())!;
+	// The label is hidden on narrow screens: the icon-only trigger still needs a name.
+	await expect(page.getByTestId('room-onboarding')).toHaveAccessibleName('Getting started');
 	await page.getByTestId('room-onboarding').click();
 	const dialog = page.getByTestId('room-onboarding-dialog');
 	await expect(dialog).toBeVisible();

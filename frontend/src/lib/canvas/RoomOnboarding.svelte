@@ -53,6 +53,8 @@
 	class="onboarding-trigger"
 	data-testid="room-onboarding"
 	aria-haspopup="dialog"
+	aria-label={m.ux_onboarding_open()}
+	title={m.ux_onboarding_open()}
 	onclick={show}
 >
 	<Icon name="help" /><span>{m.ux_onboarding_open()}</span>
