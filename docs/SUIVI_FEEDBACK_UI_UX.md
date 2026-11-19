@@ -7,7 +7,7 @@ déjà terminée : elles ne constituent pas le backlog actuel.
 
 ## Nouvelle passe UI/UX et demande GPU automatique
 
-### Retour après beta.30 — implémenté localement, non déployé
+### Retour après beta.30 — déployé dans beta.31
 
 - En-tête d’identité des notes non sélectionnable et utilisable pour déplacer
   une note sur desktop, même lorsque l’éditeur garde le focus. Restrictions de
@@ -27,6 +27,21 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   ciblées passent sur Chromium, Firefox et WebKit, dont déplacement depuis
   l’en-tête pendant l’édition, mise en forme visible, inspecteur/panneaux mobiles
   et aide Android/iOS (axe sans violation sur cette aide).
+- Publication : source `62413e4`, tag immuable `v2.0.0-beta.31`, CI complète
+  `44474475801` verte. Paire frontend/backend épinglée par digest déployée le
+  19 novembre à 06:57 UTC après 100 secondes sans activité ; LiveKit, PeerJS et
+  TURN inchangés. Assets : 38 fichiers vérifiés dans `beta31-62413e4`.
+- Recette publique : `/`, `/v2/` et `/status` répondent 200 ; 11 étapes UI,
+  22 captures et six écrans axe sans violation. Recette ciblée : déplacement
+  depuis l’en-tête pendant l’édition, mise en forme visible, recherche/liens,
+  dock sans chevauchement, commandes mobiles et aide Android/iOS ; axe sans
+  violation sur le picker et les deux aides. Premier script ciblé corrigé : son
+  parseur de coordonnées n’acceptait pas les décimales après déplacement.
+- ASR public : CPU et GPU produisent des sous-titres. Le repli GPU → CPU injecté
+  passe avec sous-titres CPU réels et un seul accès micro dans un contexte neuf.
+  Deux essais sur profil persistant ont expiré avant l’injection de panne, sans
+  premiers sous-titres attendus ; cause non établie, résultats conservés. Aucun
+  nettoyage du stockage utilisateur ni changement du code ASR dans ce lot.
 - Design system global boutons/polices/icônes différé à la demande utilisateur.
   Le minuteur utilise déjà 12 px / 600 et une hauteur desktop de 36 px ; sa
   cohérence visuelle complète reste à revoir dans cette passe globale.

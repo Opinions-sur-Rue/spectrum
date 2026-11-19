@@ -1,6 +1,33 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.30 in production, note-command batch accepted
+## Current state — beta.31 in production, note gestures and mobile entry delivered
+
+- Production **beta.31**, source `62413e48934efef54b1fc988ae1ca8c0bf38675b`,
+  deployed **2026-11-19 06:57 UTC** after complete CI `44474475801` and the strict
+  100-second zero-room/participant/backend-connection gate. LiveKit/PeerJS/TURN
+  image/start times unchanged; runtime secrets and default-on overlay preserved.
+- Frontend `sha256:2b2a2111e9476d0753cf38c5edee1324d6f12803c06be64b33be982b750c4e65`;
+  backend `sha256:50998d2e5fe8baf3ae7c83962a9061fd905634ddb8410e5037e7325c9c75a801`.
+  Assets `/opt/spectrum/stt/releases/beta31-62413e4`, 38 verified files. Root-only
+  rollback `/opt/spectrum/deploy-v2.0.0-beta.31-20261119T065727Z` retains beta.30.
+- Non-selectable identity headers drag notes on desktop even during editing;
+  formatting stays directly visible. Android/iOS browser help auto-opens for
+  recognized embedded browser markers and remains manually available on mobile.
+  No forced navigation, identity/private-note transfer or background-mic promise.
+- Local: 378 unit tests, check/lint/build green; 30 focused UI regressions across
+  Chromium/Firefox/WebKit. Public: HTTP routes 200, 11 UI steps, 22 captures,
+  zero axe violations on six general screens plus link picker and both mobile
+  browser help variants. Header dragging, visible formatting and mobile controls
+  pass. Initial focused harness needed decimal-coordinate parsing, not app changes.
+- CPU/GPU captions and fresh-context injected CPU recovery pass with spectator
+  history, single microphone capture and no late publication. Two recovery runs
+  using the persistent test profile timed out before initial captions/fault
+  injection; cause unconfirmed. Failures preserved, no user storage cleared.
+  Real Discord Android/iPhone WebViews still need physical-device validation.
+- Evidence: `/tmp/opencode/beta31-deploy.log`, `beta31-production-*.log`,
+  `/tmp/opencode/uiux-beta31-production/`, `/tmp/opencode/uiux-beta31-note-entry/`.
+
+### Previous accepted release — beta.30 (historical)
 
 - Production **beta.30**, source `fa87b8998bc7070f05aedbaf7f145f644b742cd5`,
   deployed **2026-11-19 03:31 UTC** after complete CI 44447674132 and the strict

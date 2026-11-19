@@ -2,6 +2,17 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
+## [v2.0.0-beta.31] - 2026-11-19
+
+Deployed after complete CI 44474475801 and the strict 100-second zero-activity gate. Digest-pinned frontend/backend pair; voice services unchanged. Public UI acceptance, note/header/mobile-entry checks and axe pass. CPU and GPU captions pass; injected GPU-to-CPU recovery passes in a fresh browser context. Two persistent-profile recovery runs timed out before fault injection; cause remains unconfirmed.
+
+### Changed
+- Keep note formatting controls directly visible instead of behind a disclosure.
+- Make note identity headers non-selectable and draggable on desktop, including while editing. Preserve permission, pinning and mobile-inspector restrictions.
+
+### Added
+- Offer Android/iOS instructions for opening Spectrum outside Discord or another in-app browser, with a copyable current-page link and selectable fallback. Open help automatically only for recognized app/WebView markers; keep manual help available on mobile because detection is incomplete. Never force navigation or promise transfer of browser-local identity/private notes or background microphone continuity.
+
 ## [v2.0.0-beta.30] - 2026-11-19
 
 Deployed after complete CI 44447674132. Strict 100-second zero-activity gate, digest-pinned pair, unchanged voice services. Public HTTP, UI acceptance, the new note-command smoke, axe and CPU/GPU/CPU-fallback transcription pass.
