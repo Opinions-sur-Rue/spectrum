@@ -12,6 +12,97 @@ import {
 import type { SpectrumState } from '../src/lib/canvas/room-client';
 import AxeBuilder from '@axe-core/playwright';
 
+test('design system aligns timer labels, toolbar controls and icons across themes and viewports', async ({
+	page
+}, testInfo) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const timer = page.getByLabel('Set timer', { exact: true });
+	await expect(page.getByTitle('People', { exact: true })).toHaveAccessibleName('People · 1');
+	await timer.click();
+	await page.getByRole('button', { name: 'Start timer', exact: true }).click();
+	await expect(page.getByRole('timer')).toBeVisible();
+	for (const theme of ['lofi', 'light', 'dark']) {
+		await page.getByTestId('app-menu').click();
+		await page.getByTestId('theme-select').selectOption(theme);
+		await page.getByTestId('app-menu').click();
+		for (const width of [1440, 640, 390, 320]) {
+			await page.setViewportSize({ width, height: 900 });
+			const controls = page.locator(
+				'.session-controls > .v2-control, .session-controls .toolbar-summary, .content-actions > .btn, [data-testid="hand-toggle"], [data-testid="room-timer"]'
+			);
+			const styles = await controls.evaluateAll((nodes) =>
+				nodes.map((node) => {
+					const style = getComputedStyle(node);
+					return {
+						text: node.getAttribute('aria-label') ?? node.textContent,
+						font: style.fontFamily,
+						size: style.fontSize,
+						weight: style.fontWeight,
+						line: style.lineHeight,
+						height: node.getBoundingClientRect().height
+					};
+				})
+			);
+			expect(styles.length).toBeGreaterThan(5);
+			for (const style of styles) {
+				expect(style.font, `${theme}/${width}/${style.text}`).toBe(styles[0].font);
+				expect(style.size).toBe('12px');
+				expect(style.weight).toBe('600');
+				expect(style.line).toBe('15px');
+				expect(style.height).toBeGreaterThanOrEqual(width < 640 ? 44 : 36);
+			}
+			await expect(timer.locator('.toolbar-label')).toHaveCSS('font-size', '12px');
+			await expect(timer.locator('.toolbar-label')).toHaveCSS('font-weight', '600');
+			await expect(timer.locator('.iconoir-icon')).toHaveCSS('width', '18px');
+			expect(
+				await timer.locator('.iconoir-icon').evaluate((node) => getComputedStyle(node).maskImage)
+			).not.toBe('none');
+			expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+				width
+			);
+			if (width === 1440 || width === 390) {
+				const audit = await new AxeBuilder({ page })
+					.include('.v2-topbar')
+					.include('.v2-actionbar')
+					.analyze();
+				expect(audit.violations).toEqual([]);
+				await page.screenshot({
+					path: testInfo.outputPath(`controls-${theme}-${width}.png`)
+				});
+			}
+		}
+		await page.setViewportSize({ width: 1440, height: 900 });
+		await timer.focus();
+		await page.keyboard.press('Tab');
+		await page.keyboard.press('Shift+Tab');
+		await expect(timer).toBeFocused();
+		await expect(timer).toHaveCSS('outline-style', 'solid');
+		await timer.press('Enter');
+		await expect(timer.locator('..')).toHaveAttribute('open', '');
+		await timer.press('Escape');
+	}
+	// Root-level font preferences scale controls instead of leaving fixed tiny text.
+	await page.evaluate(() => (document.documentElement.style.fontSize = '20px'));
+	await expect(timer).toHaveCSS('font-size', '15px');
+	await expect(timer.locator('.iconoir-icon')).toHaveCSS('width', '22.5px');
+	await page.getByTestId('app-menu').click();
+	await page.getByTestId('language-select').selectOption('fr');
+	const frenchTimer = page.getByLabel('Régler le minuteur', { exact: true });
+	await expect(frenchTimer).toBeVisible();
+	await expect(frenchTimer.locator('.toolbar-label')).toHaveText('Minuteur');
+	await expect(frenchTimer.locator('.toolbar-label')).toHaveCSS('font-size', '12px');
+	await expect(frenchTimer.locator('.toolbar-label')).toHaveCSS('font-weight', '600');
+	await page.getByTestId('new-note').click();
+	const note = page.locator('[data-note-id]').first();
+	await note.hover();
+	const disabled = note.locator('.icon-button:disabled').first();
+	await expect(disabled).toBeDisabled();
+	await expect(disabled).toHaveCSS('opacity', '0.45');
+	await page.screenshot({ path: testInfo.outputPath('controls-fr-note.png') });
+});
+
 for (const platform of ['android', 'ios']) {
 	test(`mobile browser help offers ${platform} instructions without forced navigation`, async ({
 		page
@@ -60,7 +151,7 @@ test('readability: empty notes keep placeholders out of stored content and claim
 	const nickname = 'Un pseudonyme volontairement très long';
 	await page.getByLabel('Your pseudonym', { exact: true }).fill(nickname);
 	await page.getByRole('button', { name: 'Save pseudonym', exact: true }).click();
-	await page.getByLabel('People', { exact: true }).click();
+	await page.getByTitle('People', { exact: true }).click();
 	const label = page.locator('[data-own="true"] [data-pellet-label]');
 	await expect(label).toContainText(nickname);
 	await expect
@@ -292,7 +383,7 @@ for (const demoteWhileSuspended of [false, true]) {
 					);
 			});
 			await expect(guest.getByTestId('edit-pseudonym')).toContainText('Mobile identity');
-			await admin.getByLabel('People', { exact: true }).click();
+			await admin.getByTitle('People', { exact: true }).click();
 			await admin.getByRole('button', { name: 'Promote Mobile identity', exact: true }).click();
 			await expect(guest.getByTestId('own-role')).toHaveText('participant');
 			const identity = await guest.evaluate(() => sessionStorage.getItem('spectrum-v2-user'));
@@ -685,14 +776,14 @@ test('moderation: a departed target cancels its pending confirmation and restore
 		const guest = await context.newPage();
 		await guest.goto(page.url());
 		await expect(guest.getByTestId('own-role')).toHaveText('spectator');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: /^Remove / }).click();
 		await expect(page.getByRole('dialog')).toBeVisible();
 		await guest.getByLabel('Session actions', { exact: true }).click();
 		await guest.getByRole('button', { name: 'Leave room', exact: true }).click();
 		await guest.getByTestId('confirm-session-action').click();
 		await expect(page.getByRole('dialog')).toHaveCount(0);
-		await expect(page.getByLabel('People', { exact: true })).toBeFocused();
+		await expect(page.getByTitle('People', { exact: true })).toBeFocused();
 	} finally {
 		await context.close();
 	}
@@ -723,7 +814,7 @@ test('moderation: lost authority cancels pending admin appointment and room clos
 		const guest = await context.newPage();
 		await guest.goto(page.url());
 		await expect(guest.getByTestId('own-role')).toHaveText('spectator');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: /^Promote / }).click();
 		await expect(guest.getByTestId('own-role')).toHaveText('participant');
 		await page.getByRole('button', { name: /^Make .+ admin$/ }).click();
@@ -735,16 +826,16 @@ test('moderation: lost authority cancels pending admin appointment and room clos
 			)
 		});
 		await expect(page.getByRole('dialog')).toHaveCount(0);
-		await expect(page.getByLabel('People', { exact: true })).toBeFocused();
+		await expect(page.getByTitle('People', { exact: true })).toBeFocused();
 		deliver!(latest!);
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: /^Make .+ admin$/ }).click();
 		await expect(page.getByRole('dialog')).toBeVisible();
 		// Authoritative protocol fixture: same revision, new role. Server ACLs
 		// have separate Go coverage; this tests immediate frontend invalidation.
 		deliver!({ ...latest!, role: 'participant' });
 		await expect(page.getByRole('dialog')).toHaveCount(0);
-		await expect(page.getByLabel('People', { exact: true })).toBeFocused();
+		await expect(page.getByTitle('People', { exact: true })).toBeFocused();
 		deliver!({ ...latest!, role: 'admin' });
 		await expect(page.getByTestId('own-role')).toHaveText('admin');
 		await page.getByLabel('Session actions', { exact: true }).click();
@@ -901,7 +992,7 @@ test('accessibility: lobby, room menus, notes and Discussion have no WCAG AA vio
 	await expect(page.locator('[data-note-id]')).toHaveCount(1);
 	await accessible();
 	for (const trigger of [
-		page.getByLabel('People', { exact: true }),
+		page.getByTitle('People', { exact: true }),
 		page.getByLabel('Room options', { exact: true }),
 		page.getByTestId('app-menu'),
 		page.getByLabel('Find a note', { exact: true })
@@ -981,7 +1072,7 @@ test('edge cases: long content and crowded menus reflow at 200-percent-equivalen
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
 		true
 	);
-	await page.getByLabel('People', { exact: true }).click();
+	await page.getByTitle('People', { exact: true }).click();
 	const menu = page.getByTestId('people-panel');
 	await expect(menu.locator('[data-member-id]')).toHaveCount(81);
 	const save = menu.getByRole('button', { name: 'Save pseudonym', exact: true });
@@ -1003,9 +1094,9 @@ test('edge cases: long content and crowded menus reflow at 200-percent-equivalen
 	);
 	await page.keyboard.press('Escape');
 	await expect(confirmation).toHaveCount(0);
-	await page.getByLabel('People', { exact: true }).focus();
+	await page.getByTitle('People', { exact: true }).focus();
 	await page.keyboard.press('Escape');
-	await expect(page.getByLabel('People', { exact: true })).toBeFocused();
+	await expect(page.getByTitle('People', { exact: true })).toBeFocused();
 	await page.getByRole('button', { name: 'Invite', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	await expect(dialog).toBeVisible();
@@ -1111,9 +1202,9 @@ for (const change of ['revoked', 'edited'] as const) {
 			if (change === 'revoked') await author.setViewportSize({ width: 390, height: 844 });
 			await author.goto(page.url());
 			await expect(author.getByTestId('own-role')).toHaveText('spectator');
-			await page.getByLabel('People', { exact: true }).click();
+			await page.getByTitle('People', { exact: true }).click();
 			await page.getByRole('button', { name: /^Promote / }).click();
-			await page.getByLabel('People', { exact: true }).click();
+			await page.getByTitle('People', { exact: true }).click();
 			await expect(author.getByTestId('own-role')).toHaveText('participant');
 			await author.getByTestId('new-note').click();
 			const card = author.locator('[data-note-id]').first();
@@ -1126,9 +1217,9 @@ for (const change of ['revoked', 'edited'] as const) {
 			await network.interrupt();
 			if (change === 'revoked') await expect(author.getByRole('dialog')).toHaveCount(0);
 			if (change === 'revoked') {
-				await page.getByLabel('People', { exact: true }).click();
+				await page.getByTitle('People', { exact: true }).click();
 				await page.getByRole('button', { name: /^Demote / }).click();
-				await page.getByLabel('People', { exact: true }).click();
+				await page.getByTitle('People', { exact: true }).click();
 			} else {
 				// A second tab belonging to the same author can change content;
 				// admin rights no longer grant ownership of another person's text.
@@ -1151,7 +1242,7 @@ for (const change of ['revoked', 'edited'] as const) {
 				await expect(author.getByTestId('own-role')).toHaveText('spectator');
 				await expect(card).toHaveCount(0);
 				await expect(author.locator('body')).not.toContainText('Private author draft');
-				await page.getByLabel('People', { exact: true }).click();
+				await page.getByTitle('People', { exact: true }).click();
 				await page.getByRole('button', { name: /^Promote / }).click();
 				await expect(author.getByTestId('own-role')).toHaveText('participant');
 				await expect(card.getByRole('heading', { level: 1 })).toHaveText('');
@@ -1409,7 +1500,7 @@ test('toolbar popovers remain reachable in short and narrow viewports', async ({
 	]) {
 		await page.setViewportSize(viewport);
 		for (const trigger of [
-			page.getByLabel('People', { exact: true }),
+			page.getByTitle('People', { exact: true }),
 			page.getByLabel('Room options', { exact: true }),
 			page.getByTestId('app-menu'),
 			page.getByLabel('Session actions', { exact: true })
@@ -1461,25 +1552,25 @@ test('claim editing cancels with Escape and never restores a draft after an auth
 		const next = await context.newPage();
 		await next.goto(page.url());
 		await expect(next.getByTestId('own-role')).toHaveText('spectator');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: /^Promote / }).click();
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByTestId('edit-claim').click();
 		await page.getByTestId('claim-input').fill('Draft before revocation');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		// Appointment is additive, so the draft survives until the caller also
 		// steps down, which is the moment administration actually moves.
 		await page.getByRole('button', { name: /^Make .+ admin$/ }).click();
 		await page.getByTestId('confirm-session-action').click();
 		await expect(page.getByTestId('own-role')).toHaveText('admin');
 		await expect(next.getByTestId('own-role')).toHaveText('admin');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: 'Give up my admin rights', exact: true }).click();
 		await page.getByTestId('confirm-session-action').click();
 		await expect(page.getByTestId('own-role')).toHaveText('participant');
 		await expect(page.getByTestId('claim-input')).toHaveCount(0);
 		await expect(page.getByTestId('room-claim')).not.toContainText('Draft before revocation');
-		await next.getByLabel('People', { exact: true }).click();
+		await next.getByTitle('People', { exact: true }).click();
 		await next.getByRole('button', { name: /^Make .+ admin$/ }).click();
 		await next.getByTestId('confirm-session-action').click();
 		await expect(page.getByTestId('own-role')).toHaveText('admin');
@@ -1826,7 +1917,7 @@ test('live controls display votes, select external pellets and disconnect using 
 
 async function openPeople(client: Page) {
 	const panel = client.getByTestId('people-panel');
-	if (!(await panel.isVisible())) await client.getByLabel('People', { exact: true }).click();
+	if (!(await panel.isVisible())) await client.getByTitle('People', { exact: true }).click();
 	await expect(panel).toBeVisible();
 }
 
@@ -1849,10 +1940,10 @@ test('session controls appoint co-admins, let an admin step down, and close room
 		const observer = await observerContext.newPage();
 		await guest.goto(page.url());
 		await expect(guest.getByTestId('own-role')).toHaveText('spectator');
-		await guest.getByLabel('People', { exact: true }).click();
+		await guest.getByTitle('People', { exact: true }).click();
 		await guest.getByLabel('Your pseudonym').fill('Next admin');
 		await guest.getByLabel('Save pseudonym', { exact: true }).click();
-		await guest.getByLabel('People', { exact: true }).click();
+		await guest.getByTitle('People', { exact: true }).click();
 		await openPeople(page);
 		await page.getByLabel('Promote Next admin', { exact: true }).click();
 		await expect(guest.getByTestId('own-role')).toHaveText('participant');
@@ -1875,7 +1966,7 @@ test('session controls appoint co-admins, let an admin step down, and close room
 		await expect(page.getByLabel('Make Next admin admin')).toHaveCount(0);
 		await observer.goto(guest.url());
 		await expect(observer.getByTestId('own-role')).toHaveText('spectator');
-		await guest.getByLabel('People', { exact: true }).click();
+		await guest.getByTitle('People', { exact: true }).click();
 		const spectatorRow = guest
 			.getByTestId('people-panel')
 			.locator('[data-member-id]')
@@ -1884,7 +1975,7 @@ test('session controls appoint co-admins, let an admin step down, and close room
 		await confirmSession(guest);
 		await expect(observer.getByTestId('create-room')).toBeVisible();
 		await expect(observer).not.toHaveURL(/room=/);
-		await guest.getByLabel('People', { exact: true }).click();
+		await guest.getByTitle('People', { exact: true }).click();
 		await guest
 			.getByTestId('people-panel')
 			.getByRole('button', { name: /^Remove / })
@@ -1916,7 +2007,7 @@ test('leaving hands administration to remaining stage member and last admin clos
 		const guest = await context.newPage();
 		await guest.goto(page.url());
 		await expect(guest.getByTestId('own-role')).toHaveText('spectator');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: /^Promote / }).click();
 		await expect(guest.getByTestId('own-role')).toHaveText('participant');
 		await page.getByLabel('Session actions', { exact: true }).click();
@@ -2020,7 +2111,7 @@ test('spectator hands synchronize across reloads, admin lowers them, and reactio
 		await expect(guest.getByTestId('own-role')).toHaveText('spectator');
 		await guest.getByTestId('hand-toggle').click();
 		await expect(guest.getByTestId('hand-toggle')).toHaveAttribute('aria-pressed', 'true');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await expect(page.getByTestId('hand-queue').locator('[data-hand-member]')).toHaveCount(1);
 		await guest.reload();
 		await expect(guest.getByTestId('hand-toggle')).toHaveAttribute('aria-pressed', 'true');
@@ -2408,15 +2499,15 @@ test('admin manages stage and moderates participant proposals without exposing s
 			await client.goto(page.url());
 			await expect(client.getByTestId('own-role')).toHaveText('spectator');
 		}
-		await author.getByLabel('People', { exact: true }).click();
+		await author.getByTitle('People', { exact: true }).click();
 		await author.getByLabel('Your pseudonym').fill('Alice');
 		await author.getByRole('button', { name: 'Save pseudonym', exact: true }).click();
-		await author.getByLabel('People', { exact: true }).click();
-		await page.getByLabel('People', { exact: true }).click();
+		await author.getByTitle('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await expect(page.getByRole('heading', { name: 'On stage (1/6)', exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Promote Alice', exact: true }).click();
 		await expect(author.getByTestId('own-role')).toHaveText('participant');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await author.getByRole('button', { name: 'New note', exact: true }).click();
 		const draft = author.locator('[data-note-id]').first();
 		await expect(draft).toBeVisible();
@@ -2427,7 +2518,7 @@ test('admin manages stage and moderates participant proposals without exposing s
 			'aria-label',
 			'Proposal from Alice'
 		);
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: 'Demote Alice', exact: true }).click();
 		await expect(author.getByTestId('own-role')).toHaveText('spectator');
 		await expect(author.locator('[data-note-id]')).toHaveCount(0);
@@ -2435,7 +2526,7 @@ test('admin manages stage and moderates participant proposals without exposing s
 		await page.getByRole('button', { name: 'Promote Alice', exact: true }).click();
 		await expect(author.getByTestId('own-role')).toHaveText('participant');
 		await expect(draft.getByRole('heading', { level: 1 })).toHaveText('Proposal from Alice');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByLabel('Pending notes (1)', { exact: true }).click();
 		await page.getByRole('button', { name: 'Approve Proposal from Alice', exact: true }).click();
 		await expect(page.getByLabel('Pending notes (1)', { exact: true })).toHaveCount(0);
@@ -2496,12 +2587,12 @@ test('spectrum positions, topic and visibility stay authoritative across clients
 		const spectator = await spectatorContext.newPage();
 		await participant.goto(page.url());
 		await expect(participant.getByTestId('own-role')).toHaveText('spectator');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page
 			.getByRole('button', { name: /^Promote / })
 			.first()
 			.click();
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await expect(participant.getByTestId('own-role')).toHaveText('participant');
 		await spectator.goto(page.url());
 		await expect(spectator.getByTestId('own-role')).toHaveText('spectator');
@@ -2576,7 +2667,7 @@ test('spectrum positions, topic and visibility stay authoritative across clients
 			'notReplied'
 		);
 		await page.getByLabel('Room options', { exact: true }).click();
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page
 			.getByRole('button', { name: /^Demote / })
 			.first()
@@ -2640,7 +2731,7 @@ test('chat channels confine stage and admin messages, and admin removal masks te
 		);
 		await page.getByTestId('discussion-close').click();
 		// Promotion grants stage membership, still without the admin channel.
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: /^Promote / }).click();
 		await expect(guest.getByTestId('own-role')).toHaveText('participant');
 		await openChat(guest);
@@ -2653,7 +2744,7 @@ test('chat channels confine stage and admin messages, and admin removal masks te
 		await guest.getByLabel('Chat message', { exact: true }).fill('Harassment from the stage');
 		await guest.getByRole('button', { name: 'Send message', exact: true }).click();
 		await openPeople(page);
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByTestId('discussion-toggle').click();
 		await page.getByTestId('chat-channel-stage').click();
 		await expect(page.getByRole('log', { name: 'Chat messages' })).toContainText(
@@ -2943,6 +3034,7 @@ test('notes resize across clients without losing drafts, and pin locks layout', 
 		await note.getByRole('button', { name: 'Reveal', exact: true }).click();
 		await expect(remote.getByRole('heading', { level: 1 })).toHaveText('Resized draft');
 		const before = Number(await note.getAttribute('data-width'));
+		const resizedHeight = Number(await remote.getAttribute('data-height'));
 		await handle.press('ArrowLeft');
 		await expect(remote).toHaveAttribute('data-width', String(before - 10));
 		for (let index = 0; index < 3; index++) {
@@ -2956,7 +3048,8 @@ test('notes resize across clients without losing drafts, and pin locks layout', 
 			await expect(remote).toHaveAttribute('data-height', String(current - 40));
 		}
 		expect(Number(await remote.getAttribute('data-width'))).toBeLessThan(360);
-		expect(Number(await remote.getAttribute('data-height'))).toBeLessThan(340);
+		// Pointer growth is zoom-dependent; keyboard shrink is exactly 80 world units.
+		expect(Number(await remote.getAttribute('data-height'))).toBe(resizedHeight - 80);
 		await note.getByRole('button', { name: 'Pin note', exact: true }).click();
 		await expect(handle).toHaveCount(0);
 		const width = await remote.getAttribute('data-width');
@@ -3108,14 +3201,14 @@ test('activity journal records claims, membership and settled opinions without r
 		await actor.goto(page.url());
 		await expect(actor.getByTestId('own-role')).toHaveText('spectator');
 		await expect(log.locator('[data-event-kind="join"]')).toHaveCount(2);
-		await actor.getByLabel('People', { exact: true }).click();
+		await actor.getByTitle('People', { exact: true }).click();
 		await actor.getByLabel('Your pseudonym').fill('Journal speaker');
 		await actor.getByRole('button', { name: 'Save pseudonym', exact: true }).click();
-		await actor.getByLabel('People', { exact: true }).click();
+		await actor.getByTitle('People', { exact: true }).click();
 		await expect(log.locator('[data-event-kind="nickname"]')).toContainText('Journal speaker');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: 'Promote Journal speaker', exact: true }).click();
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await expect(actor.getByTestId('own-role')).toHaveText('participant');
 		await openActivity(page);
 		await expect(log.locator('[data-event-kind="role"]')).toContainText('Journal speaker');
@@ -3173,12 +3266,12 @@ test('activity journal never exposes hidden or retrospective private opinions to
 			observer = await observerContext.newPage();
 		await actor.goto(page.url());
 		await expect(actor.getByTestId('own-role')).toHaveText('spectator');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page
 			.getByRole('button', { name: /^Promote / })
 			.first()
 			.click();
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await expect(actor.getByTestId('own-role')).toHaveText('participant');
 		await observer.goto(page.url());
 		await expect(observer.getByTestId('own-role')).toHaveText('spectator');

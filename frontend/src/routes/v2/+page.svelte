@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '$lib/canvas/design-system.css';
 	import { roomViewport } from '$lib/canvas/room-viewport';
 	import { onMount, tick } from 'svelte';
 	import { CanvasWorkspace, type EdgeModel, type NoteModel } from '$lib/canvas/workspace.svelte';
@@ -447,7 +448,7 @@
 			<nav class="session-controls" aria-label={m.v2_session_controls()}>
 				<button
 					type="button"
-					class="invite-button"
+					class="invite-button v2-control"
 					onclick={() => {
 						shareOpen = true;
 					}}
@@ -569,7 +570,7 @@
 		<div class="v2-guidancebar">
 			<button
 				type="button"
-				class="profile-trigger"
+				class="profile-trigger v2-control"
 				data-testid="edit-pseudonym"
 				onclick={() => peopleMenu?.editNickname()}
 			>
@@ -860,22 +861,6 @@
 		gap: 6px;
 		margin-left: auto;
 	}
-	.invite-button {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		min-height: 36px;
-		padding: 0 10px;
-		border-radius: var(--v2-radius-md);
-		font-size: var(--v2-text-sm);
-	}
-	.invite-button:hover {
-		background: var(--color-base-200);
-	}
-	.invite-button:focus-visible {
-		outline: 2px solid var(--color-primary);
-	}
 	.welcome-privacy {
 		margin-left: auto;
 		font-size: var(--v2-text-xs);
@@ -993,28 +978,6 @@
 	.role-help {
 		opacity: 0.65;
 	}
-	:global(.v2-shell .toolbar-summary) {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.25rem;
-		min-width: 36px;
-		min-height: 36px;
-		padding: 6px;
-		border-radius: var(--v2-radius-md);
-		cursor: pointer;
-		list-style: none;
-	}
-	:global(.v2-shell .toolbar-summary::-webkit-details-marker) {
-		display: none;
-	}
-	:global(.v2-shell .toolbar-summary:hover) {
-		background: var(--color-base-200);
-	}
-	:global(.v2-shell .toolbar-summary:focus-visible) {
-		outline: 2px solid var(--color-primary);
-		outline-offset: 2px;
-	}
 	:global(.v2-shell .toolbar-popover) {
 		position: absolute;
 		z-index: 50;
@@ -1027,21 +990,7 @@
 		top: auto;
 		bottom: calc(100% + 8px);
 	}
-	:global(.v2-topbar .icon-button),
-	:global(.v2-actionbar .icon-button),
-	:global(.canvas-tools .icon-button) {
-		min-width: 34px;
-		min-height: 34px;
-	}
 	@media (max-width: 639px) {
-		:global(.v2-shell .toolbar-summary),
-		:global(.v2-topbar .icon-button),
-		:global(.v2-actionbar .icon-button),
-		:global(.canvas-tools .icon-button),
-		:global(.v2-actionbar .btn) {
-			min-height: 44px;
-			min-width: 44px;
-		}
 		.v2-guidancebar {
 			padding-inline: 12px;
 		}
@@ -1088,7 +1037,6 @@
 			display: none;
 		}
 		.invite-button {
-			min-width: 36px;
 			padding: 0;
 		}
 		.canvas-tools {

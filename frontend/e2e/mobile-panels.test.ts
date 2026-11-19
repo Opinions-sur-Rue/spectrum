@@ -154,7 +154,7 @@ test('people sheet keeps profile and close visible while only the list scrolls',
 	await expect(panel).toBeHidden();
 	await viewport(page, 390, 844);
 	await expect(page.getByTestId('edit-pseudonym')).toContainText('Mobile pseudonym');
-	await expect(page.getByLabel('People', { exact: true })).toBeFocused();
+	await expect(page.getByTitle('People', { exact: true })).toBeFocused();
 	const documentSize = await page.evaluate(() => ({
 		width: document.documentElement.scrollWidth,
 		height: document.documentElement.scrollHeight
@@ -222,7 +222,7 @@ test('small screens keep document width bounded and v1 regains its own page scro
 		await inside(page, page.getByTestId(testId));
 	expect((await page.getByTestId('canvas-viewport').boundingBox())!.height).toBeGreaterThan(80);
 	await page.screenshot({ path: test.info().outputPath('small-dense-toolbar.png') });
-	await page.getByLabel('People', { exact: true }).click();
+	await page.getByTitle('People', { exact: true }).click();
 	await inside(page, page.getByTestId('people-panel'));
 	await inside(page, page.getByRole('button', { name: 'Close participants', exact: true }));
 	await page.keyboard.press('Escape');

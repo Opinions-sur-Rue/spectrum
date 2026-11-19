@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { icons, type IconName } from './icons';
-	let { name, size = 18 }: { name: IconName; size?: number } = $props();
+	let { name, size }: { name: IconName; size?: number } = $props();
 </script>
 
 <span
 	aria-hidden="true"
 	class="iconoir-icon"
-	style:width="{size}px"
-	style:height="{size}px"
+	style:width={size === undefined ? 'var(--v2-control-icon, 18px)' : `${size}px`}
+	style:height={size === undefined ? 'var(--v2-control-icon, 18px)' : `${size}px`}
 	style:--icon={`url(${JSON.stringify(icons[name])})`}
 ></span>
 

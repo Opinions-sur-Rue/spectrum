@@ -50,7 +50,7 @@
 
 <button
 	type="button"
-	class="onboarding-trigger"
+	class="onboarding-trigger v2-control"
 	data-testid="room-onboarding"
 	aria-haspopup="dialog"
 	aria-label={m.ux_onboarding_open()}

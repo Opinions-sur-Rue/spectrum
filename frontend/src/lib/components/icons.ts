@@ -37,6 +37,10 @@ import help from 'iconoir/icons/regular/help-circle.svg';
 import lock from 'iconoir/icons/regular/lock.svg';
 import journal from 'iconoir/icons/regular/journal-page.svg';
 import crown from 'iconoir/icons/regular/crown.svg';
+import timer from 'iconoir/icons/regular/timer.svg';
+import palette from 'iconoir/icons/regular/palette.svg';
+import hand from 'iconoir/icons/regular/open-select-hand-gesture.svg';
+import emoji from 'iconoir/icons/regular/emoji.svg';
 
 export const icons = {
 	save,
@@ -76,6 +80,10 @@ export const icons = {
 	help,
 	lock,
 	journal,
-	crown
+	crown,
+	timer,
+	palette,
+	hand,
+	emoji
 };
 export type IconName = keyof typeof icons;

@@ -7,6 +7,34 @@ déjà terminée : elles ne constituent pas le backlog actuel.
 
 ## Nouvelle passe UI/UX et demande GPU automatique
 
+### Design system — première passe locale, non déployée
+
+- Contrat partagé dans `frontend/src/lib/canvas/design-system.css`, limité à
+  `.v2-shell` : famille UI, taille/graisse/interligne, espacements, rayons,
+  hauteurs desktop/mobile et états focus/ouvert/désactivé. Variantes primaire et
+  danger conservées ; v1 et prose des notes non redessinées.
+- Bouton **Minuteur**, son libellé réel et son décompte alignés avec les autres
+  commandes. Suppression des tailles de texte propres aux libellés de menus.
+  Icônes de déclencheurs Minuteur/Interface/main/réactions dans Iconoir ; les
+  choix et animations de réactions restent des emojis sémantiques.
+- `IconButton` utilise les couleurs du thème plutôt que des bleus/gris fixes.
+  Icônes par défaut en rem ; agrandissement des préférences de texte respecté.
+- Noms accessibles corrigés : Interface inclut son libellé visible ; Participants
+  inclut son compteur. Tests de navigation utilisent le titre stable du menu et
+  vérifient séparément le nouveau nom accessible.
+- Validation locale : check/lint/build, 378 unitaires et régression v1 verts.
+  Passe UI complète sur trois moteurs : 210 cas verts, trois assertions de
+  redimensionnement à seuil fixe échouées car le zoom initial dépend de la
+  hauteur des barres. Assertion remplacée par la variation exacte de 80 unités
+  monde ; les trois redimensionnements et les trois scénarios design system
+  repassent ensuite (6/6). Aucun contrôle fonctionnel supprimé.
+- Le scénario design system vérifie trois thèmes, quatre largeurs, le libellé
+  **Minuteur en français**, la version anglaise, clavier, focus, icônes, état
+  désactivé et taille de texte agrandie. Axe sans violation sur les barres
+  desktop/mobile dans les trois thèmes ; captures examinées clair et sombre.
+- Contrat et limites : [DESIGN_SYSTEM_V2.md](DESIGN_SYSTEM_V2.md). Première passe
+  sur les commandes, pas déclaration d’achèvement d’un design system exhaustif.
+
 ### Retour après beta.30 — déployé dans beta.31
 
 - En-tête d’identité des notes non sélectionnable et utilisable pour déplacer

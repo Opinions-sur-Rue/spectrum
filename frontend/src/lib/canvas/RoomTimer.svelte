@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { RoomState } from './room-client';
@@ -63,7 +64,7 @@
 			data-testid="room-timer"
 			data-finished={finished}
 		>
-			<span aria-hidden="true">⏱</span>
+			<Icon name="timer" />
 			<div class="timer-copy">
 				<span role="timer" aria-label={m.timer_title()} aria-live="off"
 					>{timerLabel(remaining)}</span
@@ -75,7 +76,7 @@
 	{#if room.role === 'admin'}
 		<details bind:this={menu} class="relative z-40" use:toolbarMenu>
 			<summary class="toolbar-summary" aria-label={m.timer_setup()} title={m.timer_setup()}>
-				<span aria-hidden="true">⏱</span><span class="hidden sm:inline">{m.timer_title()}</span>
+				<Icon name="timer" /><span class="toolbar-label hidden sm:inline">{m.timer_title()}</span>
 			</summary>
 			<div class="toolbar-popover bg-base-100 w-64 rounded-xl border p-3 shadow-xl">
 				<form
@@ -154,10 +155,7 @@
 		padding: 0.35rem 0.65rem;
 		border: 1px solid currentColor;
 		border-radius: var(--v2-radius-pill);
-		font-size: var(--v2-text-sm);
-		font-weight: 600;
 		font-variant-numeric: tabular-nums;
-		min-height: 36px;
 	}
 	.timer-copy {
 		display: flex;
@@ -193,11 +191,6 @@
 	@media (prefers-reduced-motion: reduce) {
 		.finished {
 			animation: none;
-		}
-	}
-	@media (max-width: 639px) {
-		.timer-readout {
-			min-height: 44px;
 		}
 	}
 </style>

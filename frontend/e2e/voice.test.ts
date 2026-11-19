@@ -322,7 +322,7 @@ test('promotion, demotion and kick never reconnect other voice participants', as
 		const actorControls = actor.getByTestId('voice-controls');
 		await expect(actorControls).toHaveAttribute('data-status', 'connected', { timeout: 30000 });
 		const actorConnections = await actor.evaluate(() => window.__voiceFixture.voiceSockets.length);
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		for (let cycle = 0; cycle < 2; cycle++) {
 			await page.getByRole('button', { name: /^Promote / }).click();
 			await expect(actor.getByTestId('own-role')).toHaveText('participant');
@@ -424,9 +424,9 @@ test('admin mute targets one microphone; only its owner resumes, and hold mode r
 		}
 		await send(actor, 'room.profile', { nickname: 'Noisy' });
 		await expect(actor.getByTestId('edit-pseudonym')).toContainText('Noisy');
-		await admin.getByLabel('People', { exact: true }).click();
+		await admin.getByTitle('People', { exact: true }).click();
 		await admin.getByRole('button', { name: 'Promote Noisy', exact: true }).click();
-		await admin.getByLabel('People', { exact: true }).click();
+		await admin.getByTitle('People', { exact: true }).click();
 		for (const client of [admin, actor, listener]) {
 			await client.getByTestId('audio-toggle').click();
 			await expect(client.getByTestId('voice-controls')).toHaveAttribute(
@@ -448,7 +448,7 @@ test('admin mute targets one microphone; only its owner resumes, and hold mode r
 		const old = grants.find((grant) => grant.canPublish)!;
 		expect(old).toBeTruthy();
 		const validationURL = old.url.replace(/^ws/, 'http') + '/rtc/validate?protocol=16';
-		await admin.getByLabel('People', { exact: true }).click();
+		await admin.getByTitle('People', { exact: true }).click();
 		const mute = admin.getByRole('button', { name: "Mute Noisy's microphone", exact: true });
 		await mute.click();
 		await expect(mute).toBeDisabled();
@@ -542,7 +542,7 @@ test('speaking time is attributed to the member who spoke and shared live', asyn
 	await syntheticMicrophone(actorContext);
 	const openPeople = async (client: Page) => {
 		const panel = client.getByTestId('people-panel');
-		if (!(await panel.isVisible())) await client.getByLabel('People', { exact: true }).click();
+		if (!(await panel.isVisible())) await client.getByTitle('People', { exact: true }).click();
 		await expect(panel).toBeVisible();
 	};
 	try {
@@ -620,7 +620,7 @@ test('an expired speaker does not disconnect the remaining microphone', async ({
 		const actor = await actorContext.newPage();
 		await actor.goto(page.url());
 		await expect(actor.getByTestId('own-role')).toHaveText('spectator');
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: /^Promote / }).click();
 		await expect(actor.getByTestId('own-role')).toHaveText('participant');
 		await actor.getByRole('button', { name: 'Join audio', exact: true }).click();
@@ -705,13 +705,13 @@ test('self-hosted voice: consent, spectator listening, live audio, and cached-to
 			timeout: 30000
 		});
 		expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(0);
-		await actor.getByLabel('People', { exact: true }).click();
+		await actor.getByTitle('People', { exact: true }).click();
 		await actor.getByLabel('Your pseudonym').fill('Speaker');
 		await actor.getByRole('button', { name: 'Save pseudonym', exact: true }).click();
-		await actor.getByLabel('People', { exact: true }).click();
-		await page.getByLabel('People', { exact: true }).click();
+		await actor.getByTitle('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: 'Promote Speaker', exact: true }).click();
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await expect(actor.getByTestId('own-role')).toHaveText('participant');
 		await expect(actor.getByRole('button', { name: 'Enable microphone', exact: true })).toBeEnabled(
 			{ timeout: 30000 }
@@ -754,7 +754,7 @@ test('self-hosted voice: consent, spectator listening, live audio, and cached-to
 		expect(claims.video.canPublish).toBe(true);
 		expect(claims.video.canPublishData).toBe(false);
 		expect(claims.video.canPublishSources).toEqual(['microphone']);
-		await listener.getByLabel('People', { exact: true }).click();
+		await listener.getByTitle('People', { exact: true }).click();
 		await expect(listener.getByText('Speaker is speaking', { exact: true })).toBeVisible({
 			timeout: 15000
 		});
@@ -776,8 +776,8 @@ test('self-hosted voice: consent, spectator listening, live audio, and cached-to
 					.evaluate((element) => (element as HTMLMediaElement).volume)
 			)
 			.toBeCloseTo(0.35);
-		await listener.getByLabel('People', { exact: true }).click();
-		await page.getByLabel('People', { exact: true }).click();
+		await listener.getByTitle('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await page.getByRole('button', { name: 'Demote Speaker', exact: true }).click();
 		await expect(actor.getByTestId('own-role')).toHaveText('spectator');
 		await expect(actor.getByRole('button', { name: 'Enable microphone', exact: true })).toHaveCount(
@@ -806,7 +806,7 @@ test('self-hosted voice: consent, spectator listening, live audio, and cached-to
 		);
 		expect(stale.status()).toBe(403);
 		await page.getByRole('button', { name: 'Promote Speaker', exact: true }).click();
-		await page.getByLabel('People', { exact: true }).click();
+		await page.getByTitle('People', { exact: true }).click();
 		await expect(actor.getByRole('button', { name: 'Enable microphone', exact: true })).toBeEnabled(
 			{ timeout: 30000 }
 		);

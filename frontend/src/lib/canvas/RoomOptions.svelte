@@ -19,7 +19,8 @@
 
 <details class="relative z-40" use:toolbarMenu>
 	<summary class="toolbar-summary" aria-label={m.ux_room_options()} title={m.ux_room_options()}
-		><Icon name="settings" /><span class="hidden text-xs sm:inline">{m.ux_room_menu_short()}</span
+		><Icon name="settings" /><span class="toolbar-label hidden sm:inline"
+			>{m.ux_room_menu_short()}</span
 		></summary
 	>
 	<div class="toolbar-popover bg-base-100 w-80 overflow-y-auto rounded-xl border p-4 shadow-xl">

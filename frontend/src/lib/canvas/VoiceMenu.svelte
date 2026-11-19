@@ -445,7 +445,9 @@
 				aria-label={m.ux_audio_options()}
 				title={m.ux_audio_options()}
 			>
-				<Icon name="more" /><span class="hidden text-xs sm:inline">{m.ux_audio_options()}</span>
+				<Icon name="more" /><span class="toolbar-label hidden sm:inline"
+					>{m.ux_audio_options()}</span
+				>
 			</summary>
 			<div
 				class="experimental-audio-panel toolbar-popover bg-base-100 w-80 space-y-3 rounded-xl border p-4 shadow-xl"

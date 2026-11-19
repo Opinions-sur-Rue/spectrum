@@ -111,8 +111,12 @@
 		open = details.open;
 	}}
 >
-	<summary class="toolbar-summary" aria-label={m.v2_people()} title={m.v2_people()}
-		><Icon name="people" /><span class="text-xs">{members.length}</span>{#if hands.length}<span
+	<summary
+		class="toolbar-summary"
+		aria-label={`${m.v2_people()} · ${members.length}`}
+		title={m.v2_people()}
+		><Icon name="people" /><span class="toolbar-label" aria-hidden="true">{members.length}</span
+		>{#if hands.length}<span
 				class="rounded-full bg-amber-100 px-1 text-[10px] text-amber-950"
 				aria-hidden="true"
 				title={m.social_hand_queue({ count: String(hands.length) })}>✋ {hands.length}</span

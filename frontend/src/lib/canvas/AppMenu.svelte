@@ -71,10 +71,10 @@
 	<summary
 		class="toolbar-summary"
 		data-testid="app-menu"
-		aria-label={m.v2_app_menu()}
+		aria-label={`${m.ux_interface_options()} : ${m.v2_app_menu()}`}
 		title={m.v2_app_menu()}
-		><span class="text-sm font-semibold" aria-hidden="true">Aa</span><span
-			class="hidden text-xs sm:inline">{m.ux_interface_options()}</span
+		><Icon name="palette" /><span class="toolbar-label hidden sm:inline"
+			>{m.ux_interface_options()}</span
 		></summary
 	>
 	<div class="toolbar-popover bg-base-100 w-72 space-y-4 rounded-xl border p-4 shadow-xl">

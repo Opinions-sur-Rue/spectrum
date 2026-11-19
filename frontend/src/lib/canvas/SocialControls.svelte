@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { onMount, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { RoomState, ReactionEvent } from './room-client';
@@ -51,7 +52,7 @@
 		aria-pressed={!!own?.handRaisedAt}
 		disabled={!ready}
 		onclick={() => send('room.hand', { raised: !own?.handRaisedAt })}
-		><span aria-hidden="true">✋</span><span class="hidden sm:inline"
+		><Icon name="hand" /><span class="toolbar-label hidden sm:inline"
 			>{own?.handRaisedAt ? m.social_lower_hand() : m.social_raise_hand()}</span
 		><span class="sr-only sm:hidden"
 			>{own?.handRaisedAt ? m.social_lower_hand() : m.social_raise_hand()}</span
@@ -61,14 +62,14 @@
 			<summary
 				class="toolbar-summary"
 				aria-label={m.social_reactions()}
-				title={m.social_reactions()}><span aria-hidden="true">☺</span></summary
+				title={m.social_reactions()}><Icon name="emoji" /></summary
 			>
 			<div
 				class="toolbar-popover bg-base-100 flex w-64 flex-wrap justify-center gap-1 rounded-xl border p-3 shadow-xl"
 			>
 				{#each ['👍', '👎', '❤️', '👏', '🤔', '😂'] as emoji (emoji)}<button
 						type="button"
-						class="btn btn-sm btn-ghost text-xl"
+						class="btn btn-sm btn-ghost reaction-choice"
 						aria-label={m.social_react({ emoji })}
 						disabled={!ready || cooldown}
 						onclick={() => {
