@@ -2,6 +2,17 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
+## [v2.0.0-beta.30] - 2026-11-19
+
+Deployed after complete CI 44447674132. Strict 100-second zero-activity gate, digest-pinned pair, unchanged voice services. Public HTTP, UI acceptance, the new note-command smoke, axe and CPU/GPU/CPU-fallback transcription pass.
+
+### Changed
+- Replace overlapping note-control groups with explicit Edit, Arrange, Moderation and Link zones. Keep save, pin and moderation visible; collapse formatting and link creation. Keep author editing separate from admin moderation and keep the mobile inspector's layout controls inside Arrange.
+- Choose a link target by searching its title, author or body excerpt. Show title, author and excerpt in a native radio list, and keep existing outgoing relations visible with their glyph. Link creation remains admin-only, matching the server authority.
+
+### Fixed
+- Keep a tall command dock on the roomier side of its note and let it scroll there. A full link picker can no longer cover the note and swallow the next pointer gesture.
+
 ## [v2.0.0-beta.29] - 2026-11-19
 
 Deployed after complete CI 44438724366. beta.26 and beta.27 were blocked by failed CI and never deployed; beta.28 was replaced after a public accessibility finding. Strict 100-second zero-activity gate, digest-pinned pair, unchanged voice services. Public UI acceptance and CPU/GPU/CPU-fallback transcription smokes pass.

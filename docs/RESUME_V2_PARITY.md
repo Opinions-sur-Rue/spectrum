@@ -1,6 +1,34 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.29 in production, second UI batch accepted
+## Current state — beta.30 in production, note-command batch accepted
+
+- Production **beta.30**, source `fa87b8998bc7070f05aedbaf7f145f644b742cd5`,
+  deployed **2026-11-19 03:31 UTC** after complete CI 44447674132 and the strict
+  100-second zero-room/participant/backend-connection gate. Reviewed runner used;
+  default-on asset overlay unchanged. LiveKit/PeerJS/TURN image/start times intact.
+- Frontend `sha256:644cfd67364fe0950c112a587e52ca0171227f3d1860f699a205dfe17e472899`;
+  backend `sha256:4c431e55cdb43e7faccde6572f24146aaf17db661b6a64991905953b7ac671a4`.
+  Assets `/opt/spectrum/stt/releases/beta30-fa87b89`, same 38 verified public
+  files. Root-only rollback
+  `/opt/spectrum/deploy-v2.0.0-beta.30-20261119T033127Z` restores the beta.29
+  pair/environment; runtime secrets and voice configuration unchanged.
+- Third UI batch delivered: note controls split into explicit Edit, Arrange,
+  Moderation and Link zones with collapsed formatting/link creation; link target
+  search by title, author or body excerpt with a native radio list; existing
+  relations keep their glyph. The dock scrolls on the roomier side instead of
+  covering its note. No voice/LiveKit/PeerJS/TURN changes.
+- Local evidence: 372 unit tests in 54 files; check/lint/build green; 64/64 UI
+  Chromium, 64/64 Firefox, 4/4 mobile panels per engine and three focused WebKit
+  regressions (inspector, dock, note actions/link creation).
+- Public acceptance: beta.29's 11/11 UI steps and 22 captures replayed green with
+  zero axe violations on six screens. Focused command smoke confirmed the four
+  zones, title/author/excerpt search, native radio context, link creation and
+  glyph, an open dock above the note without overlap, and mobile position
+  controls; axe found no violation with the picker open. CPU, automatic GPU and
+  visible single CPU fallback all produce real captions with microphone-free
+  preparation, spectator history and no late publication.
+
+### Previous accepted release — beta.29 (historical)
 
 - Production **beta.29**, source `b731a9f6f0f79eeb241a464916848d0d6bb14f0c`,
   deployed **2026-11-19 02:05 UTC** after complete CI 44438724366 and the strict

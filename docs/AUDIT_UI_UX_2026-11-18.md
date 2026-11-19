@@ -5,12 +5,14 @@ déploiement après validation. **Premier lot déployé et validé dans beta.25*
 confirmation des suppressions, proposition monoligne lisible et noms des
 participants sur une ligne d’identité distincte. **Deuxième lot déployé et validé
 dans beta.29** : notes privées hors Discussion, minuteur harmonisé, symboles/
-légende des liens et aide modale avec pseudonyme. Les autres points de l’audit
-restent à traiter dans des lots suivants. GPU par défaut/repli CPU est un commit
-distinct. Validation locale du deuxième lot : 367 unités, contrôles statiques/
-build, 68/68 UI Chromium et Firefox, 34+34 WebKit, régressions ciblées par moteur.
-CI complète, gate d’activité, recette publique UI et transcription CPU/GPU/repli
-réussies ; la recette a aussi corrigé un nom accessible manquant avant beta.29.
+légende des liens et aide modale avec pseudonyme. **Troisième lot déployé dans
+beta.30** : commandes de notes en zones explicites et cible de lien recherchable.
+Les autres points de l’audit restent à traiter dans des lots suivants. GPU par
+défaut/repli CPU est un commit distinct. Validation locale du troisième lot :
+372 unités, contrôles statiques/build, 64/64 UI Chromium et Firefox, 4/4
+panneaux mobiles par moteur et 3 régressions WebKit ciblées. CI complète, gate
+d’activité, recette publique UI, commandes de notes et transcription
+CPU/GPU/repli réussies.
 
 ## Feedback utilisateur ajouté après l’audit
 
@@ -153,6 +155,15 @@ recherche, titre, auteur ou extrait. Ne pas confondre édition de l’auteur et
 modération de l’admin, ni refaire inutilement l’inspecteur mobile déjà livré.
 Le feedback utilisateur ajoute des symboles/flèches plus explicites directement
 sur les liens, avec sens et type lisibles même sans distinction de couleur.
+
+**État beta.30 :** quatre zones nommées et espacées dans le dock — Modifier
+(enregistrer/annuler, mise en forme repliée), Organiser (épingler, supprimer,
+position/taille dans l’inspecteur mobile), Modération (admin uniquement) et
+Relier. La création de lien est repliée sous « Relier une note » ; la recherche
+porte sur le titre, l’auteur et le texte, avec titre, auteur et extrait dans une
+liste de boutons radio native. Les liens existants restent visibles avec leur
+glyphe. Le dock reste du côté le plus spacieux et défile au lieu de recouvrir la
+note. L’inspecteur mobile est conservé, ses commandes déplacées dans Organiser.
 
 Preuve : `07-note-actions-desktop.png` ; référence : `NoteCard.svelte`.
 

@@ -60,6 +60,17 @@ moteurs puis en production (22 captures, axe sans violation, CPU/GPU/repli).
 - Validation du deuxième lot : 367 tests unitaires, check/lint/build verts,
   68/68 cas UI Chromium et Firefox, 34+34 WebKit, plus 8 régressions ciblées par
   moteur sur panneaux, focus, aide et notes. Aucune assertion retirée.
+- Troisième lot déployé dans beta.30 : commandes de notes en zones explicites
+  Modifier / Organiser / Modération / Relier. Mise en forme et création de lien
+  repliées ; recherche de cible par titre, auteur ou extrait ; liste radio native
+  avec contexte ; liens existants toujours visibles. Le dock reste du côté le
+  plus spacieux et défile plutôt que de recouvrir la note. L’inspecteur mobile
+  garde ses commandes de position dans Organiser. Validation locale : 372 tests
+  unitaires, 64/64 UI Chromium et Firefox, 4/4 panneaux mobiles par moteur et
+  3 régressions WebKit ciblées (inspecteur, dock, liens). Recette publique :
+  zones et focus, recherche titre/auteur/extrait, création de lien, dock sans
+  recouvrement et axe sans violation ; les 11 étapes UI et les smokes
+  transcription CPU/GPU/repli restent verts.
 - Publication : tags beta.26 à beta.29. beta.26 et beta.27 ont échoué en CI
   (erreur Svelte-check, import e2e inutilisé) et n’ont pas été déployées. La
   recette publique de beta.28 a trouvé un bouton d’aide sans nom accessible sur
@@ -67,24 +78,28 @@ moteurs puis en production (22 captures, axe sans violation, CPU/GPU/repli).
 
 ## État de publication
 
-- **Production : beta.29**, déployée le 19 novembre à 02:05 UTC. Source
-  `b731a9f6f0f79eeb241a464916848d0d6bb14f0c`,
-  [CI 44438724366](https://github.com/Opinions-sur-Rue/spectrum/actions/runs/44438724366)
+- **Production : beta.30**, déployée le 19 novembre à 03:31 UTC. Source
+  `fa87b8998bc7070f05aedbaf7f145f644b742cd5`,
+  [CI 44447674132](https://github.com/Opinions-sur-Rue/spectrum/actions/runs/44447674132)
   entièrement verte. Frontend
-  `sha256:6830528470601c5f72111585c9c06776d279d25e945593b3c40862b6521da23c`,
-  backend `sha256:e21f12c7a99f47096a262aaceff8ec0de888fc1146215c31323bb0c2105f6c8a`.
+  `sha256:644cfd67364fe0950c112a587e52ca0171227f3d1860f699a205dfe17e472899`,
+  backend `sha256:4c431e55cdb43e7faccde6572f24146aaf17db661b6a64991905953b7ac671a4`.
   Paire épinglée par digest, 100 secondes sans salle, participant audio ni
-  connexion backend. LiveKit/PeerJS/TURN inchangés. Assets
-  `/opt/spectrum/stt/releases/beta29-b731a9f` (38 fichiers vérifiés) ; retour
-  arrière `/opt/spectrum/deploy-v2.0.0-beta.29-20261119T020539Z` vers beta.28.
-- Recette publique beta.29 : 11 étapes UI sur 11, 22 captures, axe sans violation
-  sur six écrans, minuteur 12 px/600 comme les boutons, légende et glyphes de
-  relations, panneau privé dédié, pseudonyme et focus rendus. CPU, GPU automatique
+  connexion backend. LiveKit/PeerJS/TURN inchangés. Assets recopiés et vérifiés
+  dans `/opt/spectrum/stt/releases/beta30-fa87b89` (38 fichiers, même révision de
+  modèles) ; retour arrière
+  `/opt/spectrum/deploy-v2.0.0-beta.30-20261119T033127Z` vers beta.29.
+- Recette publique beta.30 : `/`, `/v2/` et `/status` en 200 ; 11 étapes UI sur
+  11 et 22 captures de la recette beta.29 rejouées sans échec, axe sans violation
+  sur six écrans. Recette ciblée des commandes : quatre zones Modifier/Organiser/
+  Modération/Relier, recherche par titre, auteur et extrait, liste radio avec
+  contexte, création de lien et glyphe, dock ouvert sans recouvrement (placement
+  above), commandes de position mobiles, axe sans violation. CPU, GPU automatique
   et repli CPU visible passent avec sous-titres réels, préparation sans micro,
-  cache modèle réutilisé, historique spectateur et absence de publication tardive.
+  historique spectateur et absence de publication tardive.
 - Historique : beta.28 déployée à 01:33 UTC puis remplacée après la régression
   d’accessibilité détectée en recette. beta.26 et beta.27 ont échoué en CI et n’ont
-  jamais été déployées. beta.25 reste la référence précédente acceptée.
+  jamais été déployées. beta.29 reste la référence précédente acceptée.
 - Toujours : paire frontend/backend validée ensemble, contrôle d’activité strict,
   pas d’interruption de réunion, v1 et services voix préservés.
 
