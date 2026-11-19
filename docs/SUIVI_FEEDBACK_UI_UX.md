@@ -7,7 +7,7 @@ déjà terminée : elles ne constituent pas le backlog actuel.
 
 ## Nouvelle passe UI/UX et demande GPU automatique
 
-### Design system — première passe locale, non déployée
+### Design system — première passe déployée dans beta.32
 
 - Contrat partagé dans `frontend/src/lib/canvas/design-system.css`, limité à
   `.v2-shell` : famille UI, taille/graisse/interligne, espacements, rayons,
@@ -34,6 +34,26 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   desktop/mobile dans les trois thèmes ; captures examinées clair et sombre.
 - Contrat et limites : [DESIGN_SYSTEM_V2.md](DESIGN_SYSTEM_V2.md). Première passe
   sur les commandes, pas déclaration d’achèvement d’un design system exhaustif.
+- Publication : source `4e93ffb`, tag immuable `v2.0.0-beta.32`, CI complète
+  `44505388781` verte : 378 unitaires, 71 cas UI par moteur, 18 cas voix,
+  régression v1 et six cas du chargeur. Déploiement le 19 novembre à 10:51 UTC,
+  après 100 secondes sans activité ; LiveKit/PeerJS/TURN inchangés. Assets :
+  38 fichiers vérifiés dans `beta32-4e93ffb`.
+- Recette publique finale : `/`, `/v2/`, `/status` répondent 200 ; 11 étapes UI
+  et 22 captures ; six écrans généraux axe sans violation. Contrôles français
+  vérifiés sur trois thèmes et quatre largeurs : libellé **Minuteur** à 12 px /
+  600 / 15 px d’interligne comme les voisins, icônes 18 px, cibles 36/44 px,
+  clavier et agrandissement du texte. Six audits axe des barres sans violation,
+  captures françaises desktop/mobile clair/sombre examinées. Recette notes,
+  liens, inspecteur et aide Android/iOS verte ; trois audits axe ciblés verts.
+- CPU, GPU et repli CPU injecté produisent des sous-titres, avec préparation
+  sans micro/menu fermé, historique spectateur, une capture et aucun envoi tardif.
+  Premiers essais conservés : resets/timeouts avant chargement public, attente de
+  création de lien expirée, démarrage mobile incomplet, téléchargement interrompu,
+  puis délai avant les premiers sous-titres GPU (avant injection). Reprises finales
+  vertes sans changement produit ; causes des délais non toutes établies. Le
+  harness mobile attend désormais explicitement le lobby connecté avant l’aide.
+  Aucun nettoyage du stockage utilisateur ni redémarrage supplémentaire.
 
 ### Retour après beta.30 — déployé dans beta.31
 

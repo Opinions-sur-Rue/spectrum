@@ -1,6 +1,38 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.31 in production, note gestures and mobile entry delivered
+## Current state — beta.32 in production, shared control styles delivered
+
+- Production **beta.32**, source `4e93ffbae4bcbae44d2388f8c2e02d652295929f`,
+  deployed **2026-11-19 10:51 UTC** after complete CI `44505388781` and the strict
+  100-second zero-room/participant/backend-connection gate. LiveKit/PeerJS/TURN
+  image/start times unchanged; runtime secrets and default-on overlay preserved.
+- Frontend `sha256:2762228a28c366a5cc081045dbd5ca56fe8dface46c5c48ebb888389e5214b3a`;
+  backend `sha256:6f597500e44782cf8983ae51623c3454beac3b06e40bb421f622c86c994bb187`.
+  Assets `/opt/spectrum/stt/releases/beta32-4e93ffb`, 38 verified files. Root-only
+  rollback `/opt/spectrum/deploy-v2.0.0-beta.32-20261119T105139Z` retains beta.31.
+- Shared v2 control typography/metrics/states, theme-aware icon buttons, bundled
+  timer/interface/hand/reaction trigger icons, accessible Interface/People names.
+  The actual French **Minuteur** label now matches adjacent controls, not just
+  the readout. Contract in `docs/DESIGN_SYSTEM_V2.md`; not a complete UI redesign.
+- Complete CI: 378 unit tests, 71 UI tests per engine (213 total), 18 voice tests,
+  v1 regression and six model-loader regressions. Local check/lint/build pass.
+- Public final runs: HTTP routes 200, 11 UI steps and 22 captures; six general
+  axe screens clean. Control smoke checks three themes/four widths, actual French
+  label, 12px/600/15px typography, 36/44px targets, icons, keyboard and text scaling;
+  six toolbar axe samples clean. Note/header/link/mobile inspector and Android/iOS
+  entry smoke passes with three additional clean axe samples. Screens reviewed.
+- Public CPU, GPU and injected GPU-to-CPU recovery produce captions with single
+  microphone capture, spectator history and no late publication. Initial runs
+  recorded connection resets/timeouts, a link-create wait, incomplete mobile boot,
+  an interrupted GPU download and initial-caption timeout before fault injection.
+  Final retries pass without app changes or user-storage cleanup; not all causes
+  established. Mobile harness now waits for connected lobby before checking help.
+- Evidence: `/tmp/opencode/beta32-deploy.log`, `beta32-production-*.log`,
+  `/tmp/opencode/uiux-beta32-production/`, `/tmp/opencode/uiux-beta32-controls/`,
+  `/tmp/opencode/uiux-beta32-note-entry/`. Real-device Discord/AT and prolonged ASR
+  validation remain open; no new promise of background microphone continuity.
+
+### Previous accepted release — beta.31 (historical)
 
 - Production **beta.31**, source `62413e48934efef54b1fc988ae1ca8c0bf38675b`,
   deployed **2026-11-19 06:57 UTC** after complete CI `44474475801` and the strict

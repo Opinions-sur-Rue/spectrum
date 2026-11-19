@@ -2,6 +2,18 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
+## [v2.0.0-beta.32] - 2026-11-19
+
+Deployed after complete CI 44505388781 and the strict 100-second zero-activity gate. Digest-pinned frontend/backend pair; voice services unchanged. Public UI acceptance, French control typography across themes/viewports, note/mobile-entry checks, axe and CPU/GPU/injected CPU-fallback transcription pass on final runs. Initial network/startup/download failures and a pre-injection caption timeout remain recorded; no product changes or user-storage cleanup were needed for the successful reruns.
+
+### Changed
+- Introduce a v2-only control design contract for UI font, size, weight, line-height, spacing, radii, responsive targets, focus, open and disabled states. Preserve primary/danger variants and v1.
+- Align the actual Timer menu label, not only its readout, with adjacent controls. Labels inherit typography instead of overriding it with unrelated utilities.
+- Use bundled Iconoir graphics for Timer, Interface, hand and reaction triggers; retain semantic emoji reactions. Scale default icons with text preferences and use theme-aware icon-button colours.
+
+### Fixed
+- Include the visible Interface label and People count in their accessible names.
+
 ## [v2.0.0-beta.31] - 2026-11-19
 
 Deployed after complete CI 44474475801 and the strict 100-second zero-activity gate. Digest-pinned frontend/backend pair; voice services unchanged. Public UI acceptance, note/header/mobile-entry checks and axe pass. CPU and GPU captions pass; injected GPU-to-CPU recovery passes in a fresh browser context. Two persistent-profile recovery runs timed out before fault injection; cause remains unconfirmed.
