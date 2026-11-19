@@ -12,6 +12,148 @@ import {
 import type { SpectrumState } from '../src/lib/canvas/room-client';
 import AxeBuilder from '@axe-core/playwright';
 
+test('own opinion stays readable outside the canvas and offers keyboard focus without a vote', async ({
+	page,
+	browser
+}, testInfo) => {
+	const sent: string[] = [];
+	page.on('websocket', (socket) => {
+		if (socket.url().includes('/spectrum/ws'))
+			socket.on('framesent', ({ payload }) => sent.push(String(payload)));
+	});
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const opinion = page.getByTestId('current-opinion');
+	const value = opinion.locator('.opinion-value');
+	await expect(value).toHaveText('My opinion: Not replied yet');
+	await moveActivityPellet(page, 490, 100);
+	await expect(value).toHaveText('My opinion: Neutral');
+	await expect(page.getByTestId('opinion-announcement')).toHaveText('My opinion: Neutral');
+	const movementCount = () => sent.filter((data) => data.includes('"spectrum.move"')).length;
+	const before = movementCount();
+	await page.getByLabel('How to position myself', { exact: true }).click();
+	await page.getByRole('button', { name: 'Return to my pellet', exact: true }).click();
+	const own = page.getByRole('button', { name: 'Your position', exact: true });
+	await expect(own).toBeFocused();
+	expect(movementCount()).toBe(before);
+	for (let index = 0; index < 5; index++) await own.press('Shift+ArrowDown');
+	await expect(value).toHaveText('My opinion: outside the opinion areas');
+	for (let index = 0; index < 5; index++) await own.press('Shift+ArrowUp');
+	await expect(value).toHaveText('My opinion: Neutral');
+	for (const width of [390, 320]) {
+		await page.setViewportSize({ width, height: 844 });
+		await expect(opinion.locator('.opinion-value')).toHaveCSS('font-size', '14px');
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+			width
+		);
+		const readout = (await opinion.boundingBox())!;
+		const profile = (await page.getByTestId('edit-pseudonym').boundingBox())!;
+		expect(profile.width).toBeGreaterThan(150);
+		expect(readout.y).toBeGreaterThanOrEqual(profile.y + profile.height);
+		const canvas = (await page.getByTestId('canvas-viewport').boundingBox())!;
+		expect(readout.y + readout.height).toBeLessThanOrEqual(canvas.y + 1);
+		await page.screenshot({ path: testInfo.outputPath(`opinion-${width}.png`) });
+	}
+	await page.getByLabel('How to position myself', { exact: true }).click();
+	const axe = await new AxeBuilder({ page }).include('.v2-guidancebar').analyze();
+	expect(axe.violations).toEqual([]);
+	await page.keyboard.press('Escape');
+	const observerContext = await newRoomContext(browser, { storageState: englishLocale });
+	try {
+		const observer = await observerContext.newPage();
+		await observer.goto(page.url());
+		await expect(observer.getByTestId('own-role')).toHaveText('spectator');
+		await expect(observer.getByTestId('current-opinion')).toHaveCount(0);
+	} finally {
+		await observerContext.close();
+	}
+});
+
+test('keyboard note layout and linked-note navigation preserve drafts on desktop and mobile', async ({
+	page
+}, testInfo) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	for (const [index, title] of ['Keyboard source', 'Keyboard destination'].entries()) {
+		await page.getByTestId('new-note').click();
+		await expect(page.locator('[data-note-id]')).toHaveCount(index + 1);
+		const card = page.locator('[data-note-id]').last();
+		await card.getByRole('heading', { level: 1 }).fill(title);
+		await card.getByRole('button', { name: 'Save note', exact: true }).click();
+		await expect(card).toHaveAttribute('aria-label', title);
+	}
+	const sourceId = await page.locator('[data-note-id]').first().getAttribute('data-note-id');
+	const destinationId = await page.locator('[data-note-id]').last().getAttribute('data-note-id');
+	const source = page.locator(`[data-note-id="${sourceId}"]`);
+	const destination = page.locator(`[data-note-id="${destinationId}"]`);
+	async function findSource() {
+		await page.getByLabel('Find a note', { exact: true }).click();
+		await page
+			.getByTestId('note-navigator')
+			.getByRole('button', { name: /Keyboard source/ })
+			.click();
+	}
+	await findSource();
+	await expect(source).toBeFocused();
+	await source.getByRole('heading', { level: 1 }).fill('Keyboard source with unsaved draft');
+	const layout = source.getByText('Canvas position and size', { exact: true });
+	await layout.focus();
+	await layout.press('Enter');
+	const before = cssPixels(await source.getAttribute('style'), 'left');
+	const right = source.getByRole('button', { name: 'Move note right', exact: true });
+	await right.focus();
+	await right.press('Enter');
+	await expect
+		.poll(async () => cssPixels(await source.getAttribute('style'), 'left'))
+		.toBe(before + 40);
+	await expect(right).toBeFocused();
+	await expect(source.locator('.note-tools')).toHaveCSS('opacity', '1');
+	await page.screenshot({ path: testInfo.outputPath('desktop-position.png') });
+	await expect(source.getByRole('heading', { level: 1 })).toHaveText(
+		'Keyboard source with unsaved draft'
+	);
+	await source.getByRole('button', { name: 'Pin note', exact: true }).click();
+	await expect(right).toBeDisabled();
+	await source.getByRole('button', { name: 'Unpin note', exact: true }).click();
+	await source.getByText('Link a note', { exact: true }).click();
+	await source.getByRole('radio', { name: /Keyboard destination/ }).check();
+	await source.getByRole('button', { name: 'Create link', exact: true }).click();
+	const linked = source.getByRole('button', { name: /Open linked note “Keyboard destination”/ });
+	await expect(linked).toBeVisible();
+	const desktopAxe = await new AxeBuilder({ page })
+		.include(`[data-note-id="${sourceId}"] .note-tools`)
+		.analyze();
+	expect(desktopAxe.violations).toEqual([]);
+	await linked.focus();
+	await expect(source.locator('.note-tools')).toHaveCSS('opacity', '1');
+	await page.screenshot({ path: testInfo.outputPath('desktop-links.png') });
+	await linked.press('Enter');
+	await expect(destination).toBeFocused();
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+	await page.setViewportSize({ width: 390, height: 844 });
+	await findSource();
+	await source.locator('[data-note-inspect]').click();
+	await expect(page.getByRole('dialog')).toHaveCount(1);
+	await linked.click();
+	await expect(page.getByRole('dialog')).toHaveCount(1);
+	await expect(page.getByRole('dialog').getByRole('heading', { level: 1 })).toHaveText(
+		'Keyboard destination'
+	);
+	await expect(destination.locator('[data-note-inspector-close]')).toBeFocused();
+	await destination.locator('[data-note-inspector-close]').click();
+	await findSource();
+	await source.locator('[data-note-inspect]').click();
+	await expect(source.getByRole('heading', { level: 1 })).toHaveText(
+		'Keyboard source with unsaved draft'
+	);
+	await expect(source.getByText('Unsaved', { exact: true })).toBeVisible();
+	const axe = await new AxeBuilder({ page }).include('dialog[open]').analyze();
+	expect(axe.violations).toEqual([]);
+	await page.screenshot({ path: testInfo.outputPath('mobile-links.png') });
+});
+
 test('design system aligns timer labels, toolbar controls and icons across themes and viewports', async ({
 	page
 }, testInfo) => {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ComponentProps } from 'svelte';
-import { cleanup, fireEvent, render } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte';
 import NoteCard from './NoteCard.svelte';
 import { NoteDrafts } from './note-drafts';
 import type { NoteModel } from './models';
@@ -163,7 +163,11 @@ it('searches a link target by title, author or excerpt and creates one link', as
 	const { view, send } = setup({ admin: true, notes: [note, other] });
 	await fireEvent.click(view.getByText(m.ux_note_link_add()));
 	const search = view.getByRole('searchbox', { name: m.ux_note_target_search() });
-	const count = (text: string) => expect(view.getByRole('status').textContent).toContain(text);
+	const count = (text: string) =>
+		expect(
+			within(view.getByRole('group', { name: m.ux_note_target_legend() })).getByRole('status')
+				.textContent
+		).toContain(text);
 
 	await fireEvent.input(search, { target: { value: 'samira' } });
 	expect(view.getByRole('radio', { name: /Second argument/ })).toBeInTheDocument();
@@ -199,4 +203,95 @@ it('does not tempt readers with link creation but shows outgoing relations', () 
 	expect(view.queryByRole('searchbox', { name: m.ux_note_target_search() })).toBeNull();
 	expect(view.queryByRole('button', { name: m.v2_create_link() })).toBeNull();
 	expect(view.getByText(/soutient|supports/)).toBeInTheDocument();
+});
+
+it('offers desktop position commands without changing the editor or requiring a drag', async () => {
+	const move = vi.fn();
+	const { view } = setup({ move });
+	await fireEvent.click(view.getByText(m.ux_note_layout()));
+	for (const [label, x, y] of [
+		[m.ux_note_left(), -40, 0],
+		[m.ux_note_right(), 40, 0],
+		[m.ux_note_up(), 0, -40],
+		[m.ux_note_down(), 0, 40]
+	] as const) {
+		await fireEvent.click(view.getByRole('button', { name: label }));
+		expect(move).toHaveBeenLastCalledWith(note.id, x, y, true);
+	}
+	expect(move).toHaveBeenCalledTimes(4);
+	expect(view.getByRole('status')).toHaveTextContent(m.ux_note_position({ x: 0, y: 0 }));
+	expect(view.getByRole('spinbutton', { name: m.ux_note_width() })).toHaveValue(300);
+});
+
+it.each([{ ready: false }, { note: { ...note, pinned: true } }])(
+	'disables layout for unavailable authority: %j',
+	async (change) => {
+		const move = vi.fn();
+		const { view } = setup({ move, ...change });
+		await fireEvent.click(view.getByText(m.ux_note_layout()));
+		const right = view.getByRole('button', { name: m.ux_note_right() });
+		expect(right).toBeDisabled();
+		await fireEvent.click(right);
+		expect(move).not.toHaveBeenCalled();
+	}
+);
+
+it('does not offer layout controls to readers', () => {
+	const { view } = setup({ manageable: false, editable: false });
+	expect(view.queryByText(m.ux_note_layout())).toBeNull();
+});
+
+it.each([{ manageable: false }, { hidden: true }, { presentation: true }])(
+	'fences a retained nudge handler after context changes: %j',
+	async (change) => {
+		const move = vi.fn();
+		const { view } = setup({ move });
+		await fireEvent.click(view.getByText(m.ux_note_layout()));
+		const right = view.getByRole('button', { name: m.ux_note_right() });
+		await view.rerender(change);
+		await fireEvent.click(right);
+		expect(move).not.toHaveBeenCalled();
+	}
+);
+
+it('labels outgoing links with source, relation, destination and unique delete names', async () => {
+	const navigate = vi.fn();
+	const { view, send } = setup({
+		admin: true,
+		navigate,
+		notes: [note, other, { ...other, id: 'note-c' }],
+		edges: [
+			{ id: 'edge-1', from: note.id, to: other.id, relation: 'supports', label: '' },
+			{ id: 'edge-2', from: note.id, to: 'note-c', relation: 'supports', label: '' }
+		]
+	});
+	const list = view.getByRole('list', { name: m.ux_note_links_from({ title: note.title }) });
+	const rows = within(list).getAllByRole('listitem');
+	expect(rows).toHaveLength(2);
+	const deletes = rows.map((row) => within(row).getAllByRole('button')[1]);
+	expect(deletes[0].getAttribute('aria-label')).toContain(note.title);
+	expect(deletes[0].getAttribute('aria-label')).toContain(other.title);
+	expect(deletes[0].getAttribute('aria-label')).not.toBe(deletes[1].getAttribute('aria-label'));
+	await fireEvent.click(
+		within(rows[0]).getByRole('button', {
+			name: m.ux_note_open_linked({ title: other.title, author: 'Samira' })
+		})
+	);
+	await waitFor(() => expect(navigate).toHaveBeenCalledExactlyOnceWith(other.id));
+	expect(send).not.toHaveBeenCalled();
+	await fireEvent.click(deletes[1]);
+	expect(send).toHaveBeenCalledExactlyOnceWith('edge.delete', { edgeId: 'edge-2' });
+});
+
+it('never navigates to a missing target or reveals its content', () => {
+	const navigate = vi.fn();
+	const { view } = setup({
+		navigate,
+		editable: false,
+		manageable: false,
+		edges: [{ id: 'edge-1', from: note.id, to: 'missing', relation: 'supports', label: '' }]
+	});
+	expect(view.getByText(m.ux_note_link_unavailable())).toBeInTheDocument();
+	expect(view.container.querySelector('.relation-target')).toBeNull();
+	expect(navigate).not.toHaveBeenCalled();
 });

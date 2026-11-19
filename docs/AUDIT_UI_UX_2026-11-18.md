@@ -125,6 +125,16 @@ libellés de suppression uniques. Vérifier ensuite avec un lecteur d’écran r
 
 Références : `NoteCard.svelte`, `edge-node.ts`.
 
+**Passe locale après beta.32, non déployée :** le volet « Position et taille »
+est proposé aussi sur desktop dans Organiser, avec déplacements de 40 unités,
+dimensions et position annoncée. Pas de détournement des flèches de l’éditeur.
+Les liens sortants forment une liste nommée par la source ; destination et auteur
+sont lisibles, un bouton cadre/focalise la cible (ouvre son inspecteur sur mobile),
+et chaque suppression précise rang, source, relation et destination. Les cibles
+absentes ne sont pas navigables. Permissions, épinglage et brouillons conservés.
+Tests clavier/navigation/axe automatisés verts sur trois moteurs ; lecteur
+d’écran réel toujours à vérifier, ne pas déclarer l’audit d’accessibilité clos.
+
 ## Améliorations à fort rendement
 
 ### 4. Donner la priorité au nom dans les participants
@@ -182,6 +192,14 @@ un groupe plus important avant de décider d’un traitement automatique.
 
 Preuves : `05-participant-mobile.png`, `16-admin-320x568.png` ; référence :
 `SpectrumBoard.svelte`.
+
+**Passe locale après beta.32, non déployée :** « Mon avis » hors du canvas affiche
+la case de la pastille propre selon la géométrie SVG et l’état serveur. Résumé
+absent pour les spectateurs/en présentation ; attente, hors zone et hors ligne
+distingués. Aide courte et retour à sa pastille avec focus clavier sans vote
+implicite. Annonce de case stabilisée, annulée lors des changements de contexte.
+Tests sur trois moteurs et captures 320/390 px ; validation lecteur d’écran réel,
+choix alternatif d’une case et collisions de noms en grand groupe restent ouverts.
 
 ### 7. Clarifier audience et conservation des données
 

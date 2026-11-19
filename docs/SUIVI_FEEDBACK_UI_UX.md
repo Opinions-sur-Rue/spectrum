@@ -7,6 +7,49 @@ déjà terminée : elles ne constituent pas le backlog actuel.
 
 ## Nouvelle passe UI/UX et demande GPU automatique
 
+### Avis courant lisible hors du canvas — local, non déployé
+
+- Audit §6 : résumé « Mon avis : … » dans la barre de guidage, à taille UI
+  indépendante du zoom du canvas. Géométrie SVG existante et position de la
+  pastille propre reçue du serveur ; aucune inférence sur les autres personnes.
+- Hors zone, position en attente et déconnexion ont des textes distincts.
+  Aucun ancien avis présenté comme synchronisé hors ligne. Résumé absent pour
+  les spectateurs et en présentation ; aucune conservation supplémentaire.
+- Aide courte et action Revenir à ma pastille : recadrage puis focus pour les
+  flèches/Maj + flèche, sans mouvement ni envoi automatique d’un avis. Le drag
+  reste inchangé ; pas encore de choix d’une case via une liste alternative.
+- Annonce polie après 400 ms de stabilisation de la case, sans répétition pour
+  les seuls changements de coordonnées internes. File annulée au changement de
+  rôle, de salle/proposition/configuration, au chargement de géométrie et à la
+  déconnexion. Lecteur d’écran réel toujours à valider.
+- Revue à 320 px : avis sur une ligne dédiée sous pseudo/aide, pour ne pas
+  comprimer l’identité. Texte de 14 px lisible hors du canvas, sans débordement.
+- Validation cumulée locale : check/lint/build verts, **395 unitaires** ;
+  **42 scénarios UI ciblés** verts sur Chromium/Firefox/WebKit (avis, clavier/liens,
+  design system, panneaux, mobile/paysage, présentation et accessibilité).
+  Axe sans violation dans la barre de guidage avec aide ouverte ; captures
+  320/390 px examinées. Voix/ASR et stockage inchangés.
+
+### Notes au clavier et parcours des liens — local, non déployé
+
+- Audit §3 : volet Position/taille désormais disponible sur desktop aussi, sous
+  Organiser. Boutons natifs pour déplacer de 40 unités, dimensions et retour de
+  position textuel annoncé poliment ; aucun raccourci global ni interception des
+  flèches dans l’éditeur. Offline, épinglage, permissions, présentation et masquage
+  sont respectés, y compris par un gestionnaire conservé après changement de contexte.
+- Liens sortants dans une liste nommée par la source, relation/glyphe et titre/auteur
+  de destination. Bouton pour cadrer et focaliser la note liée sans enregistrer le
+  brouillon ; sur mobile l’inspecteur source se ferme avant celui de la cible.
+  Cible absente : libellé indisponible, pas de bouton de navigation.
+- Suppressions de lien nommées par rang, source, relation, destination et auteur,
+  y compris lorsque plusieurs cibles ont le même titre. Suppression admin seulement.
+- Titres des zones de commandes en h2 après le titre h1 de la note : saut de niveau
+  détecté par le nouveau contrôle axe complet puis corrigé, sans désactiver la règle.
+- Validation : 387 tests unitaires ; 24 régressions notes/dock/inspecteur/axe sur
+  trois moteurs, puis 21 scénarios clavier/design system/panneaux/aide, tous verts.
+  Captures desktop/mobile et conservation des brouillons vérifiées. Recette réelle
+  avec lecteur d’écran toujours requise. Aucune modification voix/ASR ou stockage.
+
 ### Design system — première passe déployée dans beta.32
 
 - Contrat partagé dans `frontend/src/lib/canvas/design-system.css`, limité à

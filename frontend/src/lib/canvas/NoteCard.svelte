@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { Editor } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
 	import { Markdown } from '@tiptap/markdown';
@@ -31,7 +31,8 @@
 		scale,
 		send,
 		move,
-		resize
+		resize,
+		navigate
 	}: {
 		note: NoteModel;
 		drafts: NoteDrafts;
@@ -49,6 +50,7 @@
 		send: (op: string, payload: unknown) => void;
 		move: (id: string, x: number, y: number, done: boolean) => void;
 		resize: (id: string, width: number, height: number, done: boolean) => void;
+		navigate?: (id: string) => void;
 	} = $props();
 	let element: HTMLDivElement;
 	let header: HTMLDivElement;
@@ -74,6 +76,17 @@
 	}
 	function targetAuthor(other: NoteModel) {
 		return other.authorName?.trim() || m.ux_note_unknown_author();
+	}
+	function nudgeNote(dx: number, dy: number) {
+		if (!manageable || !ready || note.pinned || hidden || presentation) return;
+		move(note.id, note.x + dx, note.y + dy, true);
+	}
+	async function followLink(id: string) {
+		if (hidden || presentation || !notes.some((other) => other.id === id)) return;
+		// Close the current native inspector before opening the destination's.
+		inspecting = false;
+		await tick();
+		if (!hidden && !presentation && notes.some((other) => other.id === id)) navigate?.(id);
 	}
 	let dragging = $state(false);
 	let resizing = $state(false);
@@ -500,7 +513,7 @@
 			</p>{/if}
 		{#if editable}
 			<section class="command" aria-labelledby={`note-edit-${note.id}`}>
-				<h3 class="command-title" id={`note-edit-${note.id}`}>{m.ux_note_section_edit()}</h3>
+				<h2 class="command-title" id={`note-edit-${note.id}`}>{m.ux_note_section_edit()}</h2>
 				<div class="note-actions">
 					<IconButton
 						icon="save"
@@ -540,7 +553,7 @@
 		{/if}
 		{#if manageable}
 			<section class="command" aria-labelledby={`note-arrange-${note.id}`}>
-				<h3 class="command-title" id={`note-arrange-${note.id}`}>{m.ux_note_section_organise()}</h3>
+				<h2 class="command-title" id={`note-arrange-${note.id}`}>{m.ux_note_section_organise()}</h2>
 				<div class="note-actions">
 					<IconButton
 						icon={note.pinned ? 'unpin' : 'pin'}
@@ -556,7 +569,7 @@
 						onclick={requestDelete}
 					/>
 				</div>
-				{#if compact && inspecting}
+				{#if !compact || inspecting}
 					<details class="command-details">
 						<summary>{m.ux_note_layout()}</summary>
 						<div class="note-actions">
@@ -564,10 +577,12 @@
 									type="button"
 									aria-label={nudge.label()}
 									disabled={!ready || note.pinned}
-									onclick={() => move(note.id, note.x + nudge.dx, note.y + nudge.dy, true)}
-									>{nudge.symbol}</button
+									onclick={() => nudgeNote(nudge.dx, nudge.dy)}>{nudge.symbol}</button
 								>{/each}
 						</div>
+						<p class="command-meta" role="status" aria-live="polite">
+							{m.ux_note_position({ x: Math.round(note.x), y: Math.round(note.y) })}
+						</p>
 						<div class="note-actions">
 							<label
 								>{m.ux_note_width()}<input
@@ -598,9 +613,9 @@
 		{/if}
 		{#if admin}
 			<section class="command" aria-labelledby={`note-moderate-${note.id}`}>
-				<h3 class="command-title" id={`note-moderate-${note.id}`}>
+				<h2 class="command-title" id={`note-moderate-${note.id}`}>
 					{m.ux_note_section_moderate()}
-				</h3>
+				</h2>
 				<div class="note-actions">
 					<IconButton
 						icon={note.visible ? 'eyeClosed' : 'eye'}
@@ -625,7 +640,7 @@
 		{/if}
 		{#if admin || outgoing.length}
 			<section class="command" aria-labelledby={`note-link-${note.id}`}>
-				<h3 class="command-title" id={`note-link-${note.id}`}>{m.ux_note_section_link()}</h3>
+				<h2 class="command-title" id={`note-link-${note.id}`}>{m.ux_note_section_link()}</h2>
 				{#if admin}
 					<details class="command-details">
 						<summary>{m.ux_note_link_add()}</summary>
@@ -685,31 +700,51 @@
 				{/if}
 				{#if outgoing.length}
 					<p class="command-subtitle">{m.ux_note_links_existing()}</p>
-					<div class="note-links">
-						{#each outgoing as edge (edge.id)}
+					<ul class="note-links" aria-label={m.ux_note_links_from({ title: targetTitle(note) })}>
+						{#each outgoing as edge, index (edge.id)}
 							{@const target = notes.find((item) => item.id === edge.to)}
-							<span
-								class="relation-entry"
-								title="{relationSymbol(edge.relation)} {relationLabel(edge.relation)}{target
-									? ` · ${target.title}`
-									: ''}"
-								><span class="relation-symbol" aria-hidden="true"
-									>{relationSymbol(edge.relation)}</span
-								><span
-									>{relationLabel(edge.relation)}{#if target}
-										· {target.title}{/if}</span
-								></span
-							>
-							{#if admin}<IconButton
-									icon="unlink"
-									label={m.v2_delete_relation_link({
-										relation: `${relationSymbol(edge.relation)} ${relationLabel(edge.relation)}`
-									})}
-									disabled={!ready}
-									onclick={() => send('edge.delete', { edgeId: edge.id })}
-								/>{/if}
+							<li class="relation-row">
+								<span class="relation-entry">
+									<span class="relation-symbol" aria-hidden="true"
+										>{relationSymbol(edge.relation)}</span
+									>
+									<span>{relationLabel(edge.relation)}</span>
+									{#if target && navigate}
+										<button
+											type="button"
+											class="relation-target"
+											aria-label={m.ux_note_open_linked({
+												title: targetTitle(target),
+												author: targetAuthor(target)
+											})}
+											onclick={() => followLink(edge.to)}
+										>
+											<span>{targetTitle(target)}</span>
+											<span class="target-author"
+												>{m.ux_note_author({ name: targetAuthor(target) })}</span
+											>
+										</button>
+									{:else}<span>{target ? targetTitle(target) : m.ux_note_link_unavailable()}</span
+										>{/if}
+								</span>
+								{#if admin}<IconButton
+										icon="unlink"
+										label={m.ux_note_delete_link({
+											index: index + 1,
+											source: targetTitle(note),
+											relation: relationLabel(edge.relation),
+											target: target ? targetTitle(target) : m.ux_note_link_unavailable(),
+											author: target ? targetAuthor(target) : m.ux_note_unknown_author()
+										})}
+										disabled={!ready}
+										onclick={() => {
+											if (admin && ready && !hidden && !presentation)
+												send('edge.delete', { edgeId: edge.id });
+										}}
+									/>{/if}
+							</li>
 						{/each}
-					</div>
+					</ul>
 				{/if}
 			</section>
 		{/if}
@@ -1004,6 +1039,31 @@
 		gap: 4px;
 		min-width: 0;
 		padding: 2px;
+		margin: 0;
+		list-style: none;
+	}
+	.relation-row {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		min-width: 0;
+	}
+	.relation-target {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		min-width: 0;
+		padding: 4px;
+		min-height: 36px;
+		text-align: left;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+		cursor: pointer;
+		overflow-wrap: anywhere;
+	}
+	.relation-target:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
 	}
 	.target-picker {
 		display: flex;
@@ -1203,15 +1263,12 @@
 	}
 	.relation-entry {
 		display: inline-flex;
+		flex: 1;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 4px;
 		min-width: 0;
-		max-width: 170px;
-	}
-	.relation-entry > span:last-child {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		overflow-wrap: anywhere;
 	}
 	.relation-symbol {
 		font-weight: 700;

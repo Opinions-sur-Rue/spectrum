@@ -24,6 +24,7 @@
 	import ClaimBar from '$lib/canvas/ClaimBar.svelte';
 	import RoomLobby from '$lib/canvas/RoomLobby.svelte';
 	import RoomOnboarding from '$lib/canvas/RoomOnboarding.svelte';
+	import CurrentOpinion from '$lib/canvas/CurrentOpinion.svelte';
 	import MobileBrowserHelp from '$lib/canvas/MobileBrowserHelp.svelte';
 	import RoomOptions from '$lib/canvas/RoomOptions.svelte';
 	import PendingNotesMenu from '$lib/canvas/PendingNotesMenu.svelte';
@@ -405,6 +406,35 @@
 			card?.focus({ preventScroll: true });
 		});
 	}
+	function visitLinkedNote(id: string) {
+		if (presentation) return;
+		const target = notes.find((note) => note.id === id);
+		if (!target) return;
+		selectPending(target);
+		void tick().then(() => {
+			const card = [...document.querySelectorAll<HTMLElement>('[data-note-id]')].find(
+				(element) => element.dataset.noteId === id
+			);
+			card?.querySelector<HTMLButtonElement>('[data-note-inspect]')?.click();
+		});
+	}
+	function canFocusOwnPellet() {
+		return (
+			ready &&
+			!presentation &&
+			room?.role !== 'spectator' &&
+			!!spectrum?.pellets.some((pellet) => pellet.memberId === room?.userId)
+		);
+	}
+	async function focusOwnPellet() {
+		if (!canFocusOwnPellet()) return;
+		workspace?.fitToSpectrum();
+		await tick();
+		if (canFocusOwnPellet())
+			document
+				.querySelector<HTMLButtonElement>('[data-pellet-id][data-own="true"]')
+				?.focus({ preventScroll: true });
+	}
 </script>
 
 <svelte:head><title>Spectrum v2 — canvas</title></svelte:head>
@@ -577,6 +607,13 @@
 				<Icon name="people" /><span>{m.ux_profile_edit()}</span>
 				<strong title={ownMember?.nickname}>{ownMember?.nickname}</strong>
 			</button>
+			{#if !presentation}<CurrentOpinion
+					{room}
+					{spectrum}
+					{ready}
+					detect={activityCellDetector}
+					focusPellet={focusOwnPellet}
+				/>{/if}
 			<RoomOnboarding
 				role={room.role}
 				nickname={ownMember?.nickname ?? ''}
@@ -636,6 +673,7 @@
 							{send}
 							move={moveNote}
 							resize={resizeNote}
+							navigate={visitLinkedNote}
 						/>
 					{/each}
 				</div>
