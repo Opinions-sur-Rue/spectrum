@@ -7,6 +7,30 @@ déjà terminée : elles ne constituent pas le backlog actuel.
 
 ## Nouvelle passe UI/UX et demande GPU automatique
 
+### Retour après beta.30 — implémenté localement, non déployé
+
+- En-tête d’identité des notes non sélectionnable et utilisable pour déplacer
+  une note sur desktop, même lorsque l’éditeur garde le focus. Restrictions de
+  droits, note épinglée et inspecteur mobile conservés.
+- Boutons H1 / gras / italique / liste directement visibles dans les commandes,
+  sans ouvrir un volet de mise en forme. Création de lien toujours repliable.
+- Aide mobile Android/iOS pour quitter le navigateur intégré de Discord ou d’une
+  autre app : automatique pour les marqueurs reconnus, accessible manuellement
+  sur les autres navigateurs mobiles. Menu Android, menu/partage iOS et lien
+  copiable avec champ sélectionnable si le presse-papiers échoue. Aucune
+  redirection forcée. Détection heuristique, sans garantie pour toutes les apps.
+- L’aide précise que le salon reste le même, mais que l’identité et les notes
+  privées locales ne sont pas transférées entre navigateurs ; aucune promesse de
+  maintien du micro en arrière-plan. Vérification Discord sur vrais téléphones
+  Android/iPhone encore nécessaire.
+- Validation locale : check/lint verts, 378 tests unitaires ; 30 régressions UI
+  ciblées passent sur Chromium, Firefox et WebKit, dont déplacement depuis
+  l’en-tête pendant l’édition, mise en forme visible, inspecteur/panneaux mobiles
+  et aide Android/iOS (axe sans violation sur cette aide).
+- Design system global boutons/polices/icônes différé à la demande utilisateur.
+  Le minuteur utilise déjà 12 px / 600 et une hauteur desktop de 36 px ; sa
+  cohérence visuelle complète reste à revoir dans cette passe globale.
+
 ### Feedback supplémentaire à intégrer au prochain lot discuté
 
 - [x] Sortir les notes privées de Discussion : bouton/panneau dédiés, contenu

@@ -1,4 +1,13 @@
 {
+	"ux_browser_title": "Depuis Discord ou une autre app ?",
+	"ux_browser_reason": "Ouvrez Spectrum dans votre navigateur habituel avant de participer : vous pourrez revenir sur Discord sans fermer la page Spectrum. Certains navigateurs intégrés ne sont pas détectables.",
+	"ux_browser_android": "Android : cherchez « Ouvrir dans le navigateur » dans le menu ⋮, souvent en haut à droite. Sinon, copiez le lien ci-dessous et collez-le dans Chrome, Firefox ou votre navigateur habituel.",
+	"ux_browser_ios": "iPhone / iPad : cherchez « Ouvrir dans Safari » ou « Ouvrir dans le navigateur » dans le menu ou la feuille de partage. Les commandes varient selon l’app. Sinon, copiez le lien et collez-le dans votre navigateur habituel.",
+	"ux_browser_privacy": "Le lien ouvre le même salon, mais votre identité et vos notes privées locales ne sont pas transférées entre navigateurs. Le système peut aussi suspendre le micro en arrière-plan.",
+	"ux_browser_link": "Lien de cette page",
+	"ux_browser_copy": "Copier le lien",
+	"ux_browser_copied": "Lien copié.",
+	"ux_browser_close": "Réduire l’aide",
 	"voice_mute_member": "Couper le micro de {name}",
 	"voice_muted_by_admin": "Micro coupé par un admin",
 	"voice_resume_self": "Réactiver mon micro",

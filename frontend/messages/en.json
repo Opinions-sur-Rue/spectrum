@@ -1,4 +1,13 @@
 {
+	"ux_browser_title": "Coming from Discord or another app?",
+	"ux_browser_reason": "Open Spectrum in your usual browser before participating: you can return to Discord without closing the Spectrum page. Some in-app browsers cannot be detected.",
+	"ux_browser_android": "Android: look for “Open in browser” in the ⋮ menu, often at the top right. Otherwise, copy the link below and paste it into Chrome, Firefox or your usual browser.",
+	"ux_browser_ios": "iPhone / iPad: look for “Open in Safari” or “Open in browser” in the menu or share sheet. Controls vary by app. Otherwise, copy the link and paste it into your usual browser.",
+	"ux_browser_privacy": "The link opens the same room, but your identity and local private notes do not transfer between browsers. The system may also suspend the microphone in the background.",
+	"ux_browser_link": "Link to this page",
+	"ux_browser_copy": "Copy link",
+	"ux_browser_copied": "Link copied.",
+	"ux_browser_close": "Collapse help",
 	"voice_mute_member": "Mute {name}'s microphone",
 	"voice_muted_by_admin": "Microphone muted by an admin",
 	"voice_resume_self": "Re-enable my microphone",

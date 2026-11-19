@@ -23,6 +23,7 @@
 	import ClaimBar from '$lib/canvas/ClaimBar.svelte';
 	import RoomLobby from '$lib/canvas/RoomLobby.svelte';
 	import RoomOnboarding from '$lib/canvas/RoomOnboarding.svelte';
+	import MobileBrowserHelp from '$lib/canvas/MobileBrowserHelp.svelte';
 	import RoomOptions from '$lib/canvas/RoomOptions.svelte';
 	import PendingNotesMenu from '$lib/canvas/PendingNotesMenu.svelte';
 	import SessionMenu from '$lib/canvas/SessionMenu.svelte';
@@ -586,6 +587,7 @@
 	{#if error && room}<div role="alert" class="alert alert-error rounded-none py-2">
 			{error}
 		</div>{/if}
+	<MobileBrowserHelp />
 	<div class="workspace-body">
 		<main class="canvas-area" data-testid="canvas-viewport" aria-label={m.ux_canvas()}>
 			<div bind:this={container} class="canvas-host" class:preview={!room}></div>

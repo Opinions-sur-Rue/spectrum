@@ -12,6 +12,44 @@ import {
 import type { SpectrumState } from '../src/lib/canvas/room-client';
 import AxeBuilder from '@axe-core/playwright';
 
+for (const platform of ['android', 'ios']) {
+	test(`mobile browser help offers ${platform} instructions without forced navigation`, async ({
+		page
+	}) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.addInitScript((platform) => {
+			Object.defineProperty(navigator, 'userAgent', {
+				get: () =>
+					platform === 'android'
+						? 'Android 14; wv) Discord'
+						: 'iPhone Version/18.0 Mobile Safari/604.1'
+			});
+		}, platform);
+		await page.goto('/v2');
+		const help = page.getByTestId('mobile-browser-help');
+		await expect(help).toBeVisible();
+		const details = help.locator('details');
+		await expect(details).toHaveJSProperty('open', platform === 'android');
+		if (platform === 'ios') await help.locator('summary').click();
+		await expect(help).toContainText(platform === 'android' ? 'Android:' : 'iPhone / iPad:');
+		await expect(help.getByRole('textbox')).toHaveValue(page.url());
+		await expect(help).toContainText('private notes do not transfer');
+		await expect(page.getByTestId('create-room')).toBeVisible();
+		const results = await new AxeBuilder({ page })
+			.include('[data-testid="mobile-browser-help"]')
+			.analyze();
+		expect(results.violations).toEqual([]);
+		await help.getByRole('button', { name: 'Collapse help' }).click();
+		await page.getByTestId('create-room').click();
+		await expect(page.getByTestId('own-role')).toHaveText('admin');
+		await help.locator('summary').click();
+		await expect(help.getByRole('textbox')).toHaveValue(page.url());
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+			390
+		);
+	});
+}
+
 test('readability: empty notes keep placeholders out of stored content and claim stays single-line', async ({
 	page
 }) => {
@@ -2180,9 +2218,8 @@ test('inline Markdown notes and actions synchronize across browser engines', asy
 		await expect(first.getByRole('button', { name: 'Reveal', exact: true })).toBeHidden();
 		await first.hover();
 		await expect(first.getByRole('button', { name: 'Reveal', exact: true })).toBeVisible();
-		await expect(first.getByRole('button', { name: 'H1', exact: true })).toBeHidden();
+		await expect(first.getByRole('button', { name: 'H1', exact: true })).toBeVisible();
 		await expect(first.getByRole('heading', { name: 'Edit', exact: true })).toBeVisible();
-		await first.getByText('Text formatting', { exact: true }).click();
 		await first.getByRole('heading', { level: 1 }).fill('First argument');
 		await expect(first.getByRole('button', { name: 'H1', exact: true })).toBeVisible();
 		await expect(first.getByText('Unsaved', { exact: true })).toBeVisible();
@@ -2259,7 +2296,24 @@ test('inline Markdown notes and actions synchronize across browser engines', asy
 				);
 			})
 			.toBe(true);
-		await expect(second.getByRole('button', { name: 'H1', exact: true })).toBeHidden();
+		await expect(second.getByRole('button', { name: 'H1', exact: true })).toBeVisible();
+		// Header dragging also works while editing.
+		await second.getByRole('textbox', { name: 'Note content' }).focus();
+		const header = second.locator('.note-topbar');
+		await expect(header).toHaveCSS(
+			browserName === 'webkit' ? '-webkit-user-select' : 'user-select',
+			'none'
+		);
+		await expect(header).toHaveCSS('cursor', 'grab');
+		const identity = (await header.boundingBox())!;
+		const beforeHeader = (await second.boundingBox())!;
+		await page.mouse.move(identity.x + 15, identity.y + 8);
+		await page.mouse.down();
+		await page.mouse.move(identity.x + 55, identity.y + 28, { steps: 8 });
+		await page.mouse.up();
+		await expect
+			.poll(async () => (await second.boundingBox())!.x)
+			.toBeGreaterThan(beforeHeader.x + 20);
 		const movedStyle = await second.getAttribute('style');
 		// A click (including slight pointer jitter) edits instead of moving.
 		const content = await second.getByRole('heading', { level: 1 }).boundingBox();

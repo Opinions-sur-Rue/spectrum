@@ -150,14 +150,13 @@ it('groups commands into explicit edit, arrange, moderation and link zones', () 
 	expect(view.getByRole('button', { name: m.v2_delete() })).toBeInTheDocument();
 });
 
-it('keeps formatting collapsed until explicitly opened', async () => {
+it('exposes formatting without a disclosure', () => {
 	const { view } = setup();
-	const details = view.getByText(m.v2_note_formatting()).closest('details');
-	if (!details) throw new Error('Missing formatting disclosure');
-	expect(details.open).toBe(false);
-	await fireEvent.click(view.getByText(m.v2_note_formatting()));
-	expect(details.open).toBe(true);
-	expect(view.getByRole('button', { name: 'H1' })).toBeInTheDocument();
+	for (const name of ['H1', m.v2_bold(), m.v2_italic(), m.v2_list()]) {
+		const button = view.getByRole('button', { name });
+		expect(button).toBeInTheDocument();
+		expect(button.closest('details')).toBeNull();
+	}
 });
 
 it('searches a link target by title, author or excerpt and creates one link', async () => {

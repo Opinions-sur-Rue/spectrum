@@ -51,6 +51,7 @@
 		resize: (id: string, width: number, height: number, done: boolean) => void;
 	} = $props();
 	let element: HTMLDivElement;
+	let header: HTMLDivElement;
 	let editor = $state<Editor | null>(null);
 	let dirty = $state(false);
 	let conflict = $state(false);
@@ -208,6 +209,10 @@
 		element.addEventListener('pointercancel', cancelDrag, { signal: events.signal });
 		element.addEventListener('lostpointercapture', cancelDrag, { signal: events.signal });
 		element.addEventListener('click', swallowDragClick, { capture: true, signal: events.signal });
+		header.addEventListener('pointerdown', startHeaderDrag, {
+			capture: true,
+			signal: events.signal
+		});
 		return () => {
 			deletion = null;
 			media.removeEventListener('change', updateCompact);
@@ -280,12 +285,19 @@
 	}
 
 	function startDrag(event: PointerEvent) {
+		beginDrag(event, true);
+	}
+	function startHeaderDrag(event: PointerEvent) {
+		beginDrag(event, false);
+	}
+	function beginDrag(event: PointerEvent, fromEditor: boolean) {
 		if (compact || inspecting) return;
 		if (drag) return;
 		suppressClick = false;
 		if (!manageable || !ready || note.pinned || event.button !== 0 || !event.isPrimary) return;
 		// Once editing, keep native caret placement and text-selection gestures.
-		if (element.contains(document.activeElement)) return;
+		// The identity header always drags: its text is not selectable.
+		if (fromEditor && element.contains(document.activeElement)) return;
 		event.preventDefault();
 		event.stopPropagation();
 		element.setPointerCapture(event.pointerId);
@@ -452,7 +464,7 @@
 			aria-label={m.v2_note_pinned()}
 			title={m.v2_note_pinned()}><Icon name="pin" size={16} /></span
 		>{/if}
-	<div class="note-topbar">
+	<div class="note-topbar" bind:this={header}>
 		<span class="note-author" data-note-author title={m.ux_note_author({ name: authorName })}
 			>{m.ux_note_author({ name: authorName })}</span
 		>
@@ -498,35 +510,32 @@
 					/>
 					{#if dirty}<IconButton icon="cancel" label={m.cancel()} onclick={reload} />{/if}
 				</div>
-				<details class="command-details">
-					<summary>{m.v2_note_formatting()}</summary>
-					<div class="formatting" aria-label={m.v2_note_formatting()}>
-						<IconButton
-							icon="heading"
-							label="H1"
-							disabled={!ready}
-							onclick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-						/>
-						<IconButton
-							icon="bold"
-							label={m.v2_bold()}
-							disabled={!ready}
-							onclick={() => editor?.chain().focus().toggleBold().run()}
-						/>
-						<IconButton
-							icon="italic"
-							label={m.v2_italic()}
-							disabled={!ready}
-							onclick={() => editor?.chain().focus().toggleItalic().run()}
-						/>
-						<IconButton
-							icon="list"
-							label={m.v2_list()}
-							disabled={!ready}
-							onclick={() => editor?.chain().focus().toggleBulletList().run()}
-						/>
-					</div>
-				</details>
+				<div class="formatting" aria-label={m.v2_note_formatting()}>
+					<IconButton
+						icon="heading"
+						label="H1"
+						disabled={!ready}
+						onclick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+					/>
+					<IconButton
+						icon="bold"
+						label={m.v2_bold()}
+						disabled={!ready}
+						onclick={() => editor?.chain().focus().toggleBold().run()}
+					/>
+					<IconButton
+						icon="italic"
+						label={m.v2_italic()}
+						disabled={!ready}
+						onclick={() => editor?.chain().focus().toggleItalic().run()}
+					/>
+					<IconButton
+						icon="list"
+						label={m.v2_list()}
+						disabled={!ready}
+						onclick={() => editor?.chain().focus().toggleBulletList().run()}
+					/>
+				</div>
 			</section>
 		{/if}
 		{#if manageable}
@@ -740,12 +749,25 @@
 		display: flex;
 		flex-wrap: wrap;
 		flex-shrink: 0;
+		user-select: none;
+		-webkit-user-select: none;
 		border-radius: var(--v2-radius-xl) var(--v2-radius-xl) 0 0;
 		align-items: center;
 		gap: 6px;
 		padding: 7px 12px;
 		background: transparent;
 		font-size: var(--v2-text-xs);
+	}
+	.movable .note-topbar {
+		cursor: grab;
+	}
+	.movable.dragging .note-topbar {
+		cursor: grabbing;
+	}
+	@media (min-width: 1024px) {
+		.movable .note-topbar {
+			touch-action: none;
+		}
 	}
 	.note-author {
 		flex-basis: 100%;
