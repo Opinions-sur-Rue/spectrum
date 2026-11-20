@@ -1,6 +1,29 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.36 in production, sinusoidal microphone visualization
+## Current state — beta.37 in production, curved radial FFT with idle motion
+
+- Production **beta.37**, source `2cb11dc462b95dbb3135d2a427ea34a99572c889`,
+  deployed **2026-11-20 06:52 UTC** after complete CI `44687159061`.
+  Strict zero-activity gate for 100 seconds; no connection exception.
+- Frontend `sha256:501379f832e0a28f167f655dc579b0e501161fb905c61f09dcffa45b415d9872`;
+  backend `sha256:0712d9c3f53b5f1acf3a12ecf7f4ed50a726aa31ba75a0b2a4b243c19583d0a4`.
+  Assets `/opt/spectrum/stt/releases/beta37-2cb11dc`, 38 verified files.
+  Rollback `/opt/spectrum/deploy-v2.0.0-beta.37-20261120T065208Z` retains beta.36.
+- Replaces predefined sine lobes with interpolation through the actual 32 FFT band
+  heights in three filled sectors, bass at twelve o'clock, increasing clockwise.
+  Coherent idle noise stays within 0.3 screen pixels; hidden-tab suspension,
+  unmount cleanup and reduced-motion preference respected.
+- Public evidence: HTTP 200, centering, centroid response, 150 Hz bass-sector and
+  4000 Hz treble-sector peaks, continuous silent movement, theme samples, one capture,
+  mute and reduced motion pass. General UI: 11 steps, 22 captures, six clean axe
+  screens plus a clean active-microphone sample. CPU captions pass, including
+  microphone-free preparation, menu closure, cache reuse and no late publication.
+- LiveKit/PeerJS/TURN containers unchanged, including their 04:24:34 UTC start times.
+  Evidence: `/tmp/opencode/beta37-deploy.log`, `/tmp/opencode/uiux-beta37-pellet-fft/`,
+  `/tmp/opencode/uiux-beta37-production/`, `/tmp/opencode/beta37-production-cpu.log`.
+  Real-device and prolonged ASR validation remain deferred.
+
+### Previous accepted release — beta.36 (historical)
 
 - Production **beta.36**, source `68ed7939a2dd7cc8d095403eea881bf1d416b013`,
   deployed **2026-11-20 05:53 UTC** after complete CI `44680879694`.

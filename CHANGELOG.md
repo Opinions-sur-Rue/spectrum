@@ -2,6 +2,15 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
+## [v2.0.0-beta.37] - 2026-11-20
+
+Deployed after complete CI 44687159061 with the strict 100-second zero-activity gate, no connection exception and a digest-pinned image pair. Voice service containers unchanged.
+
+### Changed
+- Replace predefined sine lobes with a smooth radial curve through all 32 FFT band heights, split into three theme-coloured filled frequency sectors. Bass starts at twelve o'clock; frequencies increase clockwise. Individual peaks remain distinct.
+- Add subtle continuous idle noise (at most 0.3 screen pixels) without replacing the real spectrum. Suspend animation in hidden tabs, stop it on unmount and disable it for reduced motion.
+- Public acceptance passes: bass-sector response at 150 Hz, treble-sector response at 4000 Hz, idle movement, theme samples, single capture, mute, reduced motion, HTTP routes, 11 UI steps, seven clean axe samples and CPU captions.
+
 ## [v2.0.0-beta.36] - 2026-11-20
 
 Deployed after complete CI 44680879694 with the strict 100-second zero-activity gate and no connection exception. Digest-pinned frontend/backend pair; LiveKit/PeerJS/TURN containers unchanged.

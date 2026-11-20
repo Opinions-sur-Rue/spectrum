@@ -60,7 +60,7 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   fenêtres de déploiement, avec des images identiques et restent actifs — constat
   noté, non causé par ces déploiements. Limitations des vrais appareils ouvertes.
 
-### Nouvelle correction — histogramme FFT en courbe radiale, local non déployé
+### Nouvelle correction — histogramme FFT en courbe radiale, déployé dans beta.37
 
 - Après beta.36, précision utilisateur : pas de sinusoïdes prédéfinies. Relier les
   sommets des 32 bandes FFT par une interpolation lissée, sans perdre les pics
@@ -71,7 +71,13 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   indépendant des pics FFT. Animation plafonnée à 25 images/s, suspendue en onglet
   caché, arrêtée au démontage et désactivée en mouvement réduit.
 - Analyse toujours locale sur la piste déjà autorisée ; aucune capture supplémentaire.
-  Validation réelle navigateur et déploiement de cette correction encore à effectuer.
+  Déployé le 20 novembre à 06:52 UTC après CI complète `44687159061`, source
+  `2cb11dc`, contrôle strict sans activité de 100 secondes, aucune exception.
+- Recette publique verte : réponse du secteur basses à 150 Hz et aigus à 4000 Hz,
+  mouvement continu au silence, centrage, thèmes, capture unique, mute, mouvement
+  réduit, 11 étapes UI, 22 captures et sept échantillons axe sans violation.
+  Transcription CPU vérifiée. Digests/rollback dans `RESUME_V2_PARITY.md`.
+  LiveKit/PeerJS/TURN non redémarrés. Validation prolongée et vrais appareils différés.
 
 ### Retouche visuelle du spectre — sinusoïdales, déployé dans beta.36 (historique)
 
