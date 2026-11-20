@@ -7,6 +7,7 @@ declare global {
 		__voiceFixture: {
 			calls: number;
 			tracks: MediaStreamTrack[];
+			sources: OscillatorNode[];
 			deny: boolean;
 			delay: boolean;
 			resumeCapture: (() => void) | null;
@@ -21,6 +22,7 @@ async function syntheticMicrophone(context: BrowserContext) {
 		window.__voiceFixture = {
 			calls: 0,
 			tracks: [],
+			sources: [],
 			deny: false,
 			delay: false,
 			resumeCapture: null,
@@ -49,6 +51,7 @@ async function syntheticMicrophone(context: BrowserContext) {
 				});
 			const audio = new AudioContext();
 			const oscillator = audio.createOscillator();
+			window.__voiceFixture.sources.push(oscillator);
 			const gain = audio.createGain();
 			const destination = audio.createMediaStreamDestination();
 			gain.gain.value = 0.15;
@@ -73,6 +76,60 @@ async function syntheticMicrophone(context: BrowserContext) {
 		};
 	});
 }
+
+test('own pellet shows a true FFT spectrum from the authorized mic without another capture', async ({
+	page
+}, testInfo) => {
+	await page.emulateMedia({ reducedMotion: 'no-preference' });
+	await syntheticMicrophone(page.context());
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await expect(page.getByTestId('pellet-voice-spectrum')).toHaveCount(0);
+	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(0);
+	await page.getByRole('button', { name: 'Join audio', exact: true }).click();
+	await expect(page.getByTestId('voice-controls')).toHaveAttribute('data-status', 'connected');
+	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(0);
+	await page.getByRole('button', { name: 'Enable microphone', exact: true }).click();
+	const spectrum = page.getByTestId('pellet-voice-spectrum');
+	await expect(spectrum).toBeVisible({ timeout: 20000 });
+	await expect(spectrum).toHaveAttribute('data-bands', '32');
+	await expect
+		.poll(async () => Number(await spectrum.getAttribute('data-spectrum-energy')))
+		.toBeGreaterThan(0);
+	const peak = () =>
+		spectrum.locator('.bar').evaluateAll((lines) => {
+			const lengths = lines.map((line) =>
+				Math.hypot(
+					Number(line.getAttribute('x2')) - Number(line.getAttribute('x1')),
+					Number(line.getAttribute('y2')) - Number(line.getAttribute('y1'))
+				)
+			);
+			return lengths.indexOf(Math.max(...lengths));
+		});
+	const firstPeak = await peak();
+	await page.evaluate(() => {
+		const source = window.__voiceFixture.sources.at(-1)!;
+		source.frequency.setValueAtTime(1800, source.context.currentTime);
+	});
+	await expect.poll(peak).not.toBe(firstPeak);
+	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(1);
+	await page.screenshot({ path: testInfo.outputPath('pellet-fft.png') });
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await expect(spectrum).toHaveCount(0);
+	await expect(page.locator('[data-own="true"]')).toHaveAttribute('data-speaking', 'true');
+	expect(
+		await page
+			.locator('[data-own="true"]')
+			.evaluate((node) => getComputedStyle(node, '::after').animationName)
+	).toBe('none');
+	await page.emulateMedia({ reducedMotion: 'no-preference' });
+	await expect(spectrum).toBeVisible();
+	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(1);
+	await page.getByRole('button', { name: 'Mute microphone', exact: true }).click();
+	await expect(spectrum).toHaveCount(0);
+	await expect(page.getByTestId('voice-controls')).toHaveAttribute('data-status', 'connected');
+});
 
 test('push-to-talk holds only while pressed, never hijacks typing, and cancels late microphone permission', async ({
 	page

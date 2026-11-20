@@ -7,6 +7,47 @@ déjà terminée : elles ne constituent pas le backlog actuel.
 
 ## Nouvelle passe UI/UX et demande GPU automatique
 
+### Backlog convenu et mis en pause à la demande utilisateur — 20 novembre
+
+À reprendre plus tard, pas à inclure implicitement dans le lot visuel des pastilles :
+
+- [ ] Audience/droits d’écriture des canaux ; contenu partagé éphémère vs notes
+  privées persistantes vs cache public des modèles ; effacement local ciblé sans
+  supprimer tout le stockage du site.
+- [ ] Étendre le design system aux composants secondaires ; les commandes
+  principales et le libellé Minuteur sont déjà livrés, ne pas les rouvrir sans motif.
+- [ ] Traduire les erreurs techniques restantes en français/anglais.
+- [ ] Évaluer un choix d’avis alternatif au drag ; collisions de noms en grand
+  groupe et découverte clavier/tactile du canvas pendant une vraie discussion.
+- [ ] Vrais Android/iPhone : Discord/WebViews, ouverture dans le navigateur,
+  changements d’app, veille, permissions micro et reprise réseau.
+- [ ] Lecteurs d’écran, parcours clavier complet, focus, zoom et contrastes.
+- [ ] ASR prolongé : précision française représentative, mémoire/consommation,
+  appareils et GPU variés, capacité Firefox et délais du profil de test persistant.
+- Dépendances vulnérables et intégrations live réelles restent dans le suivi
+  « Hors UI/UX » ci-dessous ; aucune mise à jour globale implicite.
+
+### Priorité immédiate — pastille propre et spectre vocal, local non déployé
+
+- Point blanc remplacé par un disque CSS positionné au centre géométrique de la
+  pastille, sans dépendre d’une glyphe ou de la ligne de base d’une police.
+- Spectre radial de **32 bandes réelles**, FFT 1024, bandes logarithmiques
+  80–8000 Hz (bornées par Nyquist), lissage attaque/relâchement, au plus 25 images/s.
+  Taille du spectre lisible indépendamment du zoom ; espace préservé pour le nom.
+- Première passe sur **sa propre pastille** uniquement, avec la piste micro déjà
+  autorisée/publiée. Aucun `getUserMedia` supplémentaire, aucun son renvoyé vers
+  les haut-parleurs, aucun envoi/persistance des bandes FFT ou de l’audio.
+  Les autres participants gardent l’indicateur LiveKit existant, pas un faux FFT.
+- Nettoyage lors de mute/fin/changement de piste/démontage ; le visualiseur ne
+  stoppe jamais la piste voix. Travail rAF suspendu en onglet caché. Mouvement
+  réduit : anneau statique, sans FFT ; erreur d’analyse : anneau de secours.
+- Validation locale : centrage mesuré sur trois moteurs, trois largeurs et trois
+  niveaux de zoom ; test vocal à deux fréquences confirmant le déplacement du pic
+  FFT, capture unique, mute et préférence de mouvement réduit. Les 20 scénarios
+  voix Chromium/Firefox et 45 cas UI ciblés sur trois moteurs passent. Check/lint/
+  build et 402 tests unitaires verts. Capture du spectre radial examinée ; aucun
+  déploiement de ce lot à ce stade. Les limitations des vrais appareils restent ouvertes.
+
 ### Avis courant lisible hors du canvas — déployé dans beta.33
 
 - Audit §6 : résumé « Mon avis : … » dans la barre de guidage, à taille UI

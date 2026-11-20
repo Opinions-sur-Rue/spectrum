@@ -4,6 +4,7 @@
 	import { createCellDetector, cellLabel, type SpectrumCell } from './cells';
 	import { createMovementStream } from './movement-stream';
 	import { m } from '$lib/paraglide/messages.js';
+	import PelletSpectrum from './PelletSpectrum.svelte';
 	let {
 		state: board,
 		cells,
@@ -12,6 +13,7 @@
 		ready,
 		scale,
 		speakers = [],
+		localTrack = null,
 		send
 	}: {
 		state: SpectrumState;
@@ -21,6 +23,7 @@
 		ready: boolean;
 		scale: number;
 		speakers?: string[];
+		localTrack?: MediaStreamTrack | null;
 		send: (op: string, payload: unknown) => void;
 	} = $props();
 	let pending = $state<{ memberId: string; x: number; y: number } | null>(null);
@@ -204,6 +207,7 @@
 			style:--label-scale={1 / scale}
 			style:--ring-space="{Math.max(8, 8 / scale)}px"
 			style:--ring-width="{Math.max(3, 3 / scale)}px"
+			style:--spectrum-label-space="{20 / scale + 2}px"
 			data-pellet-id={pellet.memberId}
 			data-own={own}
 			data-x={point.x}
@@ -219,7 +223,12 @@
 				>{pellet.memberId === 'live_average' ? m.v2_live_average() : pellet.nickname}{own
 					? ` · ${m.ux_own_pellet()}`
 					: ''}</span
-			>{#if own}<span class="own-mark" aria-hidden="true">●</span>{/if}</button
+			>{#if own}<span class="own-mark" aria-hidden="true"></span>{/if}
+			{#if own && ready && localTrack}<PelletSpectrum
+					track={localTrack}
+					active={speakers.includes(pellet.memberId)}
+					{scale}
+				/>{/if}</button
 		>
 	{/each}
 	{#if admin && board.hidden}<span class="hidden-status">{m.v2_hidden_positions()}</span>{/if}
@@ -241,6 +250,7 @@
 		height: 28px;
 		border-radius: 50%;
 		border: 2px solid white;
+		padding: 0;
 		box-shadow: 0 1px 5px #0006;
 		pointer-events: auto;
 		opacity: 1;
@@ -259,6 +269,12 @@
 			0 0 16px #22c55e99;
 		pointer-events: none;
 		animation: speaking-pulse 900ms ease-in-out infinite alternate;
+	}
+	.pellet.speaking:has(:global(.pellet-spectrum))::after {
+		display: none;
+	}
+	.pellet:has(:global(.pellet-spectrum)) .pellet-label {
+		bottom: calc(100% + var(--spectrum-label-space));
 	}
 	@keyframes speaking-pulse {
 		from {
@@ -295,10 +311,15 @@
 		font-size: var(--v2-text-xs);
 	}
 	.own-mark {
-		color: white;
-		font-size: var(--v2-text-md);
-		line-height: 24px;
-		text-shadow: 0 1px 3px black;
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 7px;
+		height: 7px;
+		transform: translate(-50%, -50%);
+		border-radius: 50%;
+		background: white;
+		box-shadow: 0 1px 3px #0008;
 		pointer-events: none;
 	}
 	.pellet.live {

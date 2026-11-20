@@ -82,6 +82,7 @@
 	let voiceInvalidation = $state(0);
 	let voiceConnection = $state.raw<VoiceConnection | null>(null);
 	let speakers = $state<string[]>([]);
+	let localAudioTrack = $state.raw<MediaStreamTrack | null>(null);
 	let speakingTime = $state<Record<string, number>>({});
 	let peopleMenu = $state<{ editNickname: () => void }>();
 	let peopleModal = $state(false);
@@ -538,6 +539,7 @@
 						invalidation={voiceInvalidation}
 						bind:connection={voiceConnection}
 						bind:speakers
+						bind:localTrack={localAudioTrack}
 						{send}
 					/>{/key}{:else}<span class="audio-unavailable"
 					><Icon name="headphones" />{m.ux_audio_unavailable()}</span
@@ -651,6 +653,7 @@
 							{ready}
 							scale={camera.scale}
 							{speakers}
+							localTrack={presentation ? null : localAudioTrack}
 							{send}
 						/>{/if}
 					{#each notes as note (note.id)}

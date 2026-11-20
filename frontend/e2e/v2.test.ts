@@ -12,6 +12,26 @@ import {
 import type { SpectrumState } from '../src/lib/canvas/room-client';
 import AxeBuilder from '@axe-core/playwright';
 
+test('own pellet white center stays geometrically centered at desktop/mobile zoom levels', async ({
+	page
+}) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const own = page.locator('[data-own="true"]');
+	for (const width of [1440, 390, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		await page.getByRole('button', { name: 'Recenter spectrum', exact: true }).click();
+		for (let index = 0; index < 3; index++) {
+			const pellet = (await own.boundingBox())!;
+			const mark = (await own.locator('.own-mark').boundingBox())!;
+			expect(Math.abs(pellet.x + pellet.width / 2 - mark.x - mark.width / 2)).toBeLessThan(0.15);
+			expect(Math.abs(pellet.y + pellet.height / 2 - mark.y - mark.height / 2)).toBeLessThan(0.15);
+			if (index < 2) await page.getByRole('button', { name: 'Zoom −', exact: true }).click();
+		}
+	}
+});
+
 test('own opinion stays readable outside the canvas and offers keyboard focus without a vote', async ({
 	page,
 	browser

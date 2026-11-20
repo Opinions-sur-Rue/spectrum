@@ -31,6 +31,7 @@
 		invalidation,
 		connection = $bindable(null),
 		speakers = $bindable([]),
+		localTrack = $bindable(null),
 		send
 	}: {
 		room: RoomState;
@@ -42,10 +43,10 @@
 		invalidation: number;
 		connection?: VoiceConnection | null;
 		speakers?: string[];
+		localTrack?: MediaStreamTrack | null;
 		send: (op: string, payload: unknown) => boolean;
 	} = $props();
 	let audio: HTMLDivElement;
-	let localTrack = $state.raw<MediaStreamTrack | null>(null);
 	let wanted = $state(false);
 	let status = $state<VoiceConnectionStatus>('idle');
 	let microphone = $state(false);
