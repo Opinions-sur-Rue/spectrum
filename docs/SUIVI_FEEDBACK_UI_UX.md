@@ -60,7 +60,7 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   fenêtres de déploiement, avec des images identiques et restent actifs — constat
   noté, non causé par ces déploiements. Limitations des vrais appareils ouvertes.
 
-### Retouche compacte et participants distants — local non déployé
+### Retouche compacte et participants distants — déployé dans beta.38
 
 - Demande utilisateur : une couleur de base déclinée, amplitude à 70 %, moins de
   fréquences visibles, et visualisation sur les autres participants.
@@ -87,6 +87,13 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   Chromium/Firefox verts. Nouveau scénario réel à deux navigateurs : réponse
   fréquentielle distante, aucune capture chez l’auditeur, mute et mouvement réduit
   sans perte de connexion audio. Capture du rendu distant examinée.
+- Déploiement le 20 novembre à 08:08 UTC, source `8fdb187`, CI complète
+  `44698497466`, contrôle strict sans activité de 100 secondes, aucune exception.
+  Recette publique : couleur de pastille, ratio de taille au zoom, 12 bandes,
+  réponse fréquentielle locale/distante, aucune capture chez l’auditeur, retrait
+  sur mute, mouvement réduit, 11 étapes UI, 22 captures et sept échantillons axe
+  sans violation. Transcription CPU verte ; LiveKit/PeerJS/TURN non redémarrés.
+  Digests et rollback dans `RESUME_V2_PARITY.md`.
 
 ### Nouvelle correction — histogramme FFT en courbe radiale, déployé dans beta.37
 

@@ -1,6 +1,31 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.37 in production, curved radial FFT with idle motion
+## Current state — beta.38 in production, compact coloured participant spectra
+
+- Production **beta.38**, source `8fdb1873a667c0ad880e0d842dd4f4d0f697705e`,
+  deployed **2026-11-20 08:08 UTC** after complete CI `44698497466`.
+  Strict 100-second zero-activity gate; no backend-connection exception.
+- Frontend `sha256:274a00288da464d07e9780f3e30d036cadf5bc5a38aa1070aee27f2ebd656ad1`;
+  backend `sha256:bc53b590e1b2aedfcc87d79dde3b8b35a6fdc17aaba321a8a037954950097e19`.
+  Assets `/opt/spectrum/stt/releases/beta38-8fdb187`, 38 verified files.
+  Rollback `/opt/spectrum/deploy-v2.0.0-beta.38-20261120T080807Z` retains beta.37.
+- Twelve visual bands, pellet-derived shades, 85% envelope and board-space geometry
+  replace the larger fixed-screen-size spectrum. Remote participants use already
+  received audio tracks, without listener capture or FFT transmission/persistence.
+- Public acceptance: HTTP 200, centering, pellet-colour match, constant size ratio
+  through zoom changes, bass/treble response, continuous idle movement, theme samples,
+  local capture once and listener capture zero, remote spectral centroid response,
+  reduced motion without stopping playback, and remote cleanup on publisher mute.
+  General UI: 11 steps, 22 captures, six clean axe screens plus clean microphone
+  sample. CPU captions pass with microphone-free preparation and cache reuse.
+  The first smoke attempt had a French role-label assertion mismatch; corrected to
+  the semantic `data-role` attribute, then the complete smoke passed.
+- LiveKit/PeerJS/TURN containers unchanged, including 04:24:34 UTC start times.
+  Evidence: `/tmp/opencode/beta38-deploy.log`, `/tmp/opencode/uiux-beta38-pellet-fft/`,
+  `/tmp/opencode/uiux-beta38-production/`, `/tmp/opencode/beta38-production-cpu.log`.
+  Large-group/device performance and prolonged ASR validation remain deferred.
+
+### Previous accepted release — beta.37 (historical)
 
 - Production **beta.37**, source `2cb11dc462b95dbb3135d2a427ea34a99572c889`,
   deployed **2026-11-20 06:52 UTC** after complete CI `44687159061`.

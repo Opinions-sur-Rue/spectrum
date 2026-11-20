@@ -2,6 +2,16 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
+## [v2.0.0-beta.38] - 2026-11-20
+
+Deployed after complete CI 44698497466 with a digest-pinned image pair and the strict 100-second zero-activity gate, without a connection exception. LiveKit/PeerJS/TURN containers unchanged.
+
+### Changed
+- Reduce the radial spectrum from 32 to 12 visual frequency bands, preserving the complete FFT range with weighted RMS aggregation. Use each participant's pellet colour in three related translucent shades.
+- Set the envelope to 85% of the original amplitude and remove inverse zoom compensation: spectrum, idle noise and fallback ring now scale with their pellet.
+- Show real spectra on remote participants from audio tracks already received after joining audio. No listener capture, extra audio transmission, FFT persistence or remote unmuting. Clean up on mute, unsubscribe and disconnect without stopping voice tracks.
+- Public acceptance passes: pellet colour, constant spectrum/pellet zoom ratio, local and remote frequency response, listener zero-capture, mute, reduced motion, HTTP routes, 11 UI steps, seven clean axe samples and CPU captions. Large-group/device performance and prolonged ASR remain deferred.
+
 ## [v2.0.0-beta.37] - 2026-11-20
 
 Deployed after complete CI 44687159061 with the strict 100-second zero-activity gate, no connection exception and a digest-pinned image pair. Voice service containers unchanged.
