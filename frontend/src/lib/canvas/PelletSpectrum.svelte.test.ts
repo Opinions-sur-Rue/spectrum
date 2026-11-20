@@ -39,7 +39,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-it('shows three crossing sine waves as soon as the mic is open, even when silent', async () => {
+it('shows three filled frequency sectors as soon as the mic is open, even when silent', async () => {
 	const view = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack, scale: 1 });
 	await tick();
 	const svg = view.getByTestId('pellet-voice-spectrum');
@@ -76,6 +76,22 @@ it('updates the centroid as the frequency content shifts', async () => {
 	update(treble);
 	await tick();
 	expect(Number(view.getByTestId('pellet-voice-spectrum').getAttribute('data-centroid'))).toBe(28);
+});
+
+it('preserves different peak positions within one frequency group', async () => {
+	const view = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack, scale: 1 });
+	await tick();
+	const path = () => view.container.querySelector('[data-wave="low"]')?.getAttribute('d');
+	const first = Array(32).fill(0);
+	first[2] = 1;
+	update(first);
+	await tick();
+	const firstPath = path();
+	const second = Array(32).fill(0);
+	second[6] = 1;
+	update(second);
+	await tick();
+	expect(path()).not.toBe(firstPath);
 });
 
 it('stops analysis for reduced motion and does not render the spectrum', async () => {

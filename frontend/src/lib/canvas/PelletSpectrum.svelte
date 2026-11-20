@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { observeVoiceSpectrum, VOICE_SPECTRUM_BANDS } from './voice-spectrum';
+	import { spectrumSector } from './spectrum-curve';
 
 	let { track, scale }: { track: MediaStreamTrack; scale: number } = $props();
 	let bands = $state<number[]>([]);
 	let reduced = $state(true);
+	let seconds = $state(0);
 
 	const inputTrack = $derived(reduced ? null : track);
 
@@ -27,15 +29,36 @@
 		});
 	});
 
-	// Inner radius sits just outside the coloured pellet; the filled sine waves
-	// oscillate outward from here so the white centre dot stays clear of them.
+	$effect(() => {
+		if (reduced) return;
+		let frame = 0;
+		let last = 0;
+		function animate(now: number) {
+			if (document.hidden) return;
+			if (now - last >= 40) {
+				seconds = now / 1000;
+				last = now;
+			}
+			frame = requestAnimationFrame(animate);
+		}
+		function visibility() {
+			cancelAnimationFrame(frame);
+			if (!document.hidden) frame = requestAnimationFrame(animate);
+		}
+		document.addEventListener('visibilitychange', visibility);
+		visibility();
+		return () => {
+			cancelAnimationFrame(frame);
+			document.removeEventListener('visibilitychange', visibility);
+		};
+	});
+
+	// Keep the spectrum outside the pellet, independent of canvas zoom.
 	const radius = $derived(14 * scale + 4);
-	const maxOuter = $derived(radius + 12);
+	const maxOuter = $derived(radius + 13.5);
 	const extent = $derived(maxOuter + 4);
 
-	const SAMPLES = 200;
-
-	/** Aggregate the log-spaced bands into three frequency groups plus a centroid. */
+	/** Centroid is diagnostic only; geometry preserves every individual FFT band. */
 	const groups = $derived.by(() => {
 		if (bands.length !== VOICE_SPECTRUM_BANDS) return { low: 0, mid: 0, high: 0, centroid: 0 };
 		const sum = (from: number, to: number) => {
@@ -57,28 +80,10 @@
 		};
 	});
 
-	/** A closed band between the base circle and a k-lobed sine, filled not stroked. */
-	function wavePath(k: number, phase: number, energy: number, base: number): string {
-		// A small idle floor keeps a faint ring visible as soon as the microphone
-		// is open; the real energy then raises the lobes smoothly on top of it.
-		const outer = base + 2 + 10 * energy;
-		const points: string[] = [];
-		for (let i = 0; i <= SAMPLES; i++) {
-			const t = (i / SAMPLES) * Math.PI * 2;
-			const r = base + (outer - base) * (0.5 + 0.5 * Math.sin(k * t + phase));
-			points.push(`${(r * Math.cos(t)).toFixed(2)},${(r * Math.sin(t)).toFixed(2)}`);
-		}
-		for (let i = SAMPLES; i >= 0; i--) {
-			const t = (i / SAMPLES) * Math.PI * 2;
-			points.push(`${(base * Math.cos(t)).toFixed(2)},${(base * Math.sin(t)).toFixed(2)}`);
-		}
-		return `M ${points.join(' L ')} Z`;
-	}
-
 	const waves = $derived.by(() => [
-		{ key: 'low', lobes: 3, phase: 0.4, path: wavePath(3, 0.4, groups.low, radius) },
-		{ key: 'mid', lobes: 4, phase: 1.9, path: wavePath(4, 1.9, groups.mid, radius) },
-		{ key: 'high', lobes: 5, phase: 3.3, path: wavePath(5, 3.3, groups.high, radius) }
+		{ key: 'low', path: spectrumSector(bands, 0, 10, radius, seconds) },
+		{ key: 'mid', path: spectrumSector(bands, 10, 21, radius, seconds) },
+		{ key: 'high', path: spectrumSector(bands, 21, VOICE_SPECTRUM_BANDS, radius, seconds) }
 	]);
 
 	const innerStop = $derived(Math.min(0.98, radius / maxOuter));
@@ -99,15 +104,15 @@
 	>
 		<defs>
 			<radialGradient id="wsg-low" gradientUnits="userSpaceOnUse" cx="0" cy="0" r={maxOuter}>
-				<stop offset={innerStop} style:stop-color="var(--color-primary)" stop-opacity="0" />
+				<stop offset={innerStop} style:stop-color="var(--color-primary)" stop-opacity="0.18" />
 				<stop offset="1" style:stop-color="var(--color-primary)" stop-opacity="0.55" />
 			</radialGradient>
 			<radialGradient id="wsg-mid" gradientUnits="userSpaceOnUse" cx="0" cy="0" r={maxOuter}>
-				<stop offset={innerStop} style:stop-color="var(--color-accent)" stop-opacity="0" />
+				<stop offset={innerStop} style:stop-color="var(--color-accent)" stop-opacity="0.18" />
 				<stop offset="1" style:stop-color="var(--color-accent)" stop-opacity="0.5" />
 			</radialGradient>
 			<radialGradient id="wsg-high" gradientUnits="userSpaceOnUse" cx="0" cy="0" r={maxOuter}>
-				<stop offset={innerStop} style:stop-color="var(--color-secondary)" stop-opacity="0" />
+				<stop offset={innerStop} style:stop-color="var(--color-secondary)" stop-opacity="0.18" />
 				<stop offset="1" style:stop-color="var(--color-secondary)" stop-opacity="0.45" />
 			</radialGradient>
 		</defs>

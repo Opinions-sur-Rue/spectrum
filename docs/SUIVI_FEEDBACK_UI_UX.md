@@ -60,7 +60,20 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   fenêtres de déploiement, avec des images identiques et restent actifs — constat
   noté, non causé par ces déploiements. Limitations des vrais appareils ouvertes.
 
-### Retouche visuelle du spectre — sinusoïdales, déployé dans beta.36
+### Nouvelle correction — histogramme FFT en courbe radiale, local non déployé
+
+- Après beta.36, précision utilisateur : pas de sinusoïdes prédéfinies. Relier les
+  sommets des 32 bandes FFT par une interpolation lissée, sans perdre les pics
+  individuels. Basses à midi puis fréquences croissantes dans le sens horaire.
+- Trois secteurs remplis (basses, médiums, aigus), dégradés du thème sans contour ;
+  faible base visible dès l’ouverture du micro.
+- Bruit cohérent lent ajouté à la base, amplitude maximale 0,3 pixel écran,
+  indépendant des pics FFT. Animation plafonnée à 25 images/s, suspendue en onglet
+  caché, arrêtée au démontage et désactivée en mouvement réduit.
+- Analyse toujours locale sur la piste déjà autorisée ; aucune capture supplémentaire.
+  Validation réelle navigateur et déploiement de cette correction encore à effectuer.
+
+### Retouche visuelle du spectre — sinusoïdales, déployé dans beta.36 (historique)
 
 Demande utilisateur sur le visuel des barres, jugé trop simple :
 
