@@ -576,7 +576,8 @@
 		max-width: 10rem;
 	}
 	.voice-summary.microphone-on {
-		color: var(--color-success);
+		/* Keep a green tint but anchor contrast to the theme's readable text colour. */
+		color: color-mix(in oklab, var(--color-success) 30%, var(--color-base-content));
 		opacity: 1;
 		font-weight: 600;
 	}
