@@ -2,6 +2,18 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
+## [v2.0.0-beta.33] - 2026-11-20
+
+Deployed after complete CI 44544248996. The user explicitly approved one reconnecting backend connection after strict-zero attempts were blocked: the 100-second gate still required zero audio rooms/participants and at most one backend connection. Digest-pinned frontend/backend pair; voice services unchanged. Public UI, focused opinion/keyboard/link checks, axe and CPU/GPU/injected CPU-fallback transcription pass.
+
+### Added
+- Show the current member's server-backed opinion outside the zoomed canvas, with distinct pending/outside/offline states, settled-cell announcements and help returning keyboard focus to the pellet without casting a vote. Hide the summary for spectators and presentation mode.
+- Expose note position/size commands on desktop as well as mobile. Preserve editor arrow-key behaviour, authority checks, pinning and unsaved drafts.
+- List outgoing links with source context and destination title/author; navigate to the linked note with focus and mobile inspector handoff. Give deletion controls distinct contextual names and keep missing targets non-navigable.
+
+### Fixed
+- Use consecutive heading levels for note command sections, including inside the mobile inspector.
+
 ## [v2.0.0-beta.32] - 2026-11-19
 
 Deployed after complete CI 44505388781 and the strict 100-second zero-activity gate. Digest-pinned frontend/backend pair; voice services unchanged. Public UI acceptance, French control typography across themes/viewports, note/mobile-entry checks, axe and CPU/GPU/injected CPU-fallback transcription pass on final runs. Initial network/startup/download failures and a pre-injection caption timeout remain recorded; no product changes or user-storage cleanup were needed for the successful reruns.

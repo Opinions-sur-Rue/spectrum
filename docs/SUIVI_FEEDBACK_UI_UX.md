@@ -1,13 +1,13 @@
 # Suivi du feedback et des audits UI/UX
 
-Mis à jour le 19 novembre 2026. Synthèse de l’état courant ; les anciens comptes
+Mis à jour le 20 novembre 2026. Synthèse de l’état courant ; les anciens comptes
 rendus restent dans [RESUME_V2_PARITY.md](RESUME_V2_PARITY.md). Leurs mentions
 « restant », « non déployé » ou « pending » peuvent décrire une étape historique
 déjà terminée : elles ne constituent pas le backlog actuel.
 
 ## Nouvelle passe UI/UX et demande GPU automatique
 
-### Avis courant lisible hors du canvas — local, non déployé
+### Avis courant lisible hors du canvas — déployé dans beta.33
 
 - Audit §6 : résumé « Mon avis : … » dans la barre de guidage, à taille UI
   indépendante du zoom du canvas. Géométrie SVG existante et position de la
@@ -30,7 +30,7 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   Axe sans violation dans la barre de guidage avec aide ouverte ; captures
   320/390 px examinées. Voix/ASR et stockage inchangés.
 
-### Notes au clavier et parcours des liens — local, non déployé
+### Notes au clavier et parcours des liens — déployé dans beta.33
 
 - Audit §3 : volet Position/taille désormais disponible sur desktop aussi, sous
   Organiser. Boutons natifs pour déplacer de 40 unités, dimensions et retour de
@@ -49,6 +49,33 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   trois moteurs, puis 21 scénarios clavier/design system/panneaux/aide, tous verts.
   Captures desktop/mobile et conservation des brouillons vérifiées. Recette réelle
   avec lecteur d’écran toujours requise. Aucune modification voix/ASR ou stockage.
+
+### Publication commune des deux lots — beta.33
+
+- Source `40de234`, tag immuable `v2.0.0-beta.33`, CI `44544248996` entièrement
+  verte : 395 unitaires, 73 cas UI par moteur (219 au total), 18 cas voix,
+  régression v1 et six cas du chargeur. Les deux suivis de CI interrompus ont
+  subi des resets réseau locaux ; aucun job de cette CI n’a échoué.
+- Déploiement le 20 novembre à **01:54 UTC**, paire frontend/backend épinglée
+  par digest, 38 assets vérifiés dans `beta33-40de234`. Images et heures de
+  démarrage LiveKit/PeerJS/TURN inchangées ; secrets et configuration voix intacts.
+- **Exception expressément autorisée par l’utilisateur pour ce déploiement** :
+  une connexion backend se recréait après sa coupure ciblée autorisée. Deux
+  tentatives strictes ont été bloquées sans redémarrer. Après accord explicite,
+  le runner a conservé 100 secondes avec zéro salon/participant audio et au plus
+  une connexion backend (`allowedBackendConnections: 1`), consigné dans le backup.
+  Cette exception ne change pas le seuil strict par défaut des prochains lots.
+- Recette publique : `/`, `/v2/`, `/status` à 200 ; 11 étapes UI, 22 captures,
+  six écrans axe sans violation. Trois thèmes/quatre largeurs et six contrôles
+  axe des barres verts. Recette française ciblée verte : avis serveur/annonce,
+  focus sans vote, mobile 320/390 px, absence du résumé chez le spectateur,
+  déplacement clavier/épinglage, navigation de lien et brouillon conservé lors
+  du transfert d’inspecteur mobile ; trois contrôles axe ciblés sans violation.
+- CPU et GPU produisent des sous-titres ; repli CPU injecté visible, un seul
+  accès micro, préparation sans micro/menu fermé, historique spectateur et aucun
+  envoi tardif. Vérification physique Discord/lecteur d’écran toujours ouverte.
+- Preuves : `/tmp/opencode/beta33-deploy-approved.log`, `beta33-production-*.log`,
+  `uiux-beta33-production/`, `uiux-beta33-controls/`, `uiux-beta33-opinion-notes/`.
 
 ### Design system — première passe déployée dans beta.32
 

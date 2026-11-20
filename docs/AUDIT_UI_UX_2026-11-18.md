@@ -125,7 +125,7 @@ libellés de suppression uniques. Vérifier ensuite avec un lecteur d’écran r
 
 Références : `NoteCard.svelte`, `edge-node.ts`.
 
-**Passe locale après beta.32, non déployée :** le volet « Position et taille »
+**Déployé dans beta.33 :** le volet « Position et taille »
 est proposé aussi sur desktop dans Organiser, avec déplacements de 40 unités,
 dimensions et position annoncée. Pas de détournement des flèches de l’éditeur.
 Les liens sortants forment une liste nommée par la source ; destination et auteur
@@ -193,7 +193,7 @@ un groupe plus important avant de décider d’un traitement automatique.
 Preuves : `05-participant-mobile.png`, `16-admin-320x568.png` ; référence :
 `SpectrumBoard.svelte`.
 
-**Passe locale après beta.32, non déployée :** « Mon avis » hors du canvas affiche
+**Déployé dans beta.33 :** « Mon avis » hors du canvas affiche
 la case de la pastille propre selon la géométrie SVG et l’état serveur. Résumé
 absent pour les spectateurs/en présentation ; attente, hors zone et hors ligne
 distingués. Aide courte et retour à sa pastille avec focus clavier sans vote

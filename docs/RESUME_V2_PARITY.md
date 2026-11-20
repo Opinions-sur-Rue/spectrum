@@ -1,6 +1,40 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.32 in production, shared control styles delivered
+## Current state — beta.33 in production, opinion and keyboard note batches delivered
+
+- Production **beta.33**, source `40de23421434448481a57ec9f49dcaf7999aef6c`,
+  deployed **2026-11-20 01:54 UTC** after complete CI `44544248996`: 395 unit
+  tests, 73 UI cases per engine (219 total), 18 voice cases, v1 and six loader
+  regressions. Watcher connection resets did not represent CI failures.
+- Frontend `sha256:ff7ab7ed1fd2baf4455a4718923f6022f228972524c6c5ce35e2c4f7706d2582`;
+  backend `sha256:9366427f212c0f9b177d74c4cf0591db3afb48759c7c3fbb0c939ee0e293b8fc`.
+  Assets `/opt/spectrum/stt/releases/beta33-40de234`, 38 verified files. Root-only
+  rollback `/opt/spectrum/deploy-v2.0.0-beta.33-20261120T015437Z` retains beta.32.
+- **Explicit user-approved exception for this deployment only:** one backend
+  socket reconnected after an authorized targeted disconnect. Strict-zero attempts
+  aborted without restart. User then approved `--allow-backend-connections 1`;
+  reviewed runner kept the 100-second gate with zero audio rooms/participants and
+  at most one backend connection, recorded in `deployment-approval.json`. Default
+  remains strict zero. LiveKit/PeerJS/TURN images/start times unchanged; voice
+  configuration and runtime secrets preserved.
+- Own opinion text outside the zoomed canvas, server-backed cell/settled
+  announcement, honest outside/pending/offline states and keyboard focus action
+  without a vote. Hidden for spectators/presentation. Mobile profile remains
+  readable with opinion on a dedicated row. Desktop note position controls,
+  semantic outgoing links/contextual deletion names and destination navigation
+  preserve unsaved drafts and transfer the mobile inspector without duplication.
+- Public: HTTP 200, 11 general UI steps and 22 captures; six general axe screens
+  clean. Control smoke checks three themes/four widths, typography, keyboard/text
+  scaling and six clean toolbar axe samples. French opinion/keyboard/link smoke
+  passes, including 320/390px, spectator privacy, pinning, focus without vote and
+  inspector/draft retention; three additional axe samples clean. Screens reviewed.
+- Public CPU, hardware GPU and injected visible CPU recovery all produce real
+  captions with single microphone capture, spectator history and no late sends.
+  Real screen readers/physical devices and long-running ASR remain unvalidated.
+- Evidence: `/tmp/opencode/beta33-deploy-approved.log`, `beta33-production-*.log`,
+  `/tmp/opencode/uiux-beta33-{production,controls,opinion-notes}/`.
+
+### Previous accepted release — beta.32 (historical)
 
 - Production **beta.32**, source `4e93ffbae4bcbae44d2388f8c2e02d652295929f`,
   deployed **2026-11-19 10:51 UTC** after complete CI `44505388781` and the strict
