@@ -32,6 +32,7 @@
 		connection = $bindable(null),
 		speakers = $bindable([]),
 		localTrack = $bindable(null),
+		remoteAudioTracks = $bindable({}),
 		send
 	}: {
 		room: RoomState;
@@ -44,6 +45,7 @@
 		connection?: VoiceConnection | null;
 		speakers?: string[];
 		localTrack?: MediaStreamTrack | null;
+		remoteAudioTracks?: Record<string, MediaStreamTrack>;
 		send: (op: string, payload: unknown) => boolean;
 	} = $props();
 	let audio: HTMLDivElement;
@@ -159,6 +161,9 @@
 			},
 			localTrack: (track) => {
 				localTrack = track;
+			},
+			remoteAudioTracks: (tracks) => {
+				remoteAudioTracks = tracks;
 			},
 			status: (value) => {
 				status = value;
@@ -340,6 +345,7 @@
 	data-testid="voice-controls"
 	data-status={status}
 	data-remote-tracks={remoteTracks}
+	data-spectrum-tracks={Object.keys(remoteAudioTracks).length}
 	data-microphone={microphone}
 >
 	<button

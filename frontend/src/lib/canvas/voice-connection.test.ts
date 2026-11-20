@@ -18,6 +18,8 @@ vi.mock('livekit-client', () => ({
 		Disconnected: 'disconnected',
 		TrackSubscribed: 'subscribed',
 		TrackUnsubscribed: 'unsubscribed',
+		TrackMuted: 'muted',
+		TrackUnmuted: 'unmuted',
 		ActiveSpeakersChanged: 'speakers'
 	},
 	Room: class {
@@ -65,7 +67,8 @@ function setup() {
 		remoteTracks: vi.fn(),
 		speakers: vi.fn(),
 		error: vi.fn(),
-		localTrack: vi.fn()
+		localTrack: vi.fn(),
+		remoteAudioTracks: vi.fn()
 	};
 	return { callbacks, connection: new VoiceConnection({} as HTMLElement, callbacks) };
 }
@@ -86,6 +89,38 @@ it('reports an early SDK disconnect instead of swallowing the media failure', as
 	expect(callbacks.status).toHaveBeenLastCalledWith('error');
 	expect(callbacks.error).toHaveBeenCalledTimes(1);
 	expect(callbacks.disconnected).not.toHaveBeenCalled();
+});
+
+it('exposes only received live unmuted audio and clears it without stopping remote tracks', async () => {
+	fixture.mode = 'success';
+	const { callbacks } = setup();
+	const connection = new VoiceConnection({ append: vi.fn() } as unknown as HTMLElement, callbacks);
+	await connection.connect(credentials);
+	const mediaStreamTrack = Object.assign(new EventTarget(), { readyState: 'live', stop: vi.fn() });
+	const element = { dataset: {}, volume: 1, pause: vi.fn(), remove: vi.fn(), srcObject: {} };
+	const track = {
+		kind: 'audio',
+		isMuted: false,
+		mediaStreamTrack,
+		attach: () => element,
+		detach: vi.fn()
+	};
+	const subscribe = fixture.events.get('subscribed')!;
+	subscribe(track, {}, { identity: 'm_speaker', setVolume: fixture.setVolume });
+	expect(callbacks.remoteAudioTracks).toHaveBeenLastCalledWith({ m_speaker: mediaStreamTrack });
+	track.isMuted = true;
+	fixture.events.get('muted')?.();
+	expect(callbacks.remoteAudioTracks).toHaveBeenLastCalledWith({});
+	track.isMuted = false;
+	fixture.events.get('unmuted')?.();
+	expect(callbacks.remoteAudioTracks).toHaveBeenLastCalledWith({ m_speaker: mediaStreamTrack });
+	fixture.events.get('unsubscribed')?.(track);
+	expect(callbacks.remoteAudioTracks).toHaveBeenLastCalledWith({});
+	subscribe(track, {}, { identity: 'm_speaker', setVolume: fixture.setVolume });
+	await connection.disconnect();
+	expect(callbacks.remoteAudioTracks).toHaveBeenLastCalledWith({});
+	expect(mediaStreamTrack.stop).not.toHaveBeenCalled();
+	expect(fixture.createLocalAudioTrack).not.toHaveBeenCalled();
 });
 
 it('requests rejoin only after an established SDK connection disconnects', async () => {

@@ -11,7 +11,6 @@ export function spectrumHeight(bands: readonly number[], position: number): numb
 	return at(index) * (1 - blend) + at(index + 1) * blend;
 }
 
-/** Filled frequency sector: bass starts at twelve o'clock, frequencies clockwise. */
 /** Low-amplitude coherent noise; periodic around the circle, continuous in time. */
 export function spectrumDrift(angle: number, seconds: number): number {
 	return (
@@ -19,12 +18,14 @@ export function spectrumDrift(angle: number, seconds: number): number {
 	);
 }
 
+/** Filled frequency sector: bass starts at twelve o'clock, frequencies clockwise. */
 export function spectrumSector(
 	bands: readonly number[],
 	from: number,
 	to: number,
 	base: number,
-	seconds?: number
+	seconds?: number,
+	amplitude = 1
 ): string {
 	if (!bands.length) return '';
 	const steps = Math.ceil((to - from) * 8);
@@ -37,10 +38,28 @@ export function spectrumSector(
 		const position = from + ((to - from) * step) / steps;
 		const drift =
 			seconds === undefined ? 0 : spectrumDrift((position / bands.length) * Math.PI * 2, seconds);
-		points.push(point(position, base + 1.5 + drift + 12 * spectrumHeight(bands, position)));
+		points.push(
+			point(position, base + amplitude * (1.5 + drift + 12 * spectrumHeight(bands, position)))
+		);
 	}
 	for (let step = steps; step >= 0; step--) {
 		points.push(point(from + ((to - from) * step) / steps, base));
 	}
 	return `M ${points.join(' L ')} Z`;
+}
+export const SPECTRUM_VISUAL_BANDS = 12;
+
+/** Reduce visual detail only; retain energy across the complete FFT range. */
+export function simplifySpectrum(bands: readonly number[]): number[] {
+	if (!bands.length) return [];
+	return Array.from({ length: SPECTRUM_VISUAL_BANDS }, (_, index) => {
+		const from = (index * bands.length) / SPECTRUM_VISUAL_BANDS;
+		const to = ((index + 1) * bands.length) / SPECTRUM_VISUAL_BANDS;
+		let power = 0;
+		for (let i = Math.floor(from); i < Math.ceil(to); i++) {
+			const weight = Math.min(to, i + 1) - Math.max(from, i);
+			power += weight * bands[i] ** 2;
+		}
+		return Math.sqrt(power / (to - from));
+	});
 }

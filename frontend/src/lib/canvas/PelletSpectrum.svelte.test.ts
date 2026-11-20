@@ -40,10 +40,11 @@ afterEach(() => {
 });
 
 it('shows three filled frequency sectors as soon as the mic is open, even when silent', async () => {
-	const view = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack, scale: 1 });
+	const view = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack });
 	await tick();
 	const svg = view.getByTestId('pellet-voice-spectrum');
 	expect(svg).toHaveAttribute('data-bands', '32');
+	expect(svg).toHaveAttribute('data-resolution', '12');
 	expect(svg).toHaveAttribute('data-energy', '0');
 	expect(view.container.querySelectorAll('[data-wave]')).toHaveLength(3);
 	expect(fixture.observe).toHaveBeenCalledExactlyOnceWith(expect.anything(), expect.any(Function));
@@ -51,11 +52,42 @@ it('shows three filled frequency sectors as soon as the mic is open, even when s
 	expect(fixture.stop).toHaveBeenCalledOnce();
 });
 
-it('replaces the observer when the microphone changes but not for zoom changes', async () => {
-	const track = new EventTarget() as MediaStreamTrack;
-	const view = render(PelletSpectrum, { track, scale: 1 });
+it('uses independent gradient ids when several participants have a spectrum', async () => {
+	const first = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack });
+	const second = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack });
 	await tick();
-	await view.rerender({ scale: 0.25 });
+	const ids = [...document.querySelectorAll('radialGradient')].map((node) => node.id);
+	expect(new Set(ids).size).toBe(6);
+	for (const view of [first, second]) {
+		for (const node of view.container.querySelectorAll('[data-wave]')) {
+			const id = node.getAttribute('fill')!.slice(5, -1);
+			expect(view.container.querySelector(`[id="${id}"]`)).not.toBeNull();
+		}
+	}
+});
+
+it('derives spectrum colours from the participant pellet and updates without restarting analysis', async () => {
+	const view = render(PelletSpectrum, {
+		track: new EventTarget() as MediaStreamTrack,
+		color: 'cc4422'
+	});
+	await tick();
+	const svg = view.getByTestId('pellet-voice-spectrum');
+	expect(svg.style.getPropertyValue('--spectrum-color')).toBe('#cc4422');
+	await view.rerender({ color: '2277aa' });
+	expect(svg.style.getPropertyValue('--spectrum-color')).toBe('#2277aa');
+	expect(fixture.observe).toHaveBeenCalledOnce();
+	await view.rerender({ color: 'invalid' });
+	expect(svg.style.getPropertyValue('--spectrum-color')).toBe('var(--color-primary)');
+});
+
+it('keeps geometry in board units and replaces the observer only when the track changes', async () => {
+	const track = new EventTarget() as MediaStreamTrack;
+	const view = render(PelletSpectrum, { track });
+	await tick();
+	const svg = view.getByTestId('pellet-voice-spectrum');
+	expect(svg.style.width).toBe('64.95px');
+	expect(svg.style.height).toBe('64.95px');
 	expect(fixture.observe).toHaveBeenCalledOnce();
 	await view.rerender({ track: new EventTarget() as MediaStreamTrack });
 	expect(fixture.stop).toHaveBeenCalledOnce();
@@ -63,7 +95,7 @@ it('replaces the observer when the microphone changes but not for zoom changes',
 });
 
 it('updates the centroid as the frequency content shifts', async () => {
-	const view = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack, scale: 1 });
+	const view = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack });
 	await tick();
 	expect(view.getByTestId('pellet-voice-spectrum')).toHaveAttribute('data-centroid', '0');
 	const bass = Array(32).fill(0);
@@ -79,7 +111,7 @@ it('updates the centroid as the frequency content shifts', async () => {
 });
 
 it('preserves different peak positions within one frequency group', async () => {
-	const view = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack, scale: 1 });
+	const view = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack });
 	await tick();
 	const path = () => view.container.querySelector('[data-wave="low"]')?.getAttribute('d');
 	const first = Array(32).fill(0);
@@ -95,7 +127,7 @@ it('preserves different peak positions within one frequency group', async () => 
 });
 
 it('stops analysis for reduced motion and does not render the spectrum', async () => {
-	const view = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack, scale: 1 });
+	const view = render(PelletSpectrum, { track: new EventTarget() as MediaStreamTrack });
 	await tick();
 	media.matches = true;
 	change();

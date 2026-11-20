@@ -1,5 +1,23 @@
 import { expect, it } from 'vitest';
-import { spectrumDrift, spectrumHeight, spectrumSector } from './spectrum-curve';
+import { simplifySpectrum, spectrumDrift, spectrumHeight, spectrumSector } from './spectrum-curve';
+
+it('reduces visual resolution to 12 bands while preserving silence, flat energy and frequency order', () => {
+	expect(simplifySpectrum(Array(32).fill(0))).toEqual(Array(12).fill(0));
+	expect(simplifySpectrum(Array(32).fill(1))).toEqual(Array(12).fill(1));
+	const bass = Array(32).fill(0);
+	bass[2] = 1;
+	const treble = Array(32).fill(0);
+	treble[28] = 1;
+	const low = simplifySpectrum(bass);
+	const high = simplifySpectrum(treble);
+	expect(low.indexOf(Math.max(...low))).toBeLessThan(4);
+	expect(high.indexOf(Math.max(...high))).toBeGreaterThanOrEqual(8);
+});
+
+it('scales the complete envelope to 70 percent', () => {
+	const bands = Array(12).fill(1);
+	expect(spectrumSector(bands, 0, 4, 10, undefined, 0.7)).toMatch(/^M 0.000,-19.450 /);
+});
 
 it('adds bounded continuous idle noise without a seam or replacing FFT peaks', () => {
 	for (let t = 0; t < 20; t += 0.1) {

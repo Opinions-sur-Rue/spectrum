@@ -14,6 +14,7 @@
 		scale,
 		speakers = [],
 		localTrack = null,
+		remoteTracks = {},
 		send
 	}: {
 		state: SpectrumState;
@@ -24,6 +25,7 @@
 		scale: number;
 		speakers?: string[];
 		localTrack?: MediaStreamTrack | null;
+		remoteTracks?: Record<string, MediaStreamTrack>;
 		send: (op: string, payload: unknown) => void;
 	} = $props();
 	let pending = $state<{ memberId: string; x: number; y: number } | null>(null);
@@ -203,11 +205,12 @@
 			style:left="{point.x - 14}px"
 			style:top="{point.y - 14}px"
 			style:background-color="#{pellet.color}"
+			style:--pellet-color="#{pellet.color}"
 			style:--hit-space="{Math.max(0, (44 / scale - 28) / 2)}px"
 			style:--label-scale={1 / scale}
-			style:--ring-space="{Math.max(8, 8 / scale)}px"
-			style:--ring-width="{Math.max(3, 3 / scale)}px"
-			style:--spectrum-label-space="{20 / scale + 2}px"
+			style:--ring-space="8px"
+			style:--ring-width="3px"
+			style:--spectrum-label-space="22px"
 			data-pellet-id={pellet.memberId}
 			data-own={own}
 			data-x={point.x}
@@ -224,7 +227,12 @@
 					? ` · ${m.ux_own_pellet()}`
 					: ''}</span
 			>{#if own}<span class="own-mark" aria-hidden="true"></span>{/if}
-			{#if own && ready && localTrack}<PelletSpectrum track={localTrack} {scale} />{/if}</button
+			{#if ready && (own ? localTrack : remoteTracks[pellet.memberId])}
+				<PelletSpectrum
+					track={(own ? localTrack : remoteTracks[pellet.memberId])!}
+					color={pellet.color}
+				/>
+			{/if}</button
 		>
 	{/each}
 	{#if admin && board.hidden}<span class="hidden-status">{m.v2_hidden_positions()}</span>{/if}
@@ -258,11 +266,11 @@
 		content: '';
 		position: absolute;
 		inset: calc(-1 * var(--ring-space));
-		border: var(--ring-width) solid #22c55e;
+		border: var(--ring-width) solid var(--pellet-color);
 		border-radius: 50%;
 		box-shadow:
-			0 0 0 2px #052e16,
-			0 0 16px #22c55e99;
+			0 0 0 2px color-mix(in oklab, var(--pellet-color) 35%, var(--color-base-100)),
+			0 0 16px color-mix(in oklab, var(--pellet-color) 60%, transparent);
 		pointer-events: none;
 		animation: speaking-pulse 900ms ease-in-out infinite alternate;
 	}

@@ -25,6 +25,7 @@ interface Callbacks {
 	error: (message: string) => void;
 	speakers?: (identities: string[]) => void;
 	localTrack?: (track: MediaStreamTrack | null) => void;
+	remoteAudioTracks?: (tracks: Record<string, MediaStreamTrack>) => void;
 }
 
 /** No SDK load or microphone access until an explicit user action. */
@@ -39,6 +40,15 @@ export class VoiceConnection {
 	private volumes = new Map<string, number>();
 	private audioOwners = new Map<RemoteTrack, string>();
 	private deviceId: string | null = null;
+
+	private updateRemoteAudioTracks(): void {
+		const tracks: Record<string, MediaStreamTrack> = {};
+		for (const [track, owner] of this.audioOwners) {
+			if (!track.isMuted && track.mediaStreamTrack?.readyState === 'live')
+				tracks[owner] = track.mediaStreamTrack;
+		}
+		this.callbacks.remoteAudioTracks?.(tracks);
+	}
 
 	getVolume(memberId: string): number {
 		return this.volumes.get(memberId) ?? 1;
@@ -93,8 +103,10 @@ export class VoiceConnection {
 				this.audioOwners.set(track, participant.identity);
 				this.container.append(element);
 				this.callbacks.remoteTracks(this.audio.size);
+				this.updateRemoteAudioTracks();
 			});
 			room.on(sdk.RoomEvent.TrackUnsubscribed, (track) => {
+				if (this.room !== room) return;
 				// The SDK may already have detached the element before this event.
 				const attached = this.audio.get(track) ?? [];
 				track.detach();
@@ -106,7 +118,13 @@ export class VoiceConnection {
 				this.audio.delete(track);
 				this.audioOwners.delete(track);
 				if (this.room === room) this.callbacks.remoteTracks(this.audio.size);
+				this.updateRemoteAudioTracks();
 			});
+			const updateRemote = () => {
+				if (this.room === room) this.updateRemoteAudioTracks();
+			};
+			room.on(sdk.RoomEvent.TrackMuted, updateRemote);
+			room.on(sdk.RoomEvent.TrackUnmuted, updateRemote);
 			room.on(sdk.RoomEvent.AudioPlaybackStatusChanged, (playing) => {
 				if (this.room === room) this.callbacks.playbackBlocked(!playing);
 			});
@@ -310,6 +328,7 @@ export class VoiceConnection {
 		}
 		this.audio.clear();
 		this.audioOwners.clear();
+		this.callbacks.remoteAudioTracks?.({});
 		this.callbacks.speakers?.([]);
 		this.callbacks.remoteTracks(0);
 		this.callbacks.playbackBlocked(false);

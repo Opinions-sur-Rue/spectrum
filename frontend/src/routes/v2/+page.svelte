@@ -83,6 +83,7 @@
 	let voiceConnection = $state.raw<VoiceConnection | null>(null);
 	let speakers = $state<string[]>([]);
 	let localAudioTrack = $state.raw<MediaStreamTrack | null>(null);
+	let remoteAudioTracks = $state.raw<Record<string, MediaStreamTrack>>({});
 	let speakingTime = $state<Record<string, number>>({});
 	let peopleMenu = $state<{ editNickname: () => void }>();
 	let peopleModal = $state(false);
@@ -540,6 +541,7 @@
 						bind:connection={voiceConnection}
 						bind:speakers
 						bind:localTrack={localAudioTrack}
+						bind:remoteAudioTracks
 						{send}
 					/>{/key}{:else}<span class="audio-unavailable"
 					><Icon name="headphones" />{m.ux_audio_unavailable()}</span
@@ -654,6 +656,7 @@
 							scale={camera.scale}
 							{speakers}
 							localTrack={presentation ? null : localAudioTrack}
+							remoteTracks={presentation ? {} : remoteAudioTracks}
 							{send}
 						/>{/if}
 					{#each notes as note (note.id)}

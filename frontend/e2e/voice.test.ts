@@ -94,6 +94,7 @@ test('own pellet shows a true FFT spectrum from the authorized mic without anoth
 	const spectrum = page.getByTestId('pellet-voice-spectrum');
 	await expect(spectrum).toBeVisible({ timeout: 20000 });
 	await expect(spectrum).toHaveAttribute('data-bands', '32');
+	await expect(spectrum).toHaveAttribute('data-resolution', '12');
 	await expect(spectrum.locator('[data-wave]')).toHaveCount(3);
 	await expect
 		.poll(async () => Number(await spectrum.getAttribute('data-energy')))
@@ -106,6 +107,18 @@ test('own pellet shows a true FFT spectrum from the authorized mic without anoth
 		source.frequency.setValueAtTime(1800, source.context.currentTime);
 	});
 	await expect.poll(centroid).toBeGreaterThan(firstCentroid + 3);
+	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(1);
+	const ownPellet = page.locator('[data-own="true"]');
+	const relativeSize = async () => {
+		const pelletBox = (await ownPellet.boundingBox())!;
+		const spectrumBox = (await spectrum.boundingBox())!;
+		return spectrumBox.width / pelletBox.width;
+	};
+	const initialRatio = await relativeSize();
+	for (const name of ['Zoom −', 'Zoom −', 'Zoom +', 'Zoom +', 'Zoom +']) {
+		await page.getByRole('button', { name, exact: true }).click();
+		expect(await relativeSize()).toBeCloseTo(initialRatio, 2);
+	}
 	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(1);
 	await page.screenshot({ path: testInfo.outputPath('pellet-fft.png') });
 	await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -122,6 +135,66 @@ test('own pellet shows a true FFT spectrum from the authorized mic without anoth
 	await page.getByRole('button', { name: 'Mute microphone', exact: true }).click();
 	await expect(spectrum).toHaveCount(0);
 	await expect(page.getByTestId('voice-controls')).toHaveAttribute('data-status', 'connected');
+});
+
+test('received participant audio drives a compact spectrum without listener capture', async ({
+	page,
+	browser
+}, testInfo) => {
+	await syntheticMicrophone(page.context());
+	await page.emulateMedia({ reducedMotion: 'no-preference' });
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await page.getByRole('button', { name: 'Join audio', exact: true }).click();
+	await expect(page.getByTestId('voice-controls')).toHaveAttribute('data-status', 'connected');
+	const listenerContext = await newRoomContext(browser, {
+		storageState: englishLocale,
+		reducedMotion: 'no-preference'
+	});
+	await syntheticMicrophone(listenerContext);
+	try {
+		const listener = await listenerContext.newPage();
+		await listener.goto(page.url());
+		await expect(listener.getByTestId('own-role')).toHaveText('spectator');
+		await listener.getByRole('button', { name: 'Join audio', exact: true }).click();
+		await expect(listener.getByTestId('voice-controls')).toHaveAttribute(
+			'data-status',
+			'connected'
+		);
+		await page.getByRole('button', { name: 'Enable microphone', exact: true }).click();
+		const remote = listener.locator('[data-own="false"] [data-testid="pellet-voice-spectrum"]');
+		await expect(remote).toBeVisible({ timeout: 30000 });
+		await expect(remote).toHaveAttribute('data-resolution', '12');
+		await expect
+			.poll(async () => Number(await remote.getAttribute('data-energy')))
+			.toBeGreaterThan(0);
+		const first = Number(await remote.getAttribute('data-centroid'));
+		await page.evaluate(() => {
+			const source = window.__voiceFixture.sources.at(-1)!;
+			source.frequency.setValueAtTime(4000, source.context.currentTime);
+		});
+		await expect
+			.poll(async () => Number(await remote.getAttribute('data-centroid')))
+			.toBeGreaterThan(first + 3);
+		expect(await listener.evaluate(() => window.__voiceFixture.calls)).toBe(0);
+		expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(1);
+		await listener.screenshot({ path: testInfo.outputPath('remote-spectrum.png') });
+		await listener.emulateMedia({ reducedMotion: 'reduce' });
+		await expect(remote).toHaveCount(0);
+		await expect(listener.locator('[data-voice-audio]')).toHaveCount(1);
+		await listener.emulateMedia({ reducedMotion: 'no-preference' });
+		await expect(remote).toBeVisible();
+		await page.getByRole('button', { name: 'Mute microphone', exact: true }).click();
+		await expect(remote).toHaveCount(0);
+		await expect(listener.getByTestId('voice-controls')).toHaveAttribute(
+			'data-status',
+			'connected'
+		);
+		expect(await listener.evaluate(() => window.__voiceFixture.calls)).toBe(0);
+	} finally {
+		await listenerContext.close();
+	}
 });
 
 test('push-to-talk holds only while pressed, never hijacks typing, and cancels late microphone permission', async ({

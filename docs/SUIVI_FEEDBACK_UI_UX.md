@@ -60,6 +60,34 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   fenêtres de déploiement, avec des images identiques et restent actifs — constat
   noté, non causé par ces déploiements. Limitations des vrais appareils ouvertes.
 
+### Retouche compacte et participants distants — local non déployé
+
+- Demande utilisateur : une couleur de base déclinée, amplitude à 70 %, moins de
+  fréquences visibles, et visualisation sur les autres participants.
+- Palette dérivée de la couleur de chaque pastille, mélangée au texte du thème pour
+  trois nuances ; anneau de secours assorti également. Le primaire du thème sert
+  uniquement de repli si la couleur de pastille est absente/invalide.
+- Réduction visuelle 32 → 12 bandes par agrégation RMS pondérée, sans couper la
+  plage fréquentielle FFT. Enveloppe initialement à 70 %, remontée à **85 %**
+  après essai local utilisateur ; marge réduite conservée.
+- Correction du zoom après essai : géométrie exprimée en coordonnées du canvas,
+  sans compensation inverse. Spectre, amplitude, bruit et anneau de secours suivent
+  désormais la taille de la pastille ; espacement du nom ajusté dans le même repère.
+  Rapport diamètre du spectre/pastille vérifié constant après cinq changements de
+  zoom sur Chromium et Firefox. Quatre scénarios ciblés local/distant verts après
+  relance de Vite (cache de traductions générées devenu périmé).
+- Spectres distants analysés localement sur les pistes audio LiveKit déjà reçues
+  après l’action « Rejoindre l’audio ». Aucune capture supplémentaire, aucun FFT
+  transmis ou persisté, aucun démutage distant. Retrait sur mute/désabonnement/
+  déconnexion ; nettoyage de l’analyse sans arrêter la piste voix.
+- Identifiants de dégradés propres à chaque instance ; mouvement réduit et onglet
+  caché respectés pour chaque spectre. La présentation masque aussi les spectres
+  distants. Coût en grand groupe et vrais appareils encore à valider.
+- Validation locale : check/lint/build, 414 tests unitaires et 22 scénarios voix
+  Chromium/Firefox verts. Nouveau scénario réel à deux navigateurs : réponse
+  fréquentielle distante, aucune capture chez l’auditeur, mute et mouvement réduit
+  sans perte de connexion audio. Capture du rendu distant examinée.
+
 ### Nouvelle correction — histogramme FFT en courbe radiale, déployé dans beta.37
 
 - Après beta.36, précision utilisateur : pas de sinusoïdes prédéfinies. Relier les
