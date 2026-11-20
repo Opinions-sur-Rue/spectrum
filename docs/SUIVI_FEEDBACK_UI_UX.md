@@ -27,7 +27,7 @@ déjà terminée : elles ne constituent pas le backlog actuel.
 - Dépendances vulnérables et intégrations live réelles restent dans le suivi
   « Hors UI/UX » ci-dessous ; aucune mise à jour globale implicite.
 
-### Priorité immédiate — pastille propre et spectre vocal, local non déployé
+### Priorité immédiate — pastille propre et spectre vocal, déployé dans beta.34 et beta.35
 
 - Point blanc remplacé par un disque CSS positionné au centre géométrique de la
   pastille, sans dépendre d’une glyphe ou de la ligne de base d’une police.
@@ -45,8 +45,19 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   niveaux de zoom ; test vocal à deux fréquences confirmant le déplacement du pic
   FFT, capture unique, mute et préférence de mouvement réduit. Les 20 scénarios
   voix Chromium/Firefox et 45 cas UI ciblés sur trois moteurs passent. Check/lint/
-  build et 402 tests unitaires verts. Capture du spectre radial examinée ; aucun
-  déploiement de ce lot à ce stade. Les limitations des vrais appareils restent ouvertes.
+  build et 402 tests unitaires verts.
+- Déploiement : **beta.34** (source `e67b074`, CI `44669965599`) puis **beta.35**
+  (source `96e17ed`, CI `44674342368`), porte de 100 secondes sans activité, aucune
+  exception de connexion. Assets `beta34-e67b074` et `beta35-96e17ed` vérifiés.
+- Recette publique : `/`, `/v2/`, `/status` à 200 ; centrage sous-pixel sur trois
+  largeurs et plusieurs zooms ; 32 bandes réelles avec déplacement du pic FFT de
+  440 à 1800 Hz et une seule capture ; mouvement réduit → anneau statique ; mute →
+  nettoyage sans couper l’audio. La passe axe complète avec micro actif a révélé le
+  libellé « Micro ouvert » vert clair sur fond blanc (contraste 1,26), corrigé en
+  beta.35 et revérifié sans violation (≈21:1 clair et sombre). CPU transcrit toujours.
+- Les conteneurs LiveKit/PeerJS/TURN ont été recréés à 04:24:34, hors des deux
+  fenêtres de déploiement, avec des images identiques et restent actifs — constat
+  noté, non causé par ces déploiements. Limitations des vrais appareils ouvertes.
 
 ### Avis courant lisible hors du canvas — déployé dans beta.33
 

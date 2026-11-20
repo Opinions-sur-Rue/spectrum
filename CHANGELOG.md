@@ -2,6 +2,23 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
+## [v2.0.0-beta.35] - 2026-11-20
+
+Deployed after complete CI 44674342368 with the strict 100-second zero-activity gate and no backend-connection exception. One accessibility fix only.
+
+### Fixed
+- Restore 4.5:1 contrast for the "Microphone on" status label, which was green-on-white. The tint now derives from the readable theme text colour (≈21:1 in both light and dark themes).
+
+## [v2.0.0-beta.34] - 2026-11-20
+
+Deployed after complete CI 44669965599 with the strict 100-second zero-activity gate and no backend-connection exception. Digest-pinned pair; voice service images unchanged.
+
+### Changed
+- Replace the font-based white centre dot of the own pellet with a CSS disc positioned at the true geometric centre, independent of glyph metrics and canvas zoom.
+
+### Added
+- Render a local radial Fourier spectrum (32 log-spaced 80–8000 Hz bands, FFT 1024, ≤25 fps) around the own pellet from the already-authorised microphone track. No extra `getUserMedia`, no audio routed to output, no FFT/audio sent or persisted. Reduced motion keeps a static ring; a runtime FFT failure falls back safely without touching the voice track.
+
 ## [v2.0.0-beta.33] - 2026-11-20
 
 Deployed after complete CI 44544248996. The user explicitly approved one reconnecting backend connection after strict-zero attempts were blocked: the 100-second gate still required zero audio rooms/participants and at most one backend connection. Digest-pinned frontend/backend pair; voice services unchanged. Public UI, focused opinion/keyboard/link checks, axe and CPU/GPU/injected CPU-fallback transcription pass.

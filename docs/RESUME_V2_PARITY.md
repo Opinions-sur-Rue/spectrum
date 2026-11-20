@@ -1,6 +1,38 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.33 in production, opinion and keyboard note batches delivered
+## Current state — beta.35 in production, centred marker and voice spectrum delivered
+
+- Production **beta.35**, source `96e17edb4dfa39164e62e00a4de2463fc6e4c77a`, deployed
+  **2026-11-20 04:44 UTC** after complete CI `44674342368`: 402 unit tests, 10 voice
+  cases per engine, 74 UI cases per Chromium/Firefox engine and 37+37 WebKit, v1 and
+  six loader regressions. Strict 100-second gate, no connection exception.
+- Frontend `sha256:be0fdcb84156c523cc93277eb6ca931dc7b7f81e6a89284e30fbc70df4703a3f`;
+  backend `sha256:31f5bd0fa715a3b26751cc63abc28de0151d2ee14434d48258d6155b5eb8f0dc`.
+  Assets `/opt/spectrum/stt/releases/beta35-96e17ed`, 38 verified files. Root-only
+  rollback `/opt/spectrum/deploy-v2.0.0-beta.35-20261120T044418Z` retains beta.34.
+- beta.34 added the centred white marker and the local radial voice FFT; beta.35
+  restored contrast on the "Microphone on" label that the new full-page axe scan
+  surfaced. LiveKit/PeerJS/TURN images are unchanged; their containers were
+  recreated at 04:24:34 outside both deployment windows and remain running with
+  identical digests — noted here, not caused by these deploys.
+- Public evidence: HTTP 200, 11 general UI steps/22 captures/six clean axe screens,
+  opinion/keyboard/link smoke, control-typography smoke, and the pellet smoke which
+  measured sub-pixel centre alignment across three widths and zoom levels, confirmed
+  32 real bands and a 440→1800 Hz peak shift with exactly one capture, and cleared
+  the active-microphone axe sample. CPU transcription passes.
+- Evidence: `/tmp/opencode/beta{34,35}-deploy.log`, `beta35-production-*.log`,
+  `/tmp/opencode/uiux-beta34-*/`, `/tmp/opencode/beta35-contrast-verify.log`.
+
+### Previous accepted release — beta.34 (historical)
+
+- Production **beta.34**, source `e67b074b84d975d29885a364b4348e6a7116a5b8`, deployed
+  **2026-11-20 04:08 UTC** after complete CI `44669965599`. Same strict gate, no
+  exception. Frontend `sha256:dfd5a130e27ed1b580c232a1db9c554f312cde48a05469d097abf2d3ae400e5a`;
+  backend `sha256:8829c1c9300f249e9a1c30a8b5e8b39fdc2c3d495cdc66d54450b4cf9d71d83b`.
+  Assets `/opt/spectrum/stt/releases/beta34-e67b074`. Rollback
+  `/opt/spectrum/deploy-v2.0.0-beta.34-20261120T040834Z` retains beta.33.
+
+### Previous accepted release — beta.33 (historical)
 
 - Production **beta.33**, source `40de23421434448481a57ec9f49dcaf7999aef6c`,
   deployed **2026-11-20 01:54 UTC** after complete CI `44544248996`: 395 unit
