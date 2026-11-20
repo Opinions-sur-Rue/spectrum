@@ -2,12 +2,21 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
+## [v2.0.0-beta.36] - 2026-11-20
+
+Deployed after complete CI 44680879694 with the strict 100-second zero-activity gate and no connection exception. Digest-pinned frontend/backend pair; LiveKit/PeerJS/TURN containers unchanged.
+
+### Changed
+- Replace radial microphone bars with three crossing filled sine waves driven by low/mid/high FFT energy. A low silent baseline remains visible while the microphone is open; existing FFT smoothing controls amplitude rather than a speaking-state visibility gate.
+- Use translucent theme primary/accent/secondary radial gradients without outlines. Keep the existing single authorized capture, local-only analysis, cleanup and reduced-motion fallback.
+- Public acceptance passes: HTTP routes, centering, spectral response, silent baseline and theme samples, single capture, mute, reduced motion, 11 general UI steps, seven clean axe samples and CPU captions. Real-device and prolonged ASR validation remain deferred.
+
 ## [v2.0.0-beta.35] - 2026-11-20
 
 Deployed after complete CI 44674342368 with the strict 100-second zero-activity gate and no backend-connection exception. One accessibility fix only.
 
 ### Fixed
-- Restore 4.5:1 contrast for the "Microphone on" status label, which was green-on-white. The tint now derives from the readable theme text colour (≈21:1 in both light and dark themes).
+- Restore readable contrast for the "Microphone on" status label, which was green-on-white. The tint now derives from the readable theme text colour; the public active-microphone axe check passes. Earlier ≈21:1 figures were invalid because the calculation interpreted Oklab coordinates as RGB.
 
 ## [v2.0.0-beta.34] - 2026-11-20
 

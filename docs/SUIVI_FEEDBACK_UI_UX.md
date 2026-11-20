@@ -54,12 +54,13 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   440 à 1800 Hz et une seule capture ; mouvement réduit → anneau statique ; mute →
   nettoyage sans couper l’audio. La passe axe complète avec micro actif a révélé le
   libellé « Micro ouvert » vert clair sur fond blanc (contraste 1,26), corrigé en
-  beta.35 et revérifié sans violation (≈21:1 clair et sombre). CPU transcrit toujours.
+  beta.35 et revérifié sans violation axe. Les anciens chiffres ≈21:1 étaient
+  invalides (coordonnées Oklab interprétées comme RGB). CPU transcrit toujours.
 - Les conteneurs LiveKit/PeerJS/TURN ont été recréés à 04:24:34, hors des deux
   fenêtres de déploiement, avec des images identiques et restent actifs — constat
   noté, non causé par ces déploiements. Limitations des vrais appareils ouvertes.
 
-### Retouche visuelle du spectre — sinusoïdales, local non déployé
+### Retouche visuelle du spectre — sinusoïdales, déployé dans beta.36
 
 Demande utilisateur sur le visuel des barres, jugé trop simple :
 
@@ -80,7 +81,15 @@ Demande utilisateur sur le visuel des barres, jugé trop simple :
 - Validation locale : 404 tests unitaires, 20 scénarios voix Chromium/Firefox et
   45 cas UI ciblés sur trois moteurs verts, check/lint/build verts. Test vocal à
   deux fréquences : le centroïde spectral passe de ~11 (440 Hz) à ~22 (1800 Hz).
-  Rendus non déployés à ce stade.
+  Déployé le 20 novembre à 05:53 UTC après CI complète `44680879694`, source
+  `68ed793`, contrôle strict sans activité de 100 secondes, aucune exception.
+- Recette publique verte : centrage, réponse fréquentielle, base au silence,
+  captures lofi/clair/sombre, capture micro unique, mute et mouvement réduit.
+  11 étapes UI, 22 captures et sept échantillons axe sans violation ; transcription
+  CPU vérifiée. Phases fixes : pas d’animation temporelle indépendante, amplitude
+  pilotée par le lissage FFT existant. Validation prolongée et vrais appareils différés.
+- Paire de digests et rollback consignés dans `RESUME_V2_PARITY.md`.
+  LiveKit/PeerJS/TURN non redémarrés pendant ce déploiement.
 
 ### Avis courant lisible hors du canvas — déployé dans beta.33
 

@@ -1,6 +1,28 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.35 in production, centred marker and voice spectrum delivered
+## Current state — beta.36 in production, sinusoidal microphone visualization
+
+- Production **beta.36**, source `68ed7939a2dd7cc8d095403eea881bf1d416b013`,
+  deployed **2026-11-20 05:53 UTC** after complete CI `44680879694`.
+  Strict 100-second zero-activity gate; no backend-connection exception.
+- Frontend `sha256:d1dce9ae421617542c8be96c9b98c496907c6fac712248f08920a17b414d5b0b`;
+  backend `sha256:9458b932baf28f6b6aef6692087ea93a367dbff87e5d076a6f70911590333463`.
+  Assets `/opt/spectrum/stt/releases/beta36-68ed793`, 38 verified files.
+  Rollback `/opt/spectrum/deploy-v2.0.0-beta.36-20261120T055352Z` retains beta.35.
+- Three filled radial sine waves replace bars, using theme gradients and the existing
+  smoothed frequency groups. Silence retains a low baseline without a speaking gate.
+  Phases are fixed, not independently time-animated. Reduced motion retains the fallback.
+- Public acceptance: `/`, `/v2/`, API status return 200; nine centering measurements,
+  spectral centroid response, silent baseline, lofi/light/dark samples, one capture,
+  reduced motion and mute pass. General UI: 11 steps, 22 captures, six clean axe
+  screens; active-microphone axe also clean. CPU captions pass with microphone-free
+  preparation, menu closure, verified cache reuse and no late publication.
+- LiveKit/PeerJS/TURN images and container start timestamps unchanged across this
+  deployment (04:24:34 UTC). Evidence: `/tmp/opencode/beta36-deploy.log`,
+  `/tmp/opencode/uiux-beta36-pellet-fft/`, `/tmp/opencode/uiux-beta36-production/`,
+  `/tmp/opencode/beta36-production-cpu.log`. Real-device/prolonged ASR work stays deferred.
+
+### Previous accepted release — beta.35 (historical)
 
 - Production **beta.35**, source `96e17edb4dfa39164e62e00a4de2463fc6e4c77a`, deployed
   **2026-11-20 04:44 UTC** after complete CI `44674342368`: 402 unit tests, 10 voice
