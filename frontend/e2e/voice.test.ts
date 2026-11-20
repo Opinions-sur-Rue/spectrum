@@ -94,25 +94,18 @@ test('own pellet shows a true FFT spectrum from the authorized mic without anoth
 	const spectrum = page.getByTestId('pellet-voice-spectrum');
 	await expect(spectrum).toBeVisible({ timeout: 20000 });
 	await expect(spectrum).toHaveAttribute('data-bands', '32');
+	await expect(spectrum.locator('[data-wave]')).toHaveCount(3);
 	await expect
-		.poll(async () => Number(await spectrum.getAttribute('data-spectrum-energy')))
+		.poll(async () => Number(await spectrum.getAttribute('data-energy')))
 		.toBeGreaterThan(0);
-	const peak = () =>
-		spectrum.locator('.bar').evaluateAll((lines) => {
-			const lengths = lines.map((line) =>
-				Math.hypot(
-					Number(line.getAttribute('x2')) - Number(line.getAttribute('x1')),
-					Number(line.getAttribute('y2')) - Number(line.getAttribute('y1'))
-				)
-			);
-			return lengths.indexOf(Math.max(...lengths));
-		});
-	const firstPeak = await peak();
+	const centroid = async () => Number(await spectrum.getAttribute('data-centroid'));
+	const firstCentroid = await centroid();
+	expect(firstCentroid).toBeGreaterThanOrEqual(6);
 	await page.evaluate(() => {
 		const source = window.__voiceFixture.sources.at(-1)!;
 		source.frequency.setValueAtTime(1800, source.context.currentTime);
 	});
-	await expect.poll(peak).not.toBe(firstPeak);
+	await expect.poll(centroid).toBeGreaterThan(firstCentroid + 3);
 	expect(await page.evaluate(() => window.__voiceFixture.calls)).toBe(1);
 	await page.screenshot({ path: testInfo.outputPath('pellet-fft.png') });
 	await page.emulateMedia({ reducedMotion: 'reduce' });

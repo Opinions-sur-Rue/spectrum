@@ -224,11 +224,7 @@
 					? ` · ${m.ux_own_pellet()}`
 					: ''}</span
 			>{#if own}<span class="own-mark" aria-hidden="true"></span>{/if}
-			{#if own && ready && localTrack}<PelletSpectrum
-					track={localTrack}
-					active={speakers.includes(pellet.memberId)}
-					{scale}
-				/>{/if}</button
+			{#if own && ready && localTrack}<PelletSpectrum track={localTrack} {scale} />{/if}</button
 		>
 	{/each}
 	{#if admin && board.hidden}<span class="hidden-status">{m.v2_hidden_positions()}</span>{/if}

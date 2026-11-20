@@ -59,6 +59,29 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   fenêtres de déploiement, avec des images identiques et restent actifs — constat
   noté, non causé par ces déploiements. Limitations des vrais appareils ouvertes.
 
+### Retouche visuelle du spectre — sinusoïdales, local non déployé
+
+Demande utilisateur sur le visuel des barres, jugé trop simple :
+
+- Remplacer les 32 barres radiales par **trois sinusoïdales qui se croisent**
+  (3, 4 et 5 lobes, phases décalées). Aire **sous chaque sinusoïde** remplie en
+  couleur de thème **translucide** (primaire, accent, secondaire) avec un dégradé
+  radial (transparent au centre → couleur au bord), **sans contour**.
+- **Base très basse visible dès que le micro est ouvert**, même silencieux :
+  plancher d’amplitude constant, puis l’énergie réelle fait monter les lobes.
+  La transition n’est plus tout-ou-rien : l’amplitude suit les bandes lissées
+  (attaque/relâchement existants) au lieu d’un affichage conditionné à « en train
+  de parler ». Basses/médiums/aigus pilotent respectivement les trois ondes.
+- Plus de vert : les couleurs viennent des tokens du thème, donc le rendu s’adapte
+  aux thèmes lofi/clair/sombre (monochrome ou coloré selon le thème actif).
+- Mêmes garde-fous : aucune capture supplémentaire, aucun son renvoyé, aucun envoi
+  des données ; mouvement réduit → anneau statique ; mute → nettoyage ; erreur FFT
+  → repli sûr sans toucher la piste.
+- Validation locale : 404 tests unitaires, 20 scénarios voix Chromium/Firefox et
+  45 cas UI ciblés sur trois moteurs verts, check/lint/build verts. Test vocal à
+  deux fréquences : le centroïde spectral passe de ~11 (440 Hz) à ~22 (1800 Hz).
+  Rendus non déployés à ce stade.
+
 ### Avis courant lisible hors du canvas — déployé dans beta.33
 
 - Audit §6 : résumé « Mon avis : … » dans la barre de guidage, à taille UI
