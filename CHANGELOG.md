@@ -2,9 +2,9 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
-## Unreleased — UI/UX feedback follow-up
+## [v2.0.0-beta.39] - 2026-11-20
 
-Local, validated, not deployed. Production remains beta.38.
+Deployed after complete CI 44755459589 with a digest-pinned image pair and the strict 100-second zero-activity gate, without a connection exception. LiveKit/PeerJS/TURN containers unchanged.
 
 ### Changed
 - Clarify chat read/write audiences, private-note persistence and shared ephemeral data; keep audience information accessible on short mobile viewports without hiding the message input.
@@ -15,6 +15,7 @@ Local, validated, not deployed. Production remains beta.38.
 
 ### Validation
 - Local check/lint/build, 429 unit tests, 234 UI cases across three engines, 12 post-cache-completion focused cases, 22 voice cases and Go spectrum tests pass. Local CPU transcription and six axe samples pass.
+- Public acceptance passes: HTTP routes, 11 general UI steps/22 captures, targeted privacy/cache/opinion/people/audience checks, local and remote spectra, CPU captions and 12 clean axe samples. Screenshots reviewed.
 - Real phones/WebViews, screen readers, real-group observation and prolonged representative ASR remain unverified; automated coverage is not a substitute.
 
 ## [v2.0.0-beta.38] - 2026-11-20

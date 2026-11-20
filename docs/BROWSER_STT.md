@@ -102,7 +102,7 @@ failure. No audio, captions, room ID or nickname enters that cache. Incomplete
 downloads are not advertised as resumable. Browser stream byte counts are
 decoded bytes, not compressed `Content-Length`.
 
-### Targeted cache clearing (local UI/UX backlog batch, not yet deployed)
+### Targeted cache clearing (deployed in beta.39)
 
 **Audio options → Clear model cache** requires confirmation and is disabled while
 this tab prepares or uses a model. Model preparation stays disabled until deletion

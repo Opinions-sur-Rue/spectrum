@@ -1,21 +1,41 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.38 in production, compact coloured participant spectra
+## Current state — beta.39 in production, actionable UI/UX feedback delivered
 
-### Local follow-up — remaining implementable UI/UX feedback
+- Production **beta.39**, source `ae53968bdfd0fb4df45041eb3d4f20dc5281e0a3`,
+  deployed **2026-11-20 14:52 UTC** after complete CI `44755459589`.
+  Strict 100-second zero-activity gate; no connection exception.
+- Frontend `sha256:122a62eb6fef4a8939940a3696ca739f4d9d1cd6022be8b7f5655c5720e725dc`;
+  backend `sha256:552f9ca119a8f81c81521a26e1d984d21908b5e8c21d1182c202c7ca457836ba`.
+  Assets `/opt/spectrum/stt/releases/beta39-ae53968`, 38 verified files.
+  Rollback `/opt/spectrum/deploy-v2.0.0-beta.39-20261120T145218Z` retains beta.38.
+- Public acceptance: HTTP 200, 11 UI steps/22 captures, confirmed scoped cache
+  and private-note deletion preserving identity/other notes/unrelated cache entries,
+  real SVG opinion selection, duplicate-name search and live spectator chat rights.
+  Local/remote spectrum response, proportional zoom and single capture pass.
+  CPU captions, microphone-free preparation, menu closure, cache reuse and no late
+  publication pass. Twelve axe samples clean; screenshots reviewed.
+- Initial profile-dependent smoke attempts raced server updates; explicit profile
+  and result-count waits plus sequential reruns passed. No product change required.
+- LiveKit/PeerJS/TURN containers unchanged, including 04:24:34 UTC start timestamps.
+  Evidence: `/tmp/opencode/beta39-deploy.log`, `/tmp/opencode/uiux-beta39-feedback/`,
+  `/tmp/opencode/uiux-beta39-production/`, `/tmp/opencode/uiux-beta39-pellet-fft/`,
+  `/tmp/opencode/beta39-production-cpu.log`.
 
-Not deployed. Audience/write-rights and retention copy, confirmed model-cache-only
+### Delivered follow-up — remaining implementable UI/UX feedback
+
+Audience/write-rights and retention copy, confirmed model-cache-only
 clearing, secondary form/focus/dialog tokens, localized technical errors, explicit
 opinion picker from real SVG interior points, bounded crowded labels and searchable
 disambiguated people are implemented. See `SUIVI_FEEDBACK_UI_UX.md`.
 
 Check/lint/build, 429 unit tests, 234 UI cases across three engines plus 12 targeted
 cases after Whisper-cache coverage, 22 voice cases, Go spectrum tests, local CPU
-captions and 11-step/six-clean-axe-screen local acceptance pass. No production change
-or release tag for this follow-up. Real phones, screen readers, real-group observation
+captions and 11-step/six-clean-axe-screen local acceptance pass. Delivered in beta.39.
+Real phones, screen readers, real-group observation
 and prolonged representative ASR remain unexecuted, with explicit manual criteria.
 
-### Last deployed release
+### Previous accepted release — beta.38 (historical)
 
 - Production **beta.38**, source `8fdb1873a667c0ad880e0d842dd4f4d0f697705e`,
   deployed **2026-11-20 08:08 UTC** after complete CI `44698497466`.

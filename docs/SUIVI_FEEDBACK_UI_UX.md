@@ -9,8 +9,9 @@ déjà terminée : elles ne constituent pas le backlog actuel.
 
 ### Backlog repris à la demande utilisateur — 20 novembre
 
-Reprise après beta.38. Les correctifs ci-dessous sont locaux tant qu’une nouvelle
-release n’est pas explicitement indiquée ; production reste beta.38.
+Reprise après beta.38. Correctifs réalisables livrés dans **beta.39** ; les essais
+physiques, lecteurs d’écran, discussion réelle en groupe et ASR prolongé restent
+explicitement ouverts.
 
 - [x] Audience/droits d’écriture des canaux ; contenu partagé éphémère vs notes
   privées persistantes vs cache public des modèles ; effacement local ciblé sans
@@ -30,7 +31,7 @@ release n’est pas explicitement indiquée ; production reste beta.38.
 - Dépendances vulnérables et intégrations live réelles restent dans le suivi
   « Hors UI/UX » ci-dessous ; aucune mise à jour globale implicite.
 
-### Lot de reprise — correctifs locaux validés, non déployés
+### Lot de reprise — déployé dans beta.39
 
 - Canaux : audience et droit d’écriture distingués, y compris lorsque les
   spectateurs sont en lecture seule. Information visible sur mobile et reliée à
@@ -72,8 +73,19 @@ release n’est pas explicitement indiquée ; production reste beta.38.
   une session prolongée ni les GPU/appareils physiques.
 - Preuves : `/tmp/opencode/uiux-backlog-{unit-final,full-ui-final,last-ui,voice,asr-cpu}.log`,
   `/tmp/opencode/uiux-backlog-local-review/`, `/tmp/opencode/uiux-backlog-backend.log`.
-  Production reste beta.38 ; validation physique/lecteur d’écran et ASR long
-  explicitement ouverts ci-dessous.
+  Validation physique/lecteur d’écran et ASR long explicitement ouverts ci-dessous.
+- Déploiement **20 novembre, 14:52 UTC**, source `ae53968`, CI complète
+  `44755459589`, porte stricte de 100 secondes sans activité, aucune exception.
+  Recette publique : effacements ciblés et annulation, notes/identité et caches
+  tiers préservés, choix d’avis confirmé puis écho serveur, homonymes/recherche,
+  droits spectateurs modifiés en direct, aucune capture pour ce lot ; 11 étapes
+  générales, 22 captures et **12 échantillons axe sans violation** au total avec
+  la régression micro. Spectres locaux/distants et transcription CPU verts.
+  Premières recettes sensibles au délai d’écho des profils ; relance séquentielle
+  avec attente explicite du profil serveur et du nombre de résultats : verte.
+  Captures examinées. Services voix non redémarrés ; digests/rollback dans
+  `RESUME_V2_PARITY.md`. Preuves `/tmp/opencode/beta39-*`,
+  `/tmp/opencode/uiux-beta39-{production,feedback,pellet-fft}/`.
 
 ### Priorité immédiate — pastille propre et spectre vocal, déployé dans beta.34 et beta.35
 
