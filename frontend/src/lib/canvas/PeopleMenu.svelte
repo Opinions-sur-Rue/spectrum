@@ -11,6 +11,7 @@
 	import { roleLabel } from './labels';
 	import { formatSpeakingTime, speakingSecondsFor } from './speaking-time';
 	import { panelModality, trapPanelFocus } from './panel-modality';
+	import { participantNames } from './pellet-labels';
 	let {
 		room,
 		ready,
@@ -30,6 +31,7 @@
 	} = $props();
 	let action = $state<Confirmation | null>(null);
 	let nickname = $state('');
+	let search = $state('');
 	let details: HTMLDetailsElement;
 	let input: HTMLInputElement;
 	let panel: HTMLDivElement;
@@ -74,6 +76,9 @@
 	});
 	const admin = $derived(room.role === 'admin');
 	const members = $derived(room.members ?? []);
+	const displayNames = $derived(participantNames(members));
+	const matches = (member: RoomState['members'][number]) =>
+		member.nickname.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
 	const onStage = $derived(members.filter((member) => member.role !== 'spectator'));
 	const spectators = $derived(members.filter((member) => member.role === 'spectator'));
 	const own = $derived(members.find((member) => member.id === room.userId));
@@ -169,6 +174,16 @@
 			</div>
 		</form>
 		<div class="people-body">
+			<label class="mb-3 block text-xs font-semibold">
+				{m.ux_people_search()}
+				<input
+					type="search"
+					class="input input-sm mt-1 w-full"
+					bind:value={search}
+					data-testid="people-search"
+				/>
+			</label>
+			<p class="mb-3 text-xs opacity-75">{m.ux_people_names_hint()}</p>
 			{#if hands.length}<section
 					class="mb-4 rounded-lg border p-2"
 					data-testid="hand-queue"
@@ -182,10 +197,10 @@
 								class="flex items-center gap-2 text-xs"
 								data-hand-member={member.id}
 							>
-								<span class="member-name min-w-0 flex-1">{member.nickname}</span
+								<span class="member-name min-w-0 flex-1">{displayNames[member.id]}</span
 								>{#if admin || member.id === room.userId}<IconButton
 										icon="demote"
-										label={m.social_lower_member_hand({ name: member.nickname })}
+										label={m.social_lower_member_hand({ name: displayNames[member.id] })}
 										disabled={!ready}
 										onclick={() => send('room.hand', { memberId: member.id, raised: false })}
 									/>{/if}
@@ -199,19 +214,16 @@
 				})}
 			</h2>
 			<ul class="space-y-1">
-				{#each onStage as member (member.id)}
-					<li
-						class="member-row border-b py-2 text-sm"
-						aria-label={member.nickname}
-						data-member-id={member.id}
-					>
+				{#each onStage.filter(matches) as member (member.id)}
+					{@const name = displayNames[member.id]}
+					<li class="member-row border-b py-2 text-sm" aria-label={name} data-member-id={member.id}>
 						<div class="member-identity">
 							<span
 								class="mt-1.5 h-2 w-2 shrink-0 rounded-full"
 								style:background-color={member.color ? `#${member.color}` : 'gray'}
 							></span>
 							<span class="member-name" data-member-name={member.id}
-								>{member.nickname}{member.id === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
+								>{name}{member.id === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
 							>
 						</div>
 						<div class="member-meta text-xs opacity-60">
@@ -223,8 +235,7 @@
 								<span
 									class="tabular-nums"
 									data-speaking-time={member.id}
-									title={m.voice_speaking_time_aria({ name: member.nickname, time: spoken })}
-									>{spoken}</span
+									title={m.voice_speaking_time_aria({ name, time: spoken })}>{spoken}</span
 								>
 							{/if}
 						</div>
@@ -232,14 +243,14 @@
 							<div class="member-actions" data-member-actions={member.id}>
 								{#if admin && member.role === 'participant'}<IconButton
 										icon="crown"
-										label={m.v2_appoint_admin({ name: member.nickname })}
+										label={m.v2_appoint_admin({ name })}
 										disabled={!ready}
 										onclick={() => {
 											action = {
 												op: 'room.appoint',
 												payload: { memberId: member.id },
-												title: m.v2_appoint_admin({ name: member.nickname }),
-												body: m.v2_appoint_admin_body({ name: member.nickname })
+												title: m.v2_appoint_admin({ name }),
+												body: m.v2_appoint_admin_body({ name })
 											};
 										}}
 									/>{/if}
@@ -258,27 +269,27 @@
 									/>{/if}
 								{#if admin && member.role === 'participant' && room.voice?.available}<IconButton
 										icon="micOff"
-										label={m.voice_mute_member({ name: member.nickname })}
+										label={m.voice_mute_member({ name })}
 										disabled={!ready || !!member.microphoneMuted}
 										onclick={() => send('voice.mute', { memberId: member.id })}
 									/>{/if}
 								{#if admin && member.role === 'participant'}<IconButton
 										icon="demote"
-										label={m.v2_demote({ name: member.nickname })}
+										label={m.v2_demote({ name })}
 										disabled={!ready}
 										onclick={() => send('room.demote', { memberId: member.id })}
 									/>{/if}
 								{#if admin && member.role === 'participant'}
 									<IconButton
 										icon="trash"
-										label={m.session_kick({ name: member.nickname })}
+										label={m.session_kick({ name })}
 										disabled={!ready}
 										onclick={() => {
 											action = {
 												op: 'room.kick',
 												payload: { memberId: member.id },
-												title: m.session_kick({ name: member.nickname }),
-												body: m.session_kick_body({ name: member.nickname })
+												title: m.session_kick({ name }),
+												body: m.session_kick_body({ name })
 											};
 										}}
 									/>
@@ -286,7 +297,7 @@
 							</div>
 						{/if}
 						<MemberAudio
-							{member}
+							member={{ ...member, nickname: name }}
 							own={member.id === room.userId}
 							{connection}
 							speaking={speakers.includes(member.id)}
@@ -301,35 +312,32 @@
 				})}
 			</h2>
 			<ul class="space-y-1">
-				{#each spectators as member (member.id)}
-					<li
-						class="member-row py-2 text-sm"
-						aria-label={member.nickname}
-						data-member-id={member.id}
-					>
+				{#each spectators.filter(matches) as member (member.id)}
+					{@const name = displayNames[member.id]}
+					<li class="member-row py-2 text-sm" aria-label={name} data-member-id={member.id}>
 						<div class="member-identity">
 							<span class="member-name" data-member-name={member.id}
-								>{member.nickname}{member.id === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
+								>{name}{member.id === room.userId ? ` ${m.ux_chat_you()}` : ''}</span
 							>
 						</div>
 						{#if admin}
 							<div class="member-actions" data-member-actions={member.id}>
 								{#if admin}<IconButton
 										icon="promote"
-										label={m.v2_promote({ name: member.nickname })}
+										label={m.v2_promote({ name })}
 										disabled={!ready || onStage.length >= room.settings.participantSlots}
 										onclick={() => send('room.promote', { memberId: member.id })}
 									/>{/if}
 								{#if admin}<IconButton
 										icon="trash"
-										label={m.session_kick({ name: member.nickname })}
+										label={m.session_kick({ name })}
 										disabled={!ready}
 										onclick={() => {
 											action = {
 												op: 'room.kick',
 												payload: { memberId: member.id },
-												title: m.session_kick({ name: member.nickname }),
-												body: m.session_kick_body({ name: member.nickname })
+												title: m.session_kick({ name }),
+												body: m.session_kick_body({ name })
 											};
 										}}
 									/>{/if}
@@ -338,6 +346,13 @@
 					</li>
 				{/each}
 			</ul>
+			<p aria-live="polite" aria-atomic="true" class="text-xs">
+				{search.trim()
+					? members.some(matches)
+						? m.ux_people_search_count({ count: members.filter(matches).length })
+						: m.ux_people_search_empty()
+					: ''}
+			</p>
 		</div>
 	</div>
 </details>

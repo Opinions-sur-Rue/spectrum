@@ -2,6 +2,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import type { RoomMember } from './room-client';
 	import type { VoiceConnection } from './voice-connection';
+	import Icon from '$lib/components/Icon.svelte';
 	let {
 		member,
 		own,
@@ -27,7 +28,7 @@
 			>{/if}
 		{#if connection && !own && member.role !== 'spectator'}
 			<label class="ml-auto flex items-center gap-2 text-[10px]" title={m.voice_volume_hint()}
-				><span aria-hidden="true">🔊</span><input
+				><Icon name="speaker" /><input
 					type="range"
 					min="0"
 					max="1"

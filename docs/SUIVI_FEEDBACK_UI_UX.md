@@ -7,18 +7,21 @@ déjà terminée : elles ne constituent pas le backlog actuel.
 
 ## Nouvelle passe UI/UX et demande GPU automatique
 
-### Backlog convenu et mis en pause à la demande utilisateur — 20 novembre
+### Backlog repris à la demande utilisateur — 20 novembre
 
-À reprendre plus tard, pas à inclure implicitement dans le lot visuel des pastilles :
+Reprise après beta.38. Les correctifs ci-dessous sont locaux tant qu’une nouvelle
+release n’est pas explicitement indiquée ; production reste beta.38.
 
-- [ ] Audience/droits d’écriture des canaux ; contenu partagé éphémère vs notes
+- [x] Audience/droits d’écriture des canaux ; contenu partagé éphémère vs notes
   privées persistantes vs cache public des modèles ; effacement local ciblé sans
   supprimer tout le stockage du site.
-- [ ] Étendre le design system aux composants secondaires ; les commandes
+- [x] Étendre le design system aux composants secondaires ; les commandes
   principales et le libellé Minuteur sont déjà livrés, ne pas les rouvrir sans motif.
-- [ ] Traduire les erreurs techniques restantes en français/anglais.
-- [ ] Évaluer un choix d’avis alternatif au drag ; collisions de noms en grand
-  groupe et découverte clavier/tactile du canvas pendant une vraie discussion.
+- [x] Traduire les erreurs techniques restantes en français/anglais.
+- [x] Choix d’avis alternatif au drag et traitement des collisions de noms :
+  sélection confirmée, placement borné et pseudos homonymes distingués.
+- [ ] Observer la découverte clavier/tactile du canvas et les noms pendant une
+  vraie discussion en grand groupe ; ne pas assimiler une simulation à cet essai.
 - [ ] Vrais Android/iPhone : Discord/WebViews, ouverture dans le navigateur,
   changements d’app, veille, permissions micro et reprise réseau.
 - [ ] Lecteurs d’écran, parcours clavier complet, focus, zoom et contrastes.
@@ -26,6 +29,51 @@ déjà terminée : elles ne constituent pas le backlog actuel.
   appareils et GPU variés, capacité Firefox et délais du profil de test persistant.
 - Dépendances vulnérables et intégrations live réelles restent dans le suivi
   « Hors UI/UX » ci-dessous ; aucune mise à jour globale implicite.
+
+### Lot de reprise — correctifs locaux validés, non déployés
+
+- Canaux : audience et droit d’écriture distingués, y compris lorsque les
+  spectateurs sont en lecture seule. Information visible sur mobile et reliée à
+  la saisie pour les technologies d’assistance. Contexte du chat défilant sur
+  petit viewport/clavier ouvert, sans repousser la saisie hors écran.
+- Données : notes privées persistantes par salle et navigateur, absence de
+  synchronisation et séparation du contenu partagé précisées. Effacement des
+  notes toujours ciblé sur la salle, confirmé, sans vider l’identité locale.
+  Effacement confirmé des caches applicatifs Parakeet/runtime et des seuls
+  fichiers Whisper Base du cache Transformers ; autres entrées préservées.
+  Désactivé pendant préparation/transcription, sans ouvrir le micro ; avertissement
+  sur les autres onglets et le cache réseau géré séparément par le navigateur.
+- Design system : champs secondaires, focus, tailles tactiles, menus et dialogues
+  contraints au viewport ; métriques natives des sélecteurs préservées. Volume
+  avec icône locale. Un grand menu défile sans recouvrir son déclencheur.
+- Erreurs : messages serveur/SDK bruts masqués ; récupération FR/EN pour
+  permissions, chat, audio, admission et chargement du canvas. Conservation des
+  brouillons en cas de refus ; aucune URL technique/token rendu dans l’erreur.
+- Avis sans drag : liste des zones réellement présentes dans le SVG, position
+  intérieure vérifiée, confirmation explicite, puis attente de l’écho serveur.
+  Pas de vote implicite en ouvrant la liste ni d’affichage optimiste d’un avis.
+- Noms : quatre lignes maximum en coordonnées écran, priorité au nom propre,
+  surplus masqué mais noms complets disponibles via survol et liste Personnes.
+  Aucune modification des coordonnées/opinions. Recherche dans Personnes et
+  numérotation des pseudos identiques pour différencier les cibles de modération.
+  Rendu synthétique de 40 pastilles superposées testé sur trois zooms et avec
+  texte à 100/200 % ; ce n’est pas une recette réseau de 40 personnes physiques.
+- Aucun changement aux permissions serveur, au consentement micro/transcription,
+  à la confidentialité des notes ou aux services voix de production.
+- Validation : check/lint/build, **429 tests unitaires** ; passe UI complète
+  **234 cas sur Chromium/Firefox/WebKit**, puis **12 cas ciblés** après complément
+  du cache Whisper ; **22 cas voix Chromium/Firefox**. Tests Go du domaine spectrum
+  verts. Recette locale FR : 11 étapes, 22 captures et six écrans axe propres,
+  captures chat/notes privées/audio/Personnes examinées.
+- ASR CPU réel sur phrase française de test : préparation sans micro et menu
+  fermé, sous-titres partagés, historique spectateur, capture unique et absence
+  d’envoi tardif verts. Passage à chaud avec cache vérifié, effacement bloqué tant
+  que le moteur est préparé puis disponible après arrêt. Ce test court ne valide pas la précision représentative,
+  une session prolongée ni les GPU/appareils physiques.
+- Preuves : `/tmp/opencode/uiux-backlog-{unit-final,full-ui-final,last-ui,voice,asr-cpu}.log`,
+  `/tmp/opencode/uiux-backlog-local-review/`, `/tmp/opencode/uiux-backlog-backend.log`.
+  Production reste beta.38 ; validation physique/lecteur d’écran et ASR long
+  explicitement ouverts ci-dessous.
 
 ### Priorité immédiate — pastille propre et spectre vocal, déployé dans beta.34 et beta.35
 
@@ -497,7 +545,8 @@ une salle existante, conserver son paramètre `room` en ajoutant `stt-gpu=1`.
 
 ## Finitions et pistes UX non bloquantes
 
-- [ ] Auditer les erreurs techniques encore susceptibles d’apparaître en anglais.
+- [x] Auditer les surfaces d’erreur UI : pas d’affichage brut des exceptions
+  serveur/SDK ; traduction FR/EN et repli localisé, tests de protocole injecté.
 - [ ] Éprouver navigation clavier/tactile du canvas et découverte des notes/liens
   pendant une vraie discussion, notamment avec du contenu hors écran.
 - [ ] Prioriser d’éventuelles retouches visuelles à partir de cette observation.
@@ -524,5 +573,26 @@ lots déjà livrés sans reproduction ou besoin utilisateur précis.
   sections de planification sont historiques.
 - [CHANGELOG.md](../CHANGELOG.md) : changements par version.
 
-Prochaine priorité proposée après beta.23 : recette mobile physique, puis audit
-accessibilité manuel, avant de nouveaux ajouts fonctionnels.
+### Critères de recette manuelle (encore non exécutée)
+
+Pour chaque essai, relever version, appareil/OS, navigateur, rôle, durée, résultat
+et incident reproductible ; ne pas cocher sur la base d’une émulation.
+
+- **Android + iPhone, Discord/WebView puis navigateur externe** : lien de salle,
+  identité et notes propres au navigateur d’arrivée, pas de promesse de transfert ;
+  rejoindre l’écoute sans capture, permission micro accordée/refusée, push-to-talk,
+  orientation et clavier natif, veille/changement d’app, coupure réseau et reprise.
+- **Lecteurs d’écran (NVDA/Firefox et VoiceOver/Safari)** : spectateur, participant,
+  admin ; noms/états des commandes, canaux et droits, avis par liste + confirmation,
+  découverte des notes et liens, dialogues, ordre/retour du focus et sortie Escape.
+  Compléter par zoom navigateur 200/400 % et grands caractères système.
+- **ASR long + GPU réels** : au moins 30 minutes par appareil et CPU/GPU pris en
+  charge, corpus français varié et référence écrite, bruit/accents, pauses et
+  changements de micro. Relever erreurs/transcription, retard, mémoire, température/
+  batterie, capacité Firefox, repli CPU visible unique et absence d’envoi tardif.
+- **Discussion en grand groupe** : noms longs et identiques, pastilles proches,
+  zooms variés, recherche/modération sans ambiguïté, découverte tactile des notes
+  hors écran. Le calcul de placement et la simulation ne remplacent pas cet essai.
+
+Les dépendances vulnérables et les directs Twitch/YouTube/TikTok restent hors du
+lot UI/UX : nécessitent tri et contexte/accès opérationnel séparés.

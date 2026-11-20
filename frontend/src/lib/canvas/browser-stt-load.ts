@@ -42,7 +42,7 @@ export class STTAssetLoader {
 		this.cache =
 			typeof caches === 'undefined'
 				? Promise.resolve(undefined)
-				: caches.open('spectrum-stt-public-v1').catch(() => undefined);
+				: caches.open(MODEL_CACHE_NAME).catch(() => undefined);
 	}
 	private report(
 		phase: STTLoadProgress['phase'],
@@ -156,3 +156,4 @@ export class STTAssetLoader {
 		return data;
 	}
 }
+import { MODEL_CACHE_NAME } from './model-cache';

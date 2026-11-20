@@ -12,6 +12,7 @@
 		type STTLoadProgress
 	} from './browser-stt';
 	import type { RoomState } from './room-client';
+	import ModelCacheControl from './ModelCacheControl.svelte';
 	let {
 		room,
 		track,
@@ -47,6 +48,7 @@
 	let error = $state('');
 	let progress = $state<STTLoadProgress | null>(null);
 	let cacheUnavailable = $state(false);
+	let clearingCache = $state(false);
 	let request = $state<string | null>(null);
 	let handledSession = $state('');
 	let lease = $state.raw<BrowserTranscriptSession | null>(null);
@@ -154,7 +156,7 @@
 		);
 	}
 	function begin() {
-		if (probingGpu) return;
+		if (probingGpu || clearingCache) return;
 		consentOpen = false;
 		if (useGpu && !gpuAvailable) {
 			error = m.browser_stt_gpu_failed();
@@ -323,8 +325,9 @@
 		type="button"
 		class="btn btn-sm btn-outline"
 		data-testid="browser-stt-toggle"
-		disabled={phase === 'off' &&
-			(!supported || !ready || room.role === 'spectator' || !room.settings.transcriptionEnabled)}
+		disabled={clearingCache ||
+			(phase === 'off' &&
+				(!supported || !ready || room.role === 'spectator' || !room.settings.transcriptionEnabled))}
 		aria-pressed={phase !== 'off'}
 		onclick={() => {
 			if (phase !== 'off') stop();
@@ -383,6 +386,7 @@
 			{fallbackNotice()}
 		</p>{/if}
 	{#if cacheUnavailable}<p class="text-xs opacity-70">{m.browser_stt_cache_unavailable()}</p>{/if}
+	<ModelCacheControl idle={phase === 'off' && !consentOpen} bind:busy={clearingCache} />
 </div>
 {#if consentOpen}<dialog
 		bind:this={dialog}

@@ -34,6 +34,18 @@ editor prose, opinion pellets, headings or data visualisation.
 - Timer trigger and readout use the same typography contract as adjacent
   controls. Tabular numerals apply only to the readout, not the menu label.
 
+## Secondary components
+
+- Native `.input`, `.select` and `.textarea` fields share the UI family, readable
+  body size and control radius. Inputs/selects share the minimum control height.
+  Small screens use at least 16 px text to avoid iOS focus zoom.
+- Inputs, selects, textareas, checkboxes and ranges share the visible focus
+  outline; native disabled semantics and editing behaviour remain intact.
+- Dialogs stay within the viewport and scroll internally on short screens.
+- Member volume uses the bundled speaker icon, not a platform-dependent emoji.
+- Rich-text contenteditable prose, headings and semantic reactions remain outside
+  these control overrides. Existing role/channel rules do not change.
+
 ## Regression checks
 
 `frontend/e2e/v2.test.ts` checks the actual timer **label**, trigger, readout and

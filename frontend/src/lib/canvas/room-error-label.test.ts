@@ -15,8 +15,11 @@ describe('room error labels', () => {
 	});
 
 	it('explains invitations opened from inside a room', () => {
-		expect(roomErrorLabel('operation not allowed for this role')).toBe(
+		expect(roomErrorLabel('operation not allowed for this role', 'room_join_failed')).toBe(
 			'Cette action n’est pas disponible depuis une salle. Quittez d’abord la salle actuelle.'
+		);
+		expect(roomErrorLabel('operation not allowed for this role')).toBe(
+			'Vos droits actuels ne permettent pas cette action. Demandez à un admin si nécessaire.'
 		);
 		expect(roomErrorLabel('already in a room')).toBe(
 			'Vous êtes déjà dans une salle. Quittez-la avant d’en rejoindre une autre.'
@@ -32,9 +35,12 @@ describe('room error labels', () => {
 		);
 	});
 
-	it('keeps a readable sentence that is already user-facing', () => {
+	it('localizes server sentences and hides unknown technical details', () => {
 		expect(roomErrorLabel('The room was closed by an admin.')).toBe(
-			'The room was closed by an admin.'
+			'Cette salle est indisponible. Vérifiez le lien d’invitation ou demandez-en un nouveau.'
+		);
+		expect(roomErrorLabel('TypeError: failed to fetch https://internal/path?token=secret')).toBe(
+			roomErrorLabel('invalid payload')
 		);
 	});
 });

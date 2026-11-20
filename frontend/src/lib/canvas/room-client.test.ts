@@ -57,7 +57,7 @@ describe('RoomClient', () => {
 			payload: { code: 'room_join_failed', message: 'room not found' }
 		});
 		expect(socket.sent).toHaveLength(count);
-		expect(callbacks.error).toHaveBeenLastCalledWith('room not found');
+		expect(callbacks.error).toHaveBeenLastCalledWith('room not found', 'room_join_failed');
 		socket.receive({
 			v: 2,
 			op: 'error',
@@ -82,7 +82,7 @@ describe('RoomClient', () => {
 			payload: { code: 'room_join_failed', message: 'room not found' }
 		});
 		expect(callbacks.roomClosed).toHaveBeenCalledOnce();
-		expect(callbacks.error).toHaveBeenLastCalledWith('room not found');
+		expect(callbacks.error).toHaveBeenLastCalledWith('room not found', 'room_join_failed');
 		const received = callbacks.room.mock.calls.length;
 		next.receive({ v: 2, op: 'room.state', payload: { roomId: 'ROOM', role: 'admin' } });
 		expect(callbacks.room).toHaveBeenCalledTimes(received);

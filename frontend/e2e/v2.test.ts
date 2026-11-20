@@ -90,6 +90,215 @@ test('own opinion stays readable outside the canvas and offers keyboard focus wi
 	}
 });
 
+test('opinion picker confirms an actual geometry target without dragging or optimistic voting', async ({
+	page
+}) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	const own = page.locator('[data-own="true"]');
+	const before = await own.getAttribute('data-cell-id');
+	await page.getByLabel('How to position myself', { exact: true }).click();
+	const picker = page.getByTestId('opinion-choice');
+	await picker.selectOption('agree');
+	await expect(own).toHaveAttribute('data-cell-id', before!);
+	await page.getByTestId('opinion-choice-confirm').click();
+	await expect(own).toHaveAttribute('data-cell-id', 'agree');
+	await expect(page.locator('.opinion-value')).toHaveText('My opinion: Agree');
+	await page.setViewportSize({ width: 320, height: 600 });
+	await page.getByLabel('How to position myself', { exact: true }).click();
+	await picker.selectOption('disagree');
+	await page.getByTestId('opinion-choice-confirm').click();
+	await expect(own).toHaveAttribute('data-cell-id', 'disagree');
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
+
+test('model-cache deletion preserves private notes, identity and unrelated caches', async ({
+	page
+}) => {
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await openPrivateNotes(page);
+	await page.getByTestId('personal-notes-input').fill('Private retention test');
+	await expect(page.getByTestId('personal-notes-status')).toHaveText('Saved on this device');
+	await page.getByTestId('personal-notes-close').click();
+	const before = await page.evaluate(async () => {
+		const models = await caches.open('spectrum-stt-public-v1');
+		await models.put('/test-model.bin', new Response('public test asset'));
+		const unrelated = await caches.open('unrelated-test-cache');
+		await unrelated.put('/unrelated.bin', new Response('keep'));
+		const whisper = await caches.open('transformers-cache');
+		await whisper.put('/stt/models/whisper-base/config.json', new Response('public whisper test'));
+		await whisper.put('/another-feature/model.bin', new Response('keep other feature'));
+		return { ...localStorage };
+	});
+	await page.getByTestId('audio-options').click();
+	await page.getByTestId('model-cache-clear').click();
+	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+	expect(await page.evaluate(() => caches.has('spectrum-stt-public-v1'))).toBe(true);
+	await page.getByTestId('model-cache-clear').click();
+	await page.getByTestId('confirm-session-action').click();
+	await expect(
+		page.getByText('Model cache deleted. Private notes and local identity unchanged.')
+	).toBeVisible();
+	expect(await page.evaluate(() => caches.has('spectrum-stt-public-v1'))).toBe(false);
+	expect(await page.evaluate(() => caches.has('unrelated-test-cache'))).toBe(true);
+	expect(
+		await page.evaluate(
+			async () =>
+				!!(await (
+					await caches.open('transformers-cache')
+				).match('/stt/models/whisper-base/config.json'))
+		)
+	).toBe(false);
+	expect(
+		await page.evaluate(
+			async () =>
+				!!(await (await caches.open('transformers-cache')).match('/another-feature/model.bin'))
+		)
+	).toBe(true);
+	expect(await page.evaluate(() => ({ ...localStorage }))).toEqual(before);
+	await page.keyboard.press('Escape');
+	await openPrivateNotes(page);
+	await expect(page.getByTestId('personal-notes-input')).toHaveValue('Private retention test');
+	await page.getByTestId('personal-notes-clear').click();
+	await page.getByTestId('confirm-session-action').click();
+	await expect(page.getByTestId('personal-notes-input')).toHaveValue('');
+	expect(await page.evaluate(() => caches.has('unrelated-test-cache'))).toBe(true);
+	await page.getByTestId('personal-notes-close').click();
+	await page.setViewportSize({ width: 320, height: 600 });
+	await openChat(page);
+	const audience = page.getByTestId('chat-channel-hint');
+	await expect(audience).toBeVisible();
+	expect(await audience.evaluate((node) => getComputedStyle(node).clipPath)).toBe('none');
+	await expect(page.getByLabel('Chat message', { exact: true })).toHaveCSS('font-size', '16px');
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
+
+test('technical chat errors are actionable in EN and FR without exposing raw details', async ({
+	page
+}) => {
+	let inject: ((message: unknown) => void) | undefined;
+	await page.routeWebSocket('**/spectrum/ws', (socket) => {
+		socket.connectToServer();
+		inject = (message) => socket.send(JSON.stringify(message));
+	});
+	await page.goto('/v2');
+	await page.getByTestId('create-room').click();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await openChat(page);
+	inject?.({
+		v: 2,
+		op: 'error',
+		payload: {
+			code: 'chat_rate_limit',
+			message: 'please wait a moment before sending another message'
+		}
+	});
+	await expect(page.getByRole('alert')).toHaveText(
+		'Wait a moment before sending another message. Your draft is kept.'
+	);
+	await page
+		.context()
+		.addCookies([{ name: 'PARAGLIDE_LOCALE', value: 'fr', domain: 'localhost', path: '/' }]);
+	await page.reload();
+	await expect(page.getByTestId('own-role')).toHaveText('admin');
+	await openChat(page);
+	inject?.({
+		v: 2,
+		op: 'error',
+		payload: {
+			code: 'chat_rate_limit',
+			message: 'please wait a moment before sending another message'
+		}
+	});
+	await expect(page.getByRole('alert')).toHaveText(
+		'Patientez un instant avant d’envoyer un autre message. Votre brouillon est conservé.'
+	);
+	inject?.({
+		v: 2,
+		op: 'error',
+		payload: {
+			code: 'chat_content',
+			message: 'TypeError: https://internal/path?token=do-not-display'
+		}
+	});
+	await expect(page.getByRole('alert')).toHaveText(
+		'Cette action n’a pas abouti. Réessayez, puis rechargez la salle si le problème persiste.'
+	);
+	await expect(page.locator('body')).not.toContainText('do-not-display');
+});
+
+test('crowded pellet labels stay bounded without overlap at different zoom and text sizes', async ({
+	page
+}, testInfo) => {
+	await page.goto('/v2');
+	const results = await page.evaluate(async () => {
+		const fixturePath = '/src/lib/canvas/testing/spectrum-crowd.ts';
+		const fixture = (await import(
+			fixturePath
+		)) as typeof import('../src/lib/canvas/testing/spectrum-crowd');
+		const results = [];
+		for (const font of [16, 32]) {
+			document.documentElement.style.fontSize = `${font}px`;
+			for (const scale of [0.3, 1, 2]) {
+				const host = document.createElement('div');
+				host.className = 'v2-shell';
+				host.dataset.testid = 'crowd-fixture';
+				host.style.cssText = `position:fixed;left:50%;top:60%;transform:scale(${scale});z-index:1000`;
+				document.body.append(host);
+				const destroy = await fixture.mountCrowd(host, scale);
+				const labels = [...host.querySelectorAll<HTMLElement>('[data-pellet-label]')];
+				const visible = labels.filter((node) => getComputedStyle(node).visibility !== 'hidden');
+				const boxes = visible.map((node) => node.getBoundingClientRect());
+				const overlaps = boxes.some((a, index) =>
+					boxes
+						.slice(index + 1)
+						.some(
+							(b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+						)
+				);
+				results.push({
+					font,
+					scale,
+					count: labels.length,
+					visible: visible.length,
+					overlaps,
+					ownVisible: getComputedStyle(host.querySelector('[data-own="true"] [data-pellet-label]')!)
+						.visibility,
+					coordinatesUnchanged: [...host.querySelectorAll('[data-pellet-id]')].every(
+						(node) =>
+							node.getAttribute('data-x') === '490' && node.getAttribute('data-y') === '367.5'
+					)
+				});
+				if (font === 32 && scale === 2) {
+					(window as Window & { __crowdCleanup?: () => Promise<void> }).__crowdCleanup = destroy;
+				} else {
+					await destroy();
+					host.remove();
+				}
+			}
+		}
+		return results;
+	});
+	for (const result of results) {
+		expect(result).toMatchObject({
+			count: 40,
+			visible: 4,
+			overlaps: false,
+			ownVisible: 'visible',
+			coordinatesUnchanged: true
+		});
+	}
+	await page.screenshot({ path: testInfo.outputPath('crowded-labels.png') });
+	await page.evaluate(async () => {
+		await (window as Window & { __crowdCleanup?: () => Promise<void> }).__crowdCleanup?.();
+		document.querySelector('[data-testid="crowd-fixture"]')?.remove();
+		document.documentElement.style.fontSize = '';
+	});
+});
+
 test('keyboard note layout and linked-note navigation preserve drafts on desktop and mobile', async ({
 	page
 }, testInfo) => {
@@ -1875,7 +2084,10 @@ test('room sharing generates a local QR, presentation hides controls, and prefer
 	await page.getByTestId('app-menu').click();
 	await page.getByRole('button', { name: 'Help', exact: true }).click();
 	await expect(page.getByRole('dialog')).toContainText('microphone');
-	await expect(page.getByRole('dialog')).toContainText('RAM, not saved to disk');
+	await expect(page.getByRole('dialog')).toContainText('server RAM during the session');
+	await expect(page.getByRole('dialog')).toContainText(
+		'Private notes stay separately in this browser'
+	);
 	await expect(
 		page.getByRole('dialog').getByRole('link', { name: 'Feedback · Google Form', exact: true })
 	).toHaveAttribute(
@@ -2866,7 +3078,7 @@ test('chat channels confine stage and admin messages, and admin removal masks te
 		await expect(guest.getByTestId('chat-channel-stage')).toHaveCount(0);
 		await page.getByTestId('chat-channel-stage').click();
 		await expect(page.getByTestId('chat-channel-hint')).toHaveText(
-			'Only people on stage can read and write here.'
+			'Read and write: on-stage participants and admins. Hidden from spectators.'
 		);
 		await page.getByLabel('Chat message', { exact: true }).fill('Stage-only briefing');
 		await page.getByRole('button', { name: 'Send message', exact: true }).click();
@@ -3115,7 +3327,7 @@ test('chat preserves rejected drafts and new typing while an acknowledgment is d
 						payload: {
 							code: 'chat_rejected',
 							requestId: packet.payload.clientId,
-							message: 'Injected cooldown'
+							message: 'please wait a moment before sending another message'
 						}
 					})
 				);
@@ -3134,7 +3346,9 @@ test('chat preserves rejected drafts and new typing while an acknowledgment is d
 	const send = page.getByRole('button', { name: 'Send message', exact: true });
 	await input.fill('Rejected draft');
 	await send.click();
-	await expect(page.getByRole('alert')).toHaveText('Injected cooldown');
+	await expect(page.getByRole('alert')).toHaveText(
+		'Wait a moment before sending another message. Your draft is kept.'
+	);
 	await expect(input).toHaveValue('Rejected draft');
 	await expect(send).toBeEnabled();
 	reject = false;
@@ -3466,12 +3680,17 @@ test('cell detection matches the exact FR/EN SVG geometry for all layouts', asyn
 	const results = await page.evaluate(async () => {
 		const modulePath = '/src/lib/canvas/cells.ts';
 		const geometry = (await import(modulePath)) as typeof import('../src/lib/canvas/cells');
+		const choiceModule = '/src/lib/canvas/opinion-choices.ts';
+		const chooser = (await import(
+			choiceModule
+		)) as typeof import('../src/lib/canvas/opinion-choices');
 		const results = [];
 		for (const language of ['', '_en']) {
 			for (const slices of [3, 5, 7, 9]) {
 				const source = `/spectrum${language}${slices === 7 ? '' : `_${slices}`}.svg`;
 				const cells = await geometry.loadSpectrumCells(source);
 				const detect = geometry.createCellDetector(cells);
+				const choices = chooser.opinionChoices(cells, detect);
 				results.push({
 					source,
 					slices,
@@ -3479,7 +3698,10 @@ test('cell detection matches the exact FR/EN SVG geometry for all layouts', asyn
 					neutral: detect(490, 100)?.id,
 					indifferent: detect(490, 450)?.id,
 					waiting: detect(490, 580)?.id,
-					outside: detect(490, 300)
+					outside: detect(490, 300),
+					validChoices:
+						choices.length === cells.length &&
+						choices.every((choice) => detect(choice.x, choice.y)?.id === choice.id)
 				});
 			}
 		}
@@ -3491,7 +3713,8 @@ test('cell detection matches the exact FR/EN SVG geometry for all layouts', asyn
 			neutral: 'neutral',
 			indifferent: 'indifferent',
 			waiting: 'notReplied',
-			outside: null
+			outside: null,
+			validChoices: true
 		});
 	}
 });

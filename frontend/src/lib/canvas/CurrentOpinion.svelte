@@ -4,21 +4,32 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import { toolbarMenu } from './toolbar-menu';
+	import type { OpinionChoice } from './opinion-choices';
 	let {
 		room,
 		spectrum,
 		detect,
 		ready,
-		focusPellet
+		focusPellet,
+		choices = [],
+		choose
 	}: {
 		room: RoomState;
 		spectrum: SpectrumState | null;
 		detect: ((x: number, y: number) => SpectrumCell | null) | null;
 		ready: boolean;
 		focusPellet: () => void;
+		choices?: OpinionChoice[];
+		choose?: (point: { x: number; y: number }) => boolean;
 	} = $props();
 	let menu = $state<HTMLDetailsElement>();
 	let announcement = $state('');
+	let selected = $state('');
+	$effect(() => {
+		void announcementContext;
+		void ready;
+		selected = '';
+	});
 	const onStage = $derived(room.role !== 'spectator');
 	const own = $derived(
 		onStage ? spectrum?.pellets.find((pellet) => pellet.memberId === room.userId) : undefined
@@ -60,6 +71,42 @@
 			>
 			<div class="toolbar-popover opinion-help bg-base-100 rounded-xl border p-3 shadow-xl">
 				<p>{m.ux_opinion_hint()}</p>
+				{#if choose && choices.length}
+					<form
+						class="mt-3 flex flex-col gap-2"
+						onsubmit={(event) => {
+							event.preventDefault();
+							const target = choices.find((item) => item.id === selected);
+							if (!available || !target || !choose) return;
+							if (choose({ x: target.x, y: target.y })) {
+								selected = '';
+								if (menu) menu.open = false;
+							}
+						}}
+					>
+						<label class="text-sm font-semibold" for="opinion-choice">{m.ux_opinion_choose()}</label
+						>
+						<select
+							id="opinion-choice"
+							class="select select-bordered w-full"
+							bind:value={selected}
+							disabled={!available}
+							data-testid="opinion-choice"
+						>
+							<option value="">{m.ux_opinion_choose_placeholder()}</option>
+							{#each choices as choice (choice.id)}<option value={choice.id}
+									>{cellLabel(choice.id)}</option
+								>{/each}
+						</select>
+						<button
+							type="submit"
+							class="btn btn-sm"
+							disabled={!available || !selected}
+							data-testid="opinion-choice-confirm">{m.ux_opinion_choose_confirm()}</button
+						>
+						<p class="text-xs opacity-75">{m.ux_opinion_choose_hint()}</p>
+					</form>
+				{/if}
 				<button
 					type="button"
 					class="btn btn-sm mt-2"

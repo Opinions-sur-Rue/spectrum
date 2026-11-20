@@ -11,6 +11,7 @@
 		type ChatState
 	} from './chat-state';
 	import { m } from '$lib/paraglide/messages.js';
+	import { roomErrorLabel } from './room-error-label';
 	let {
 		room,
 		ready,
@@ -36,13 +37,17 @@
 	let sticky = $state(true);
 	let log = $state<HTMLDivElement>();
 	let form = $state<HTMLFormElement>();
+	let context = $state<HTMLDivElement>();
 	const labels: Record<ChatChannel, () => string> = {
 		room: () => m.chat_channel_room(),
 		stage: () => m.chat_channel_stage(),
 		admin: () => m.chat_channel_admin()
 	};
 	const hints: Record<ChatChannel, () => string> = {
-		room: () => m.chat_channel_room_hint(),
+		room: () =>
+			room.settings.spectatorChatEnabled
+				? m.chat_channel_room_open_hint()
+				: m.chat_channel_room_hint(),
 		stage: () => m.chat_channel_stage_hint(),
 		admin: () => m.chat_channel_admin_hint()
 	};
@@ -56,6 +61,13 @@
 	// Losing access to a channel (demotion) must fall back to the shared room.
 	$effect(() => {
 		if (!channels.includes(channel)) channel = 'room';
+	});
+	$effect(() => {
+		void channel;
+		const failed = error;
+		void tick().then(() => {
+			if (context) context.scrollTop = failed ? context.scrollHeight : 0;
+		});
 	});
 	const canWrite = $derived(
 		canWriteChannel(room.role, channel, room.settings.spectatorChatEnabled)
@@ -114,35 +126,49 @@
 </script>
 
 <section id="room-chat" aria-label={m.ux_chat_room()} class="flex h-full min-h-0 min-w-0 flex-col">
-	{#if channels.length > 1}
-		<div
-			class="chat-channels flex gap-1 border-b px-2 py-2"
-			role="group"
-			aria-label={m.chat_channel_group()}
+	<div class="chat-context" bind:this={context}>
+		{#if channels.length > 1}
+			<div
+				class="chat-channels flex gap-1 border-b px-2 py-2"
+				role="group"
+				aria-label={m.chat_channel_group()}
+			>
+				{#each channels as item (item)}
+					<button
+						type="button"
+						class="btn btn-sm min-h-11 flex-1"
+						class:btn-primary={channel === item}
+						class:btn-ghost={channel !== item}
+						aria-pressed={channel === item}
+						data-testid="chat-channel-{item}"
+						onclick={() => {
+							channel = item;
+							confirming = null;
+						}}
+						>{labels[item]()}{#if unreadFor(item)}<span
+								class="bg-error text-error-contrast rounded-full px-1.5 text-[10px]"
+								aria-label={m.ux_chat_unread({ count: String(unreadFor(item)) })}
+								>{unreadFor(item)}</span
+							>{/if}</button
+					>{/each}
+			</div>
+		{/if}
+		<p
+			id="chat-audience"
+			class="chat-hint border-b px-4 py-2 text-xs opacity-75"
+			data-testid="chat-channel-hint"
+			aria-live="polite"
 		>
-			{#each channels as item (item)}
-				<button
-					type="button"
-					class="btn btn-sm min-h-11 flex-1"
-					class:btn-primary={channel === item}
-					class:btn-ghost={channel !== item}
-					aria-pressed={channel === item}
-					data-testid="chat-channel-{item}"
-					onclick={() => {
-						channel = item;
-						confirming = null;
-					}}
-					>{labels[item]()}{#if unreadFor(item)}<span
-							class="bg-error text-error-contrast rounded-full px-1.5 text-[10px]"
-							aria-label={m.ux_chat_unread({ count: String(unreadFor(item)) })}
-							>{unreadFor(item)}</span
-						>{/if}</button
-				>{/each}
-		</div>
-	{/if}
-	<p class="chat-hint border-b px-4 py-2 text-[11px] opacity-70" data-testid="chat-channel-hint">
-		{hints[channel]()}
-	</p>
+			{hints[channel]()}
+		</p>
+		<p class="px-3 pb-2 text-[10px] opacity-75">{m.ux_chat_footer()}</p>
+		{#if error}<p role="alert" class="text-error px-3 pb-2 text-xs">
+				{roomErrorLabel(error.message)}
+			</p>{/if}
+		{#if !canWrite}<p class="border-t px-3 py-2 text-xs opacity-60">
+				{m.ux_chat_readonly()}
+			</p>{/if}
+	</div>
 	<div
 		bind:this={log}
 		role="log"
@@ -201,10 +227,6 @@
 				if (log) log.scrollTop = log.scrollHeight;
 			}}>{m.ux_latest_messages()}</button
 		>{/if}
-	{#if error}<p role="alert" class="text-error px-3 pb-2 text-xs">{error.message}</p>{/if}
-	{#if !canWrite}<p class="border-t px-3 py-2 text-xs opacity-60">
-			{m.ux_chat_readonly()}
-		</p>{/if}
 	<form
 		bind:this={form}
 		class="chat-form flex min-w-0 shrink-0 items-end gap-2 border-t p-2"
@@ -212,6 +234,7 @@
 	>
 		<textarea
 			aria-label={m.ux_chat_message_label()}
+			aria-describedby="chat-audience"
 			class="textarea min-h-12 min-w-0 flex-1 text-sm"
 			rows="2"
 			maxlength="1000"
@@ -232,10 +255,21 @@
 			disabled={!ready || !canWrite || waiting || !draft.trim()}
 		/>
 	</form>
-	<p class="px-3 pb-2 text-[10px] opacity-75">{m.ux_chat_footer()}</p>
 </section>
 
 <style>
+	.chat-context {
+		display: flex;
+		flex-direction: column;
+		flex-shrink: 1;
+		min-height: 44px;
+		max-height: 45%;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+	}
+	.chat-context > :global(*) {
+		flex-shrink: 0;
+	}
 	.chat-messages {
 		overscroll-behavior: contain;
 		overflow-wrap: anywhere;
@@ -249,25 +283,10 @@
 		margin-left: 0.25rem;
 		vertical-align: middle;
 	}
-	/* The audience line costs vertical space a short mobile viewport does not
-	   have, so it stays a screen-reader description there. */
 	.chat-hint {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
-	}
-	@media (min-width: 1024px) {
-		.chat-hint {
-			position: static;
-			width: auto;
-			height: auto;
-			overflow: visible;
-			clip-path: none;
-			white-space: normal;
-		}
+		order: -1;
+		flex-shrink: 0;
+		overflow-wrap: anywhere;
 	}
 	@media (max-width: 1023px) {
 		.chat-form textarea {

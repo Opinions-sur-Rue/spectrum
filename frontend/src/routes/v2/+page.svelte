@@ -25,6 +25,7 @@
 	import RoomLobby from '$lib/canvas/RoomLobby.svelte';
 	import RoomOnboarding from '$lib/canvas/RoomOnboarding.svelte';
 	import CurrentOpinion from '$lib/canvas/CurrentOpinion.svelte';
+	import { opinionChoices } from '$lib/canvas/opinion-choices';
 	import MobileBrowserHelp from '$lib/canvas/MobileBrowserHelp.svelte';
 	import RoomOptions from '$lib/canvas/RoomOptions.svelte';
 	import PendingNotesMenu from '$lib/canvas/PendingNotesMenu.svelte';
@@ -94,6 +95,7 @@
 	let status = $state('Connecting');
 	let everOnline = $state(false);
 	let error = $state('');
+	const opinionTargets = $derived(opinionChoices(spectrumCells));
 	let roomInput = $state('');
 	let missingRoom = $state(false);
 	let recentRoom = $state('');
@@ -192,8 +194,8 @@
 							live = null;
 						}
 					},
-					error: (value) => {
-						error = roomErrorLabel(value);
+					error: (value, code) => {
+						error = roomErrorLabel(value, code);
 						missingRoom = value === 'room not found';
 					},
 					chat: (value) => {
@@ -301,8 +303,8 @@
 					}
 				});
 				client.connect();
-			} catch (cause) {
-				error = cause instanceof Error ? cause.message : String(cause);
+			} catch {
+				error = m.ux_error_canvas_load();
 			}
 		})();
 		return () => {
@@ -340,10 +342,10 @@
 					spectrumLabels = labelSource;
 				}
 			})
-			.catch((cause) => {
+			.catch(() => {
 				if (workspace === target && spectrumImage === key) {
 					spectrumImage = '';
-					error = String(cause);
+					error = m.ux_error_canvas_load();
 				}
 			});
 	}
@@ -616,6 +618,8 @@
 					{spectrum}
 					{ready}
 					detect={activityCellDetector}
+					choices={opinionTargets}
+					choose={(point) => send('spectrum.move', point)}
 					focusPellet={focusOwnPellet}
 				/>{/if}
 			<RoomOnboarding

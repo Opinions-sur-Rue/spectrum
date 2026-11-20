@@ -102,6 +102,21 @@ failure. No audio, captions, room ID or nickname enters that cache. Incomplete
 downloads are not advertised as resumable. Browser stream byte counts are
 decoded bytes, not compressed `Content-Length`.
 
+### Targeted cache clearing (local UI/UX backlog batch, not yet deployed)
+
+**Audio options → Clear model cache** requires confirmation and is disabled while
+this tab prepares or uses a model. Model preparation stays disabled until deletion
+settles. It deletes only `spectrum-stt-public-v1` and same-origin
+`/stt/models/whisper-base/` entries in the Transformers library's
+`transformers-cache`; other library-cache entries and other named caches remain.
+Neither localStorage nor sessionStorage is touched: private notes, identity and
+preferences are preserved. Private notes have their own per-room confirmed clear.
+
+This is application-cache deletion, not deletion of browser-managed HTTP caches
+or another tab's in-memory model. Close other Spectrum tabs using a model first;
+they could repopulate the cache. Network/quota/security failures report an error,
+not false success; already-absent entries count as successfully cleared.
+
 Parakeet's default CPU path uses the stock **CPU-only** ORT WASM build (~14 MB raw)
 rather than the larger JSEP build; its model/VAD/runtime budget is about 225 MB raw. This reduces
 download size, but does not itself solve Firefox's observed slow inference.

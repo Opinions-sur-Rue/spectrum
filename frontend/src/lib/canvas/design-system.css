@@ -90,11 +90,51 @@
 	font-size: var(--v2-text-xl);
 }
 
+/* Secondary forms share the same family and focus language as toolbar controls.
+   Do not apply these rules to rich-text contenteditable prose. */
+.v2-shell :is(.input, .select, .textarea) {
+	font-family: var(--v2-font-ui);
+	font-size: var(--v2-text-base);
+	line-height: 1.5;
+	border-radius: var(--v2-control-radius);
+}
+
+.v2-shell :is(.input, .select) {
+	min-height: var(--v2-control-height);
+}
+
+.v2-shell .select {
+	/* Native selects center their text using platform metrics, not prose leading. */
+	line-height: normal;
+}
+
+.v2-shell :is(.input, .select, .textarea, .checkbox, .range):focus-visible {
+	outline: 2px solid var(--v2-control-focus);
+	outline-offset: 2px;
+}
+
+.v2-shell :is(.input, .select, .textarea, .checkbox, .range):disabled {
+	cursor: not-allowed;
+}
+
+.v2-shell dialog {
+	max-height: calc(100dvh - 2rem);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
 @media (max-width: 639px) {
+	.v2-shell dialog {
+		max-width: calc(100vw - 2rem);
+	}
 	.v2-shell {
 		--v2-control-height: 2.75rem;
 	}
 	.v2-shell .btn-sm {
 		min-width: var(--v2-control-height);
+	}
+	.v2-shell :is(.input, .select, .textarea) {
+		/* Prevent iOS focus zoom without making desktop prose oversized. */
+		font-size: max(1rem, 16px);
 	}
 }

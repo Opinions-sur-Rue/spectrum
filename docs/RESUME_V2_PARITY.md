@@ -2,6 +2,21 @@
 
 ## Current state — beta.38 in production, compact coloured participant spectra
 
+### Local follow-up — remaining implementable UI/UX feedback
+
+Not deployed. Audience/write-rights and retention copy, confirmed model-cache-only
+clearing, secondary form/focus/dialog tokens, localized technical errors, explicit
+opinion picker from real SVG interior points, bounded crowded labels and searchable
+disambiguated people are implemented. See `SUIVI_FEEDBACK_UI_UX.md`.
+
+Check/lint/build, 429 unit tests, 234 UI cases across three engines plus 12 targeted
+cases after Whisper-cache coverage, 22 voice cases, Go spectrum tests, local CPU
+captions and 11-step/six-clean-axe-screen local acceptance pass. No production change
+or release tag for this follow-up. Real phones, screen readers, real-group observation
+and prolonged representative ASR remain unexecuted, with explicit manual criteria.
+
+### Last deployed release
+
 - Production **beta.38**, source `8fdb1873a667c0ad880e0d842dd4f4d0f697705e`,
   deployed **2026-11-20 08:08 UTC** after complete CI `44698497466`.
   Strict 100-second zero-activity gate; no backend-connection exception.

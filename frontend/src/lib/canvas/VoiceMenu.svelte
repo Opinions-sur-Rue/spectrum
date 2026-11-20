@@ -21,6 +21,7 @@
 	import type { BrowserTranscriptSession, BrowserTranscriptFailure } from './browser-stt';
 	import { toolbarMenu } from './toolbar-menu';
 	import { pushToTalk } from './push-to-talk';
+	import { roomErrorLabel } from './room-error-label';
 	let {
 		room,
 		ready,
@@ -314,7 +315,7 @@
 			request = null;
 			startAfterConsent = false;
 			status = 'error';
-			error = failure.message;
+			error = roomErrorLabel(failure.message);
 		}
 	});
 	async function refreshInputs() {

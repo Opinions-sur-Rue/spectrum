@@ -71,6 +71,30 @@ it('reads only the current member and announces a settled cell', async () => {
 	);
 });
 
+it('requires explicit confirmation, sends only coordinates and waits for the server readout', async () => {
+	const choose = vi.fn(() => true);
+	const view = setup({ choices: [{ id: 'agree', x: 700, y: 100 }], choose });
+	await fireEvent.click(view.getByLabelText(m.ux_opinion_help()));
+	await fireEvent.change(view.getByTestId('opinion-choice'), { target: { value: 'agree' } });
+	expect(choose).not.toHaveBeenCalled();
+	await fireEvent.submit(view.getByTestId('opinion-choice').closest('form')!);
+	expect(choose).toHaveBeenCalledExactlyOnceWith({ x: 700, y: 100 });
+	expect(view.getByTestId('current-opinion')).toHaveTextContent(cellLabel('disagree'));
+	await view.rerender({ spectrum: board(800) });
+	expect(view.getByTestId('current-opinion')).toHaveTextContent(cellLabel('agree'));
+});
+
+it('invalidates a pending choice on reconnect or proposition changes', async () => {
+	const choose = vi.fn(() => true);
+	const view = setup({ choices: [{ id: 'agree', x: 700, y: 100 }], choose });
+	await fireEvent.click(view.getByLabelText(m.ux_opinion_help()));
+	await fireEvent.change(view.getByTestId('opinion-choice'), { target: { value: 'agree' } });
+	await view.rerender({ ready: false });
+	expect(view.getByTestId('opinion-choice')).toHaveValue('');
+	expect(view.getByTestId('opinion-choice-confirm')).toBeDisabled();
+	expect(choose).not.toHaveBeenCalled();
+});
+
 it('does not reset an announcement when only coordinates within the same cell change', async () => {
 	const view = setup();
 	await vi.advanceTimersByTimeAsync(400);

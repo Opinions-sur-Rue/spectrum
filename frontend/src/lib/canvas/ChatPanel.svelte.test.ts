@@ -93,6 +93,25 @@ it('keeps separate drafts per channel and sends the selected channel', async () 
 	expect(view.getByLabelText(m.ux_chat_message_label())).toHaveValue('Public draft');
 });
 
+it('describes current read and write rights and follows spectator-chat changes', async () => {
+	const { view } = setup(room('spectator'));
+	const hint = view.getByTestId('chat-channel-hint');
+	expect(hint).toHaveTextContent(m.chat_channel_room_hint());
+	expect(view.getByLabelText(m.ux_chat_message_label())).toBeDisabled();
+	expect(view.getByLabelText(m.ux_chat_message_label())).toHaveAttribute(
+		'aria-describedby',
+		hint.id
+	);
+	await view.rerender({ room: room('spectator', true) });
+	expect(hint).toHaveTextContent(m.chat_channel_room_open_hint());
+	expect(view.getByLabelText(m.ux_chat_message_label())).toBeEnabled();
+	await view.rerender({ room: room('admin', true) });
+	await fireEvent.click(view.getByTestId('chat-channel-stage'));
+	expect(hint).toHaveTextContent(m.chat_channel_stage_hint());
+	await fireEvent.click(view.getByTestId('chat-channel-admin'));
+	expect(hint).toHaveTextContent(m.chat_channel_admin_hint());
+});
+
 it('hides the admin channel after demotion and keeps the room channel readable', async () => {
 	const { view } = setup(room('admin'), chat([1, 3], 'admin'));
 	await fireEvent.click(view.getByTestId('chat-channel-admin'));

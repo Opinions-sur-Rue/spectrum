@@ -96,6 +96,24 @@ it('preserves moderation operations and confirmation before appointment', async 
 	expect(send).toHaveBeenCalledWith('room.appoint', { memberId: 'participant' });
 });
 
+it('searches names without changing counts and distinguishes duplicate moderation targets', async () => {
+	const state = room();
+	state.members = [
+		{ id: 'self', nickname: 'Host', role: 'admin' },
+		{ id: 'a', nickname: 'Alex', role: 'participant' },
+		{ id: 'b', nickname: 'Alex', role: 'spectator' }
+	];
+	const send = vi.fn(() => true);
+	const view = render(PeopleMenu, { room: state, ready: true, send });
+	await fireEvent.input(view.getByTestId('people-search'), { target: { value: 'alex' } });
+	expect(view.container.querySelector('[data-member-id="self"]')).toBeNull();
+	expect(view.container.querySelectorAll('[data-member-id]')).toHaveLength(2);
+	await fireEvent.click(view.getByLabelText(m.v2_promote({ name: 'Alex · 2' })));
+	expect(send).toHaveBeenCalledWith('room.promote', { memberId: 'b' });
+	await fireEvent.input(view.getByTestId('people-search'), { target: { value: 'missing' } });
+	expect(view.getByText(m.ux_people_search_empty())).toHaveTextContent(m.ux_people_search_empty());
+});
+
 it('keeps non-admin rows free of empty action and audio rows', () => {
 	const view = render(PeopleMenu, { room: room('participant'), ready: true, send: vi.fn() });
 	expect(view.container.querySelector('.member-actions')).toBeNull();

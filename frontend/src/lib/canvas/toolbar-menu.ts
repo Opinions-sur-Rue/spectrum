@@ -16,12 +16,16 @@ export function toolbarMenu(node: HTMLDetailsElement, options: ToolbarOptions = 
 		if (!node.open || !panel || !summary) return;
 		const bounds = visibleViewport();
 		const sheet = options.sheet && window.matchMedia('(max-width: 1023px)').matches;
+		const anchor = summary.getBoundingClientRect();
+		const belowSpace = bounds.y + bounds.height - 8 - (anchor.y + anchor.height + 8);
+		const aboveSpace = anchor.y - 8 - (bounds.y + 8);
 		panel.style.position = 'fixed';
 		panel.style.right = 'auto';
 		panel.style.bottom = 'auto';
 		panel.style.boxSizing = 'border-box';
 		panel.style.maxWidth = `${Math.max(1, bounds.width - (sheet ? 0 : 16))}px`;
-		panel.style.maxHeight = `${Math.max(1, bounds.height - (sheet ? 0 : 16))}px`;
+		// A tall popover must scroll on one side of its trigger, not cover it.
+		panel.style.maxHeight = `${Math.max(1, sheet ? bounds.height : Math.min(bounds.height - 16, Math.max(belowSpace, aboveSpace)))}px`;
 		panel.style.width = sheet ? `${bounds.width}px` : '';
 		panel.style.height = sheet ? `${bounds.height}px` : '';
 		panel.style.overflowY = options.sheet ? 'hidden' : 'auto';
@@ -33,7 +37,7 @@ export function toolbarMenu(node: HTMLDetailsElement, options: ToolbarOptions = 
 			return;
 		}
 		const size = panel.getBoundingClientRect();
-		const layout = floatingLayout(summary.getBoundingClientRect(), size, bounds);
+		const layout = floatingLayout(anchor, size, bounds);
 		panel.style.left = `${layout.x}px`;
 		panel.style.top = `${layout.y}px`;
 	}

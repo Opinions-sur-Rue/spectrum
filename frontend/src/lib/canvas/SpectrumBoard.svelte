@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import type { RoomState, SpectrumState, Pellet } from './room-client';
 	import { createCellDetector, cellLabel, type SpectrumCell } from './cells';
 	import { createMovementStream } from './movement-stream';
 	import { m } from '$lib/paraglide/messages.js';
 	import PelletSpectrum from './PelletSpectrum.svelte';
+	import { placePelletLabels, participantNames } from './pellet-labels';
 	let {
 		state: board,
 		cells,
@@ -30,6 +31,24 @@
 	} = $props();
 	let pending = $state<{ memberId: string; x: number; y: number } | null>(null);
 	let dragging = $state(false);
+	let labelHeight = $state(24);
+	onMount(() => {
+		const update = () => {
+			const rootSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+			labelHeight = Math.max(24, rootSize * 0.75 * 1.3 + 8);
+		};
+		update();
+		const observer = new MutationObserver(update);
+		observer.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ['style', 'class']
+		});
+		window.addEventListener('resize', update);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener('resize', update);
+		};
+	});
 	let pendingRevision = 0;
 	let drag: {
 		pointerId: number;
@@ -45,6 +64,23 @@
 	const detectCell = $derived(createCellDetector(cells));
 	const ownPellet = $derived(board.pellets.find((pellet) => pellet.memberId === room.userId));
 	const ownPoint = $derived(ownPellet ? coordinates(ownPellet) : null);
+	const displayNames = $derived(participantNames(room.members ?? []));
+	const labelPlacements = $derived(
+		placePelletLabels(
+			board.pellets.map((pellet) => {
+				const point = coordinates(pellet);
+				const hasSpectrum =
+					ready && !!(pellet.memberId === room.userId ? localTrack : remoteTracks[pellet.memberId]);
+				return {
+					id: pellet.memberId,
+					height: labelHeight,
+					x: point.x * scale,
+					y: (point.y - 14 - (hasSpectrum ? 22 : 16)) * scale
+				};
+			}),
+			room.userId
+		)
+	);
 	const selectedCell = $derived(ownPoint ? detectCell(ownPoint.x, ownPoint.y) : null);
 	const stream = createMovementStream((point) => {
 		if (
@@ -198,9 +234,12 @@
 			aria-label={own
 				? m.v2_your_position()
 				: m.v2_member_position({
-						name: pellet.memberId === 'live_average' ? m.v2_live_average() : pellet.nickname
+						name:
+							pellet.memberId === 'live_average'
+								? m.v2_live_average()
+								: (displayNames[pellet.memberId] ?? pellet.nickname)
 					})}
-			title={`${pellet.memberId === 'live_average' ? m.v2_live_average() : pellet.nickname}${cell ? ` · ${cellLabel(cell.id)}` : ''}${own ? ` · ${m.v2_position_hint()}` : ''}`}
+			title={`${pellet.memberId === 'live_average' ? m.v2_live_average() : (displayNames[pellet.memberId] ?? pellet.nickname)}${cell ? ` · ${cellLabel(cell.id)}` : ''}${own ? ` · ${m.v2_position_hint()}` : ''}`}
 			class:live={pellet.memberId.startsWith('l_') || pellet.memberId === 'live_average'}
 			style:left="{point.x - 14}px"
 			style:top="{point.y - 14}px"
@@ -211,6 +250,7 @@
 			style:--ring-space="8px"
 			style:--ring-width="3px"
 			style:--spectrum-label-space="22px"
+			style:--label-lift="{(labelPlacements[pellet.memberId]?.lift ?? 0) / scale}px"
 			data-pellet-id={pellet.memberId}
 			data-own={own}
 			data-x={point.x}
@@ -222,8 +262,15 @@
 			onpointercancel={cancel}
 			onlostpointercapture={cancel}
 			onkeydown={(event) => keyMove(event, pellet)}
-			><span class="pellet-label" class:own-label={own} data-pellet-label aria-hidden="true"
-				>{pellet.memberId === 'live_average' ? m.v2_live_average() : pellet.nickname}{own
+			><span
+				class="pellet-label"
+				class:own-label={own}
+				class:label-hidden={labelPlacements[pellet.memberId]?.hidden}
+				data-pellet-label
+				aria-hidden="true"
+				>{pellet.memberId === 'live_average'
+					? m.v2_live_average()
+					: (displayNames[pellet.memberId] ?? pellet.nickname)}{own
 					? ` · ${m.ux_own_pellet()}`
 					: ''}</span
 			>{#if own}<span class="own-mark" aria-hidden="true"></span>{/if}
@@ -278,7 +325,7 @@
 		display: none;
 	}
 	.pellet:has(:global(.pellet-spectrum)) .pellet-label {
-		bottom: calc(100% + var(--spectrum-label-space));
+		bottom: calc(100% + var(--spectrum-label-space) + var(--label-lift));
 	}
 	@keyframes speaking-pulse {
 		from {
@@ -293,7 +340,7 @@
 	.pellet-label {
 		position: absolute;
 		left: 50%;
-		bottom: calc(100% + var(--ring-space) + 8px);
+		bottom: calc(100% + var(--ring-space) + 8px + var(--label-lift));
 		transform: translateX(-50%) scale(var(--label-scale));
 		transform-origin: bottom center;
 		border: 1px solid var(--color-base-content);
@@ -313,6 +360,17 @@
 	.pellet-label:not(.own-label) {
 		font-weight: 500;
 		font-size: var(--v2-text-xs);
+	}
+	.pellet-label.label-hidden {
+		visibility: hidden;
+	}
+	.pellet:hover,
+	.pellet:focus-visible {
+		z-index: 5;
+	}
+	.pellet:hover .pellet-label,
+	.pellet:focus-visible .pellet-label {
+		visibility: visible;
 	}
 	.own-mark {
 		position: absolute;

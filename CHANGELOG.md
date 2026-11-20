@@ -2,6 +2,21 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
+## Unreleased — UI/UX feedback follow-up
+
+Local, validated, not deployed. Production remains beta.38.
+
+### Changed
+- Clarify chat read/write audiences, private-note persistence and shared ephemeral data; keep audience information accessible on short mobile viewports without hiding the message input.
+- Add confirmed application model-cache clearing, covering public speech assets and only Spectrum Whisper Base entries in the Transformers cache. Preserve private notes, identity, preferences and unrelated caches; block deletion during local preparation/transcription.
+- Extend secondary field/focus/dialog styles and prevent tall popovers from covering their triggers. Keep native select text metrics.
+- Localize technical recovery messages in French/English without displaying raw server/SDK exceptions or internal URLs.
+- Offer explicit opinion selection from real SVG interior points, without optimistic voting. Reduce crowded label overlaps without moving pellets; add people search and distinguish duplicate nicknames in moderation.
+
+### Validation
+- Local check/lint/build, 429 unit tests, 234 UI cases across three engines, 12 post-cache-completion focused cases, 22 voice cases and Go spectrum tests pass. Local CPU transcription and six axe samples pass.
+- Real phones/WebViews, screen readers, real-group observation and prolonged representative ASR remain unverified; automated coverage is not a substitute.
+
 ## [v2.0.0-beta.38] - 2026-11-20
 
 Deployed after complete CI 44698497466 with a digest-pinned image pair and the strict 100-second zero-activity gate, without a connection exception. LiveKit/PeerJS/TURN containers unchanged.

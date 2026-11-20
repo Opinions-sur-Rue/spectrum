@@ -115,7 +115,7 @@ interface Callbacks {
 	status: (status: string) => void;
 	room: (room: RoomState) => void;
 	snapshot: (snapshot: CanvasSnapshot) => void;
-	error: (message: string) => void;
+	error: (message: string, code?: string) => void;
 	spectrum?: (spectrum: SpectrumState) => void;
 	chat?: (chat: ChatState) => void;
 	chatError?: (error: ChatError) => void;
@@ -355,7 +355,7 @@ export class RoomClient {
 								}
 								this.roomId = '';
 							}
-							this.callbacks.error(payload.message);
+							this.callbacks.error(payload.message, payload.code);
 							// There is no canvas to refresh after a failed admission. Those
 							// requests would replace the useful error with not_in_room.
 							continue;
