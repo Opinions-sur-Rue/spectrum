@@ -2,6 +2,19 @@
 
 All notable changes to **Spectrum** are documented in this file.
 
+## [v2.0.0-beta.40] - 2026-11-24
+
+Deployed at 14:53 UTC after the strict 100-second zero-activity gate, with no connection exception. LiveKit, PeerJS and TURN stayed up.
+
+### Changed
+- Use “Claim” consistently in the French and English interfaces, from room creation through editing, full-text reading and the activity journal.
+- Call notes awaiting moderation “notes”, not claims.
+
+### Validation
+- Check, lint, build and all 429 unit tests pass. Fifteen focused browser cases pass across Chromium, Firefox and WebKit, including the full Claim flow in French and English.
+- Release CI `45416771368` passed and published the verified image pair.
+- Public `/`, `/v2/` and API `/status` returned HTTP 200. The full Claim flow passed in French and English; both test rooms were closed.
+
 ## [v2.0.0-beta.39] - 2026-11-20
 
 Deployed after complete CI 44755459589 with a digest-pinned image pair and the strict 100-second zero-activity gate, without a connection exception. LiveKit/PeerJS/TURN containers unchanged.

@@ -1,6 +1,6 @@
 # Suivi du feedback et des audits UI/UX
 
-Mis à jour le 20 novembre 2026. Synthèse de l’état courant ; les anciens comptes
+Mis à jour le 24 novembre 2026. Synthèse de l’état courant ; les anciens comptes
 rendus restent dans [RESUME_V2_PARITY.md](RESUME_V2_PARITY.md). Leurs mentions
 « restant », « non déployé » ou « pending » peuvent décrire une étape historique
 déjà terminée : elles ne constituent pas le backlog actuel.
@@ -433,7 +433,16 @@ moteurs puis en production (22 captures, axe sans violation, CPU/GPU/repli).
 
 ## État de publication
 
-- **Production : beta.30**, déployée le 19 novembre à 03:31 UTC. Source
+- **Production : beta.40**, déployée le 24 novembre à 14:53 UTC, source `22862a2`,
+  [CI 45416771368](https://github.com/Opinions-sur-Rue/spectrum/actions/runs/45416771368).
+  « Claim » harmonisé en FR/EN ; les notes à modérer restent des notes. Recette
+  publique verte pour le lobby, l’édition, la lecture intégrale et le journal dans
+  les deux langues. Porte stricte de 100 secondes, sans exception ni redémarrage
+  des services voix. Digests et retour arrière dans `RESUME_V2_PARITY.md`.
+
+### Historique beta.30
+
+- **Beta.30**, déployée le 19 novembre à 03:31 UTC. Source
   `fa87b8998bc7070f05aedbaf7f145f644b742cd5`,
   [CI 44447674132](https://github.com/Opinions-sur-Rue/spectrum/actions/runs/44447674132)
   entièrement verte. Frontend

@@ -1,6 +1,22 @@
 # Resume: finish v1 → v2 parity
 
-## Current state — beta.39 in production, actionable UI/UX feedback delivered
+## Current state — beta.40 in production, Claim naming consistent
+
+- Production **beta.40**, source `22862a24f208e2824a404111c577d6c062a3a9e4`,
+  deployed **2026-11-24 14:53 UTC** after complete CI `45416771368` and the
+  strict 100-second zero-activity gate, with no exception.
+- Frontend `sha256:a8eea26636dd35273804540f355dd92676491c5dcaf118eb0f39894a9116d5ca`;
+  backend `sha256:87ed6873c2b7b4fb66f177861c39a13b74c48bc91b959d29b1b4adb17a5ea827`.
+  Assets `/opt/spectrum/stt/releases/beta40-22862a2`, same 38 verified files.
+  Rollback `/opt/spectrum/deploy-v2.0.0-beta.40-20261124T145336Z` retains beta.39.
+- Public `/`, `/v2/` and API `/status` returned HTTP 200. New EN/FR test rooms
+  confirmed the lobby label, edit flow, full-text dialog and focus, and activity
+  entries for updating and clearing the claim. Both test rooms were closed.
+  LiveKit, PeerJS and TURN images and start timestamps did not change.
+- Evidence: `/tmp/opencode/beta40-deploy.log`,
+  `/tmp/opencode/beta40-production-claim.log`.
+
+## Previous accepted release — beta.39 (historical)
 
 - Production **beta.39**, source `ae53968bdfd0fb4df45041eb3d4f20dc5281e0a3`,
   deployed **2026-11-20 14:52 UTC** after complete CI `44755459589`.
