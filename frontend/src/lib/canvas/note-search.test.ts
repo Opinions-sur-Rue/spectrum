@@ -6,7 +6,7 @@ const notes = [
 	{
 		id: 'one',
 		title: 'Énergie partagée',
-		markdown: '## Proposition\nRéduire les coûts ensemble.',
+		markdown: '## Budget\nRéduire les coûts ensemble.',
 		authorName: 'Samira'
 	},
 	{
@@ -69,7 +69,7 @@ it('builds a short snippet when the match is only in the note body', () => {
 it('builds a target excerpt without repeating the title heading', () => {
 	expect(notePreview(notes[1], '')).toBe('Le train et le vélo.');
 	expect(notePreview(notes[0], 'couts')).toContain('Réduire les coûts');
-	expect(notePreview(notes[0], 'couts')).not.toContain('Proposition');
+	expect(notePreview(notes[0], 'couts')).not.toContain('Budget');
 	expect(notePreview(notes[0], 'energie')).toBe('Réduire les coûts ensemble.');
 	expect(notePreview({ ...notes[1], markdown: '# Mobilité' } as NoteModel, '')).toBe('');
 });

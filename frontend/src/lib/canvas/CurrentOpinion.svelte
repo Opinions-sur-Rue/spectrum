@@ -49,7 +49,7 @@
 		`${room.roomId}:${room.userId}:${spectrum?.revision}:${spectrum?.topic}`
 	);
 	$effect(() => {
-		// New room/proposition/configuration invalidates any queued old opinion.
+		// New room/claim/configuration invalidates any queued old opinion.
 		void announcementContext;
 		const text = available ? m.ux_opinion_current({ opinion: label }) : '';
 		announcement = '';

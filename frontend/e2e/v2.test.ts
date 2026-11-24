@@ -558,12 +558,12 @@ test('readability: empty notes keep placeholders out of stored content and claim
 		await page.getByTestId('edit-claim').click();
 		const input = page.getByTestId('claim-input');
 		await expect(input).toHaveJSProperty('tagName', 'INPUT');
-		await input.fill('Une proposition sur une seule ligne');
+		await input.fill('Un claim sur une seule ligne');
 		await expect(input).toBeFocused();
 		await input.press('Control+Enter');
 		await expect(input).toHaveCount(0);
 		const heading = page.getByTestId('room-claim').getByRole('heading', { level: 1 });
-		await expect(heading).toHaveText('Une proposition sur une seule ligne');
+		await expect(heading).toHaveText('Un claim sur une seule ligne');
 		expect(await heading.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
 		await expect(heading).toHaveCSS('text-align', 'center');
 		const box = (await heading.boundingBox())!;
@@ -574,11 +574,11 @@ test('readability: empty notes keep placeholders out of stored content and claim
 		await page.getByTestId('edit-claim').click();
 		await input.fill('Cancelled claim');
 		await input.press('Escape');
-		await expect(heading).toHaveText('Une proposition sur une seule ligne');
+		await expect(heading).toHaveText('Un claim sur une seule ligne');
 	}
 });
 
-test('single-line proposition fits a narrow screen and full text remains accessible', async ({
+test('single-line claim fits a narrow screen and full text remains accessible', async ({
 	page
 }) => {
 	await page.setViewportSize({ width: 320, height: 568 });
@@ -605,10 +605,70 @@ test('single-line proposition fits a narrow screen and full text remains accessi
 	await expect(page.getByRole('dialog')).toHaveCount(0);
 	await expect(read).toBeFocused();
 	await page.getByTestId('edit-claim').click();
-	await page.getByTestId('claim-input').fill('One new proposition');
+	await page.getByTestId('claim-input').fill('One new claim');
 	await page.getByTestId('claim-input').press('Enter');
-	await expect(heading).toHaveText('One new proposition');
+	await expect(heading).toHaveText('One new claim');
 });
+
+for (const copy of [
+	{
+		locale: 'en',
+		initial: 'Initial Claim',
+		heading: 'Claim to consider',
+		empty: 'The next claim will appear here.',
+		hint: 'A shared claim for this discussion.',
+		read: 'Read the full claim',
+		updated: 'The claim is "More trees on this street"',
+		cleared: 'The claim was cleared'
+	},
+	{
+		locale: 'fr',
+		initial: 'Claim initial',
+		heading: 'Claim à discuter',
+		empty: 'Le prochain claim sera annoncé ici.',
+		hint: 'Un claim commun pour cette discussion.',
+		read: 'Lire le claim complet',
+		updated: 'Le claim est « More trees on this street »',
+		cleared: 'Le claim a été effacé'
+	}
+]) {
+	test(`claim copy is consistent in the lobby, room and activity journal (${copy.locale})`, async ({
+		page
+	}) => {
+		await page.context().addCookies([{ ...englishLocale.cookies[0], value: copy.locale }]);
+		await page.goto('/v2');
+		await expect(page.getByTestId('initial-topic')).toHaveAccessibleName(copy.initial);
+		await page.getByTestId('create-room').click();
+		await expect(page.getByTestId('own-role')).toHaveText('admin');
+		const claim = page.getByRole('region', { name: copy.heading, exact: true });
+		await expect(claim.getByRole('heading', { level: 1 })).toHaveText(copy.empty);
+		await expect(claim.getByText(copy.hint, { exact: true })).toBeVisible();
+
+		const topic = 'More trees on this street';
+		await page.getByTestId('edit-claim').click();
+		const input = claim.getByRole('textbox', { name: copy.heading, exact: true });
+		await input.fill(topic);
+		await input.press('Enter');
+		const read = claim.getByRole('button', { name: `${copy.read}: ${topic}`, exact: true });
+		await read.click();
+		await expect(page.getByRole('dialog', { name: copy.heading, exact: true })).toContainText(
+			topic
+		);
+		await page.keyboard.press('Escape');
+		await expect(read).toBeFocused();
+
+		const log = await openActivity(page);
+		const topics = log.locator('[data-event-kind="topic"]');
+		await expect(topics.last()).toContainText(copy.updated);
+		await page.getByTestId('discussion-toggle').click();
+		await page.getByTestId('edit-claim').click();
+		await input.fill('');
+		await input.press('Enter');
+		await expect(claim.getByRole('heading', { level: 1 })).toHaveText(copy.empty);
+		await openActivity(page);
+		await expect(topics.last()).toContainText(copy.cleared);
+	});
+}
 
 for (const compact of [false, true]) {
 	test(`note deletion waits for explicit confirmation and cancellation keeps content (${compact ? 'mobile' : 'desktop'})`, async ({
@@ -1719,9 +1779,7 @@ test('mobile discussion keeps its composer usable in short and landscape viewpor
 	await page.goto('/v2');
 	await page
 		.getByTestId('initial-topic')
-		.fill(
-			'A long proposition that must stay readable on a narrow screen without entering edit mode'
-		);
+		.fill('A long claim that must stay readable on a narrow screen without entering edit mode');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
 	await page.setViewportSize({ width: 390, height: 844 });
@@ -1759,9 +1817,9 @@ test('mobile discussion keeps its composer usable in short and landscape viewpor
 	}
 	await page.getByTestId('edit-claim').click();
 	await expect(page.getByTestId('claim-input')).toBeFocused();
-	await page.getByTestId('claim-input').fill('A new proposition');
+	await page.getByTestId('claim-input').fill('A new claim');
 	await page.keyboard.press('Control+Enter');
-	await expect(page.getByTestId('room-claim').getByRole('heading')).toHaveText('A new proposition');
+	await expect(page.getByTestId('room-claim').getByRole('heading')).toHaveText('A new claim');
 });
 
 test('room controls wait for fresh authority after reconnect, not only socket signin', async ({
@@ -1902,7 +1960,7 @@ test('claim editing cancels with Escape and never restores a draft after an auth
 	browser
 }) => {
 	await page.goto('/v2');
-	await page.getByTestId('initial-topic').fill('Original shared proposition');
+	await page.getByTestId('initial-topic').fill('Original shared claim');
 	await page.getByTestId('create-room').click();
 	await expect(page.getByTestId('own-role')).toHaveText('admin');
 	await page.getByTestId('edit-claim').click();
@@ -1917,7 +1975,7 @@ test('claim editing cancels with Escape and never restores a draft after an auth
 	await page.keyboard.press('Escape');
 	await expect(page.getByTestId('edit-claim')).toBeFocused();
 	await expect(page.getByTestId('room-claim')).not.toContainText('Discarded by Escape');
-	await expect(page.getByTestId('room-claim')).toContainText('Original shared proposition');
+	await expect(page.getByTestId('room-claim')).toContainText('Original shared claim');
 	const context = await newRoomContext(browser, { storageState: englishLocale });
 	try {
 		const next = await context.newPage();
@@ -1946,7 +2004,7 @@ test('claim editing cancels with Escape and never restores a draft after an auth
 		await next.getByTestId('confirm-session-action').click();
 		await expect(page.getByTestId('own-role')).toHaveText('admin');
 		await page.getByTestId('edit-claim').click();
-		await expect(page.getByTestId('claim-input')).toHaveValue('Original shared proposition');
+		await expect(page.getByTestId('claim-input')).toHaveValue('Original shared claim');
 	} finally {
 		await context.close();
 	}

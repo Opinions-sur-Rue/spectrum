@@ -10,7 +10,7 @@ const room = { roomId: 'room-a', userId: 'self', role: 'participant' } as RoomSt
 function board(x = 100): SpectrumState {
 	return {
 		revision: 1,
-		topic: 'Proposition',
+		topic: 'Claim',
 		sliceCount: 7,
 		hidden: false,
 		pellets: [
@@ -84,7 +84,7 @@ it('requires explicit confirmation, sends only coordinates and waits for the ser
 	expect(view.getByTestId('current-opinion')).toHaveTextContent(cellLabel('agree'));
 });
 
-it('invalidates a pending choice on reconnect or proposition changes', async () => {
+it('invalidates a pending choice on reconnect or claim changes', async () => {
 	const choose = vi.fn(() => true);
 	const view = setup({ choices: [{ id: 'agree', x: 700, y: 100 }], choose });
 	await fireEvent.click(view.getByLabelText(m.ux_opinion_help()));
@@ -129,7 +129,7 @@ it('distinguishes loading and outside geometry without inventing a vote', async 
 	expect(view.getByTestId('current-opinion')).toHaveTextContent(m.ux_opinion_unavailable());
 });
 
-it('clears queued announcements on room/proposition changes and unmount', async () => {
+it('clears queued announcements on room/claim changes and unmount', async () => {
 	const view = setup();
 	await vi.advanceTimersByTimeAsync(200);
 	await view.rerender({
@@ -143,10 +143,10 @@ it('clears queued announcements on room/proposition changes and unmount', async 
 	expect(vi.getTimerCount()).toBe(0);
 });
 
-it('replaces a queued old-proposition announcement and cancels it while geometry loads', async () => {
+it('replaces a queued old-claim announcement and cancels it while geometry loads', async () => {
 	const view = setup();
 	await vi.advanceTimersByTimeAsync(200);
-	await view.rerender({ spectrum: { ...board(800), revision: 2, topic: 'New proposition' } });
+	await view.rerender({ spectrum: { ...board(800), revision: 2, topic: 'New claim' } });
 	expect(view.getByTestId('opinion-announcement')).toHaveTextContent('');
 	await vi.advanceTimersByTimeAsync(400);
 	expect(view.getByTestId('opinion-announcement')).toHaveTextContent(cellLabel('agree'));
